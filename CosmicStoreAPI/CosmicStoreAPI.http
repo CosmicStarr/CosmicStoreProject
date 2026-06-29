@@ -1,0 +1,6 @@
+@CosmicStoreAPI_HostAddress = http://localhost:5157
+
+GET {{CosmicStoreAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
