@@ -93,9 +93,9 @@ builder.Services.AddSingleton<ICacheService, CacheService>();
 // ==========================================
 builder.Services.Configure<CjAuthRequest>(builder.Configuration.GetSection("CJDropshipping"));
 
-builder.Services.AddHttpClient<CjAuthManager>();
+//builder.Services.AddHttpClient<CjAuthManager>();
 builder.Services.AddHttpClient<ICJDropshippingService, CJDropshippingService>();
-builder.Services.AddHostedService<CJProductSyncWorker>();
+//builder.Services.AddHostedService<CJProductSyncWorker>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IStoreUnitOfWork, StoreUnitOfWork>();

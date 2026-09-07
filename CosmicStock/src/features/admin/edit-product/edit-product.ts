@@ -2,13 +2,13 @@ import { Component, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ReactiveFormsModule, FormGroup, FormArray, FormControl } from '@angular/forms';
 import { AdminProductService } from '../../../core/services/admin-product';
-import { JsonPipe } from '@angular/common';
+
 
 
 @Component({
   selector: 'app-edit-product',
   standalone: true,
-  imports: [ReactiveFormsModule,JsonPipe],
+  imports: [ReactiveFormsModule],
   templateUrl: '../edit-product/edit-product.html',
   styleUrls: ['../edit-product/edit-product.scss']
 })
