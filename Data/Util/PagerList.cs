@@ -31,4 +31,12 @@ public class PagerList<T>:List<T>
         var items = await source.Skip((pageNumber -1)*pageSize).Take(pageSize).ToListAsync();
         return new PagerList<T>(items,count,pageNumber,pageSize);
     }
+
+    // Use this for in-memory collections (like Stored Procedure results)
+    public static PagerList<T> Create(IEnumerable<T> source, int pageNumber, int pageSize)
+    {
+        var count = source.Count();
+        var items = source.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
+        return new PagerList<T>(items, count, pageNumber, pageSize);
+    }
 }

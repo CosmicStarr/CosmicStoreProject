@@ -15,3 +15,4 @@ C:\Users\Norma\CosmicStoreProject\Data\bin\Debug\net10.0\Models.pdb
 C:\Users\Norma\CosmicStoreProject\Data\obj\Debug\net10.0\Data.csproj.AssemblyReference.cache
 C:\Users\Norma\CosmicStoreProject\Data\obj\Debug\net10.0\Data.csproj.Up2Date
 C:\Users\Norma\CosmicStoreProject\Data\obj\Debug\net10.0\Data.genruntimeconfig.cache
+C:\Users\Norma\CosmicStoreProject\Data\obj\Debug\net10.0\Data.sourcelink.json

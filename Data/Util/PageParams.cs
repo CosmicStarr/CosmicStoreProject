@@ -6,7 +6,7 @@ public class PageParams
 {
     const int MaxPageSize = 50;
     public int PageNumber { get; set; } =1;
-    private int _PageSize = 8;
+    private int _PageSize = 10;
     public int PageSize
     {
         get
@@ -21,7 +21,6 @@ public class PageParams
 
     public string? Sort { get; set; }
     public string? Search { get; set; }
-    public int BrandId { get; set; }
-    public int CatId { get; set; }
-
+    public string? Category { get; set; }
+    public bool ClearCache { get; set; } = false; // Default to true to clear cache on first request
 }

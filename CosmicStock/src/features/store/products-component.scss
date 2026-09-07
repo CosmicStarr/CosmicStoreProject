@@ -1,0 +1,757 @@
+/* Base Style Customizations & Variable Declarations */
+
+
+/* Structural Configurations */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 15px;
+}
+
+.container-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+
+/* 1. Top Utility Header Styling */
+.top-bar {
+  background-color: #ffffff;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 10px 0;
+}
+
+.top-bar-left a:hover {
+  color: var(--primary-orange);
+}
+
+.top-bar-right span {
+  margin-left: 15px;
+  cursor: pointer;
+}
+
+.top-bar-right span i {
+  font-size: 10px;
+  margin-left: 2px;
+}
+
+.top-bar-right .divider {
+  color: var(--border-color);
+}
+
+/* 2. Main Center Header Component */
+.main-header {
+  padding: 25px 0;
+  background-color: #ffffff;
+}
+
+.logo {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--primary-orange);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-container {
+  display: flex;
+  align-items: center;
+  border: 2px solid var(--primary-orange);
+  border-radius: 4px;
+  width: 50%;
+  max-width: 600px;
+  height: 45px;
+}
+
+.search-container input {
+  border: none;
+  padding: 0 15px;
+  height: 100%;
+  flex-grow: 1;
+  outline: none;
+  font-size: 14px;
+}
+
+.category-select {
+  padding: 0 15px;
+  border-left: 1px solid var(--border-color);
+  font-size: 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.search-btn {
+  background-color: var(--primary-orange);
+  border: none;
+  color: #ffffff;
+  width: 55px;
+  height: 100%;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.2s;
+}
+
+.search-btn:hover {
+  background-color: var(--dark-orange);
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.action-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  width: 42px;
+  height: 42px;
+  cursor: pointer;
+  color: var(--text-dark);
+  font-size: 16px;
+}
+
+.cart-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0 15px;
+  height: 42px;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 3. Navigation Bar Styling */
+.navbar {
+  background-color: var(--primary-orange);
+  color: #ffffff;
+}
+
+.categories-btn {
+  background-color: var(--dark-orange);
+  padding: 15px 25px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-links {
+  display: flex;
+  list-style: none;
+}
+
+.nav-links li a {
+  display: block;
+  padding: 18px 20px;
+  font-weight: 500;
+  font-size: 15px;
+  transition: background-color 0.2s;
+}
+
+.nav-links li a:hover, 
+.nav-links li a.active {
+  background-color: var(--dark-orange);
+}
+
+.nav-phone {
+  padding-right: 15px;
+  font-weight: bold;
+}
+
+/* 4. Full Hero Section Graphic Display */
+.hero-banner {
+  background-image: url('https://unsplash.com');
+  background-size: cover;
+  background-position: center;
+  height: 220px;
+  position: relative;
+}
+
+.hero-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #ffffff;
+}
+
+.hero-overlay h1 {
+  font-size: 36px;
+  margin-bottom: 8px;
+}
+
+.breadcrumb {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* 5. Horizontal Grid Proposition Banner Layout */
+.value-props {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 1px;
+  background-color: var(--border-color);
+  border: 1px solid var(--border-color);
+  margin-top: 40px;
+  margin-bottom: 40px;
+}
+
+.prop-card {
+  background-color: #ffffff;
+  padding: 20px 15px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.prop-icon {
+  font-size: 28px;
+  color: var(--primary-orange);
+}
+
+.prop-text h3 {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.prop-text p {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+/* 6. Main Promo Side-by-Side Content Block Layout */
+.promo-section {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 30px;
+  margin-bottom: 60px;
+}
+
+.promo-card {
+  background-color: var(--light-gray);
+  border-radius: 4px;
+  padding: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.promo-card:hover {
+  border-color: #ced4da;
+}
+
+.promo-sub {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.promo-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.discount {
+  font-size: 38px;
+  font-weight: 800;
+}
+
+.text-orange {
+  color: var(--primary-orange);
+}
+
+.promo-img-wrapper img {
+  max-width: 140px;
+  height: auto;
+  object-fit: contain;
+  mix-blend-mode: multiply; /* Helps transparentize product placeholder backdrops */
+}
+
+/* Scroll To Top Sticky Button Layout */
+.scroll-top-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: var(--primary-orange);
+  color: #ffffff;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* --- Responsive Media Adjustments --- */
+@media (max-width: 1024px) {
+  .value-props {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    background-color: transparent;
+    border: none;
+  }
+  .prop-card {
+    border: 1px solid var(--border-color);
+  }
+  .search-container {
+    width: 40%;
+  }
+}
+
+@media (max-width: 768px) {
+  .container-flex, .promo-section {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+  .search-container {
+    width: 100%;
+  }
+  .nav-links {
+    flex-direction: column;
+    width: 100%;
+  }
+  .nav-links li a {
+    padding: 12px;
+  }
+  .value-props {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .promo-section {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .value-props {
+    grid-template-columns: 1fr;
+  }
+  .top-bar-right {
+    display: none; /* Collapses small tracking items on narrow screens */
+  }
+}
+/* ORANGE MENU HEADER */
+.navbar {
+  background-color: var(--primary-orange);
+  color: #ffffff;
+}
+
+.categories-btn {
+  background-color: var(--dark-orange);
+  padding: 15px 25px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-links {
+  display: flex;
+  list-style: none;
+}
+
+.nav-links li a {
+  display: block;
+  padding: 18px 20px;
+  font-weight: 500;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.nav-links li a.active {
+  background-color: var(--dark-orange);
+}
+
+.nav-phone {
+  padding-right: 15px;
+  font-weight: bold;
+}
+
+/* 2-COLUMN CATALOG SPLIT STRUCTURAL LAYOUT */
+.catalog-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 30px;
+  margin-top: 40px;
+  margin-bottom: 60px;
+}
+
+/* ASIDE BAR FILTER ELEMENT PANELS */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 35px;
+}
+
+.filter-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  position: relative;
+  padding-bottom: 5px;
+}
+
+.filter-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.filter-list li {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.filter-list li a {
+  text-decoration: none;
+  color: #555;
+  flex-grow: 1;
+}
+
+.filter-list li a:hover {
+  color: var(--primary-orange);
+}
+
+.filter-list .count {
+  color: #aaa;
+  margin-left: auto;
+}
+
+/* Red bullet points from image layout */
+.bullet {
+  width: 6px;
+  height: 6px;
+  background-color: #D9534F;
+  border-radius: 50%;
+  margin-right: 10px;
+  display: inline-block;
+}
+
+/* Price range styling */
+.price-slider-wrapper {
+  height: 4px;
+  background-color: #E0E0E0;
+  position: relative;
+  margin: 15px 5px;
+  border-radius: 2px;
+}
+
+.slider-track {
+  position: absolute;
+  height: 100%;
+  background-color: var(--primary-orange);
+  left: 0%;
+  right: 40%;
+}
+
+.slider-handle {
+  width: 14px;
+  height: 14px;
+  background-color: var(--primary-orange);
+  border-radius: 50%;
+  position: absolute;
+  top: -5px;
+  margin-left: -7px;
+  cursor: pointer;
+}
+
+.price-value {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+/* Checkboxes configuration overrides */
+.check-list li {
+  gap: 10px;
+}
+
+.check-list input[type="checkbox"] {
+  accent-color: var(--primary-orange);
+  cursor: pointer;
+}
+
+/* RIGHT CORE PANEL ELEMENTS */
+.main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Featured Hero Promo Banner Graphic Design Layout */
+.sale-banner {
+  background-image: linear-gradient(to right, rgba(0,0,0,0.1), rgba(0,0,0,0.3)), url('https://unsplash.com');
+  background-size: cover;
+  background-position: center;
+  height: 240px;
+  border-radius: 4px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding-left: 60px;
+}
+
+.banner-overlay {
+  color: #ffffff;
+}
+
+.sale-tag {
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #FFB300;
+  font-size: 24px;
+  margin-bottom: 5px;
+}
+
+.sale-banner h1 {
+  font-size: 38px;
+  font-weight: 800;
+  margin-bottom: 15px;
+  text-shadow: 1px 1px 4px rgba(0,0,0,0.4);
+}
+
+.shop-now-btn {
+  background-color: var(--primary-orange);
+  color: white;
+  border: none;
+  padding: 10px 22px;
+  font-weight: bold;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.shop-now-btn:hover {
+  background-color: var(--dark-orange);
+}
+
+/* Toolbar Panel Filter Sub-Component Layout */
+.toolbar-panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #ffffff;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.toolbar-search {
+  display: flex;
+  align-items: center;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  height: 38px;
+  width: 250px;
+}
+
+.toolbar-search input {
+  border: none;
+  padding-left: 12px;
+  outline: none;
+  width: 100%;
+  font-size: 14px;
+}
+
+.toolbar-search-btn {
+  background: none;
+  border: none;
+  padding: 0 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.sort-wrapper {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.sort-select {
+  padding: 6px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  color: var(--text-dark);
+  outline: none;
+  margin-left: 5px;
+}
+
+/* Grid-List Mode Grid Select Block Graphic Layout */
+.view-toggle {
+  display: flex;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.view-btn {
+  background-color: #ffffff;
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.view-btn.active {
+  background-color: var(--primary-orange);
+  color: #ffffff;
+}
+
+/* 3-Column Catalog Layout Matrix Configuration */
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.product-card {
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 20px;
+  position: relative;
+  text-align: center;
+  background-color: #ffffff;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.product-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 15px rgba(0,0,0,0.05);
+}
+
+/* Top Orange Badges Customizations */
+.badge {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background-color: var(--primary-orange);
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 12px 10px;
+  border-radius: 50%;
+  text-transform: uppercase;
+}
+
+.product-img {
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 15px;
+}
+
+.product-img img {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.product-cat {
+  font-size: 12px;
+  color: var(--primary-orange);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.product-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+/* Dual Prices Layout Component Block */
+.price-container {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  align-items: center;
+  font-size: 15px;
+}
+
+.old-price {
+  color: #aaa;
+  text-decoration: line-through;
+}
+
+.current-price {
+  color: var(--primary-orange);
+  font-weight: 700;
+}
+
+/* Bottom Right Fixed Arrow Navigation Element */
+.scroll-top-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: var(--primary-orange);
+  color: #ffffff;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* RESPONSIVE LAYOUT ADJUSTMENTS */
+@media (max-width: 992px) {
+  .catalog-layout {
+    grid-template-columns: 1fr; /* Collapses sidebar to top stack on mobile view */
+  }
+  .product-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 576px) {
+  .product-grid {
+    grid-template-columns: 1fr;
+  }
+  .toolbar-panel {
+    flex-direction: column;
+    gap: 15px;
+    align-items: flex-start;
+  }
+  .sale-banner {
+    padding-left: 20px;
+  }
+}
+

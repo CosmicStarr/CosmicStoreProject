@@ -1,0 +1,1148 @@
+/* ==========================================================================
+   CSS VARIABLE DECLARATIONS & RESET PROTOCOLS
+   ========================================================================== */
+:root {
+  --primary-orange: #ff9100;
+  --dark-blue-bg: #0f172a;
+  --text-dark: #1e293b;
+  --text-muted: #64748b;
+  --border-light: #e2e8f0;
+  --bg-light: #f8fafc;
+  --font-stack: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-stack);
+  color: var(--text-dark);
+  background-color: #ffffff;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* ==========================================================================
+   TOP SYSTEM UTILITY GRID
+   ========================================================================== */
+/* Top Bar Layout */
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 14px;
+  color: #475569;
+  position: relative;
+}
+
+.top-bar-left, .top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.right-Side {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.top-bar a {
+  color: #475569;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.top-bar a:hover {
+  color: #2563eb;
+}
+
+.separator {
+  color: #cbd5e1;
+}
+
+/* Dropdown Base */
+.dropdown-container {
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+}
+
+.dropdown-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.dropdown-toggle:hover {
+  background-color: #f1f5f9;
+}
+
+/* Default Desktop Dropdown Menu */
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: #ffffff;
+  min-width: 160px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  z-index: 1000;
+  padding: 8px 0;
+  margin-top: 4px;
+}
+
+.dropdown-menu.show {
+  display: block;
+}
+
+.dropdown-menu a {
+  display: block;
+  padding: 8px 16px;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.dropdown-menu a:hover {
+  background-color: #f8fafc;
+  color: #2563eb;
+}
+
+.dropdown-header-mobile {
+  display: none; /* Hidden on desktop */
+}
+
+
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================================================
+   PRIMARY EXECUTIVE SEARCH HEADER
+   ========================================================================== */
+.main-header {
+  display: flex;
+  align-items: center;
+  padding: 20px 6%;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 60px;
+}
+
+.logo-icon {
+  font-size: 2rem;
+  color: var(--primary-orange);
+}
+
+.logo-text {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--primary-orange);
+  letter-spacing: -0.03em;
+}
+
+.search-container {
+  flex-grow: 1;
+  max-width: 500px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 12px 20px;
+  border: 1px solid var(--border-light);
+  border-radius: 25px;
+  font-size: 0.9rem;
+  outline: none;
+  background-color: var(--bg-light);
+  transition: all 0.2s ease;
+}
+
+.search-input:focus {
+  border-color: var(--primary-orange);
+  background-color: #ffffff;
+}
+
+/* ==========================================================================
+   CATEGORY NAVIGATION ENGINE
+   ========================================================================== */
+.category-nav {
+  background-color: var(--primary-orange);
+  padding: 0 6%;
+}
+
+.all-categories-btn {
+  background-color: #e68200;
+  color: white;
+  border: none;
+  padding: 14px 28px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ==========================================================================
+   MAIN HERO INTERFACE BANNER BLOCK
+   ========================================================================== */
+.page-container {
+  padding: 40px 6%;
+}
+
+.hero-banner {
+  background-color: #f1f5f9;
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  align-items: center;
+  border-radius: 4px;
+  overflow: hidden;
+  min-height: 420px;
+  padding: 20px;
+}
+
+.hero-image-side {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.hero-laptop-img {
+  max-width: 90%;
+  height: auto;
+  object-fit: contain;
+  /* Simulates the elevated 3D projection angle in the wireframe template */
+  transform: perspective(800px) rotateY(-15deg) rotateX(5deg);
+  filter: drop-shadow(15px 25px 20px rgba(0,0,0,0.15));
+}
+
+.hero-text-side {
+  padding-left: 40px;
+}
+
+.hero-subtitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.hero-text-side h1 {
+  font-size: 3.2rem;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--dark-blue-bg);
+  margin-bottom: 16px;
+}
+
+.terms-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+}
+
+.shop-now-btn {
+  display: inline-block;
+  background-color: var(--primary-orange);
+  color: white;
+  padding: 14px 36px;
+  border-radius: 25px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 6px -1px rgba(255, 145, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.shop-now-btn:hover {
+  background-color: #e68200;
+  transform: translateY(-2px);
+}
+
+/* ==========================================================================
+   VALUE GRID INFRASTRUCTURE
+   ========================================================================== */
+
+
+/* ==========================================================================
+   RESPONSIVE DESIGN BREAKPOINTS
+   ========================================================================== */
+@media (max-width: 992px) {
+  .hero-banner {
+    grid-template-columns: 1fr;
+    text-align: center;
+    padding: 40px 20px;
+  }
+  
+  .hero-text-side {
+    padding-left: 0;
+    margin-top: 40px;
+  }
+
+  .hero-text-side h1 {
+    font-size: 2.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+
+  
+  .main-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .value-indicators {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+/* Add these rules to your global template stylesheet */
+
+/* ==========================================================================
+   6-COLUMN VALUE STRIP LAYOUT
+   ========================================================================== */
+.value-strip {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  border: 1px solid #e2e8f0;
+  background-color: #ffffff;
+  margin: 20px 4%;
+}
+
+.value-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 14px;
+  border-right: 1px solid #e2e8f0;
+}
+
+.value-box:last-child {
+  border-right: none;
+}
+
+.val-icon {
+  font-size: 1.8rem;
+  color: #ff9100;
+  flex-shrink: 0;
+}
+
+.val-text h4 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 2px;
+  letter-spacing: 0.02em;
+}
+
+.val-text p {
+  font-size: 0.72rem;
+  color: #64748b;
+  line-height: 1.2;
+}
+
+/* ==========================================================================
+   SPLIT PROMO CAMPAIGN CARDS
+   ========================================================================== */
+.campaign-split {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  padding: 20px 4%;
+}
+
+.promo-card {
+  background-color: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 32px 40px;
+  transition: transform 0.2s ease;
+}
+
+.promo-card:hover {
+  transform: translateY(-2px);
+}
+
+.sub-tag {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 500;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.promo-info h3 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 12px;
+}
+
+.discount-pill {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #ff9100;
+}
+
+.promo-media {
+  width: 140px;
+  height: 140px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.promo-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* ==========================================================================
+   CATALOG GRID & FILTER CONTROLS
+   ========================================================================== */
+.catalog-section {
+  padding: 40px 4%;
+}
+
+.catalog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+  border-bottom: 2px solid #f1f5f9;
+  padding-bottom: 12px;
+}
+
+.catalog-header h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.tab-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.tab-btn {
+  background: #f1f5f9;
+  border: none;
+  padding: 8px 18px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+  background-color: #e2e8f0;
+}
+
+.tab-btn.active {
+  background-color: #ff9100;
+  color: #ffffff;
+}
+
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+
+.item-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 24px;
+  transition: all 0.2s ease;
+}
+
+.item-card:hover {
+  border-color: #ff9100;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.04);
+}
+
+.img-container {
+  position: relative;
+  width: 100%;
+  padding-top: 100%; /* Perfect Square Aspect Ratio */
+}
+
+.img-container img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Product Badges (Ribbons) */
+.ribbon {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.status-new { background-color: #ff9100; }
+.status-sale { background-color: #ef4444; }
+
+/* ==========================================================================
+   BACK TO TOP FLOATING COMPONENT
+   ========================================================================== */
+.back-to-top {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background-color: #ff9100;
+  color: #ffffff;
+  border: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(255,145,0,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99;
+}
+
+/* ==========================================================================
+   RESPONSIVE LAYOUT TRANSLATIONS
+   ========================================================================== */
+@media (max-width: 1200px) {
+  .value-strip {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .value-box:nth-child(3) { border-right: none; }
+}
+
+@media (max-width: 992px) {
+  .campaign-split {
+    grid-template-columns: 1fr;
+  }
+  .catalog-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .catalog-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 600px) {
+  .value-strip {
+    grid-template-columns: 1fr;
+  }
+  .value-box {
+    border-right: none;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .catalog-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Add these style rules directly into your project's stylesheet framework */
+
+/* ==========================================================================
+   OVERFLOW MINIMAL PRODUCT CARDS
+   ========================================================================== */
+.overflow-products {
+  padding: 60px 4% 40px;
+  background-color: #ffffff;
+}
+
+.overflow-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+
+.overflow-card {
+  background: #ffffff;
+  border: 1px solid #edf2f7;
+  border-radius: 8px;
+  padding: 0 20px 24px; /* Notice 0 top padding to help layout image overflow bounds */
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  margin-top: 30px; /* Leave top spacing layout room for image pop out */
+}
+
+.card-media {
+  width: 140px;
+  height: 140px;
+  margin-top: -40px; /* Pulls the item graphic upward past the card boundary box */
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2;
+}
+
+.overflow-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.overflow-card:hover .overflow-img {
+  transform: translateY(-6px) scale(1.04);
+}
+
+.category-lbl {
+  font-size: 0.8rem;
+  color: #a0aec0;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.item-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #2d3748;
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+
+.price-line {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.95rem;
+}
+
+.old-price {
+  color: #a0aec0;
+  text-decoration: line-through;
+}
+
+.sale-price {
+  color: #ff9100;
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   LARGE DUAL CAMPAIGN SPLIT BANNERS
+   ========================================================================== */
+.large-campaigns {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  padding: 20px 4% 60px;
+}
+
+.large-promo-banner {
+  border-radius: 6px;
+  min-height: 340px;
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  align-items: center;
+  padding: 40px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Theme Configuration Left Banner */
+.camera-promo {
+  background-color: #f7fafc;
+  border: 1px solid #edf2f7;
+}
+
+/* Theme Configuration Right Banner */
+.audio-promo {
+  background-color: #fbd38d; /* Match template orange background tint tone */
+  grid-template-columns: 1fr; /* Centered textual overlay logic stacks elements */
+}
+
+.large-promo-content {
+  z-index: 3;
+}
+
+.large-promo-content.center-aligned {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.red-alert-tag {
+  color: #e53e3e;
+  font-size: 2.2rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.promo-heading {
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: #ff9100;
+  line-height: 1.15;
+  margin-bottom: 12px;
+}
+
+.white-text {
+  color: #ffffff !important;
+}
+
+.promo-price {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #4a5568;
+  margin-bottom: 24px;
+}
+
+.round-shop-btn {
+  display: inline-block;
+  background-color: #ff9100;
+  color: #ffffff;
+  padding: 10px 28px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.round-shop-btn:hover {
+  background-color: #e28100;
+  transform: scale(1.03);
+}
+
+.white-btn {
+  background-color: #ffffff !important;
+  color: #ff9100 !important;
+}
+
+.white-btn:hover {
+  background-color: #f7fafc !important;
+}
+
+/* Graphics/Media Asset Container Logic */
+.large-promo-image {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.camera-img-asset {
+  max-width: 125%; /* Emulates the large dramatic size scaling outward over elements */
+  height: auto;
+  transform: rotate(-5deg);
+  filter: drop-shadow(10px 20px 15px rgba(0,0,0,0.1));
+}
+
+/* Background image containment logic for full right graphic alignment */
+.back-bg-image {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0.85;
+}
+
+.headphone-img-asset {
+  height: 110%;
+  width: auto;
+  object-fit: contain;
+}
+
+/* ==========================================================================
+   MEDIA VIEWPORT ADJUSTMENT QUERIES
+   ========================================================================== */
+@media (max-width: 1100px) {
+  .overflow-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .overflow-card {
+    margin-top: 40px;
+  }
+}
+
+@media (max-width: 850px) {
+  .large-campaigns {
+    grid-template-columns: 1fr;
+  }
+  .large-promo-banner {
+    min-height: 280px;
+  }
+}
+
+@media (max-width: 550px) {
+  .overflow-grid {
+    grid-template-columns: 1fr;
+  }
+  .large-promo-banner {
+    grid-template-columns: 1fr;
+    text-align: center;
+    padding: 30px 20px;
+  }
+  .camera-img-asset {
+    max-width: 80%;
+    margin-top: 20px;
+  }
+}
+
+/* ==========================================================================
+   GLOBAL FOOTER CONFIGURATIONS
+   ========================================================================== */
+.site-footer {
+  background-color: #2d3748; /* Dark corporate background tone */
+  color: #a0aec0; /* Balanced muted text readability */
+  padding-top: 60px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.site-footer a {
+  color: inherit;
+  transition: color 0.2s ease;
+}
+
+.site-footer a:hover {
+  color: #ff9100; /* Subtle brand feedback hover state */
+}
+
+/* ==========================================================================
+   TOP CONTACT INFRASTRUCTURE STRIP
+   ========================================================================== */
+.footer-contact-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  padding: 0 6% 40px;
+  border-bottom: 1px solid #4a5568;
+}
+
+.contact-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background-color: #3d4a5d; /* Slightly lighter box elevation */
+  padding: 24px;
+  border-radius: 4px;
+}
+
+.icon-circle {
+  width: 48px;
+  height: 48px;
+  background-color: #ff9100; /* Deep template orange accent circle */
+  color: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.card-text h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.card-text p {
+  font-size: 0.85rem;
+}
+
+/* ==========================================================================
+   FOUR-COLUMN LINKS DIRECTORY
+   ========================================================================== */
+.footer-directory {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr 1fr;
+  gap: 40px;
+  padding: 60px 6% 50px;
+}
+
+.directory-column h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ff9100; /* Heading highlighted via brand accent styling */
+  margin-bottom: 24px;
+}
+
+.newsletter-desc {
+  font-size: 0.88rem;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+/* Native input inline button composition container */
+.footer-signup-form {
+  display: flex;
+  background-color: #ffffff;
+  border-radius: 25px;
+  padding: 4px;
+  max-width: 320px;
+}
+
+.signup-input {
+  border: none;
+  background: transparent;
+  padding: 10px 16px;
+  width: 100%;
+  font-size: 0.88rem;
+  outline: none;
+}
+
+.signup-btn {
+  background-color: #ff9100;
+  color: #ffffff;
+  border: none;
+  padding: 0 22px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.signup-btn:hover {
+  background-color: #e28100;
+}
+
+/* Bullet list custom bullet replacement formatting */
+.footer-links-list {
+  list-style: none;
+}
+
+.footer-links-list li {
+  font-size: 0.88rem;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+}
+
+/* Adds the precise template right arrow bracket symbol prefix seamlessly */
+.footer-links-list li::before {
+  content: "›";
+  color: #a0aec0;
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-right: 8px;
+  line-height: 1;
+}
+
+/* ==========================================================================
+   BOTTOM COPYRIGHT SUB-BAR
+   ========================================================================== */
+.footer-copyright-bar {
+  background-color: #ff9100;
+  color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 6%;
+  font-size: 0.88rem;
+}
+
+.footer-copyright-bar a {
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.footer-copyright-bar a:hover {
+  color: #2d3748;
+}
+
+/* ==========================================================================
+   RESPONSIVE DESIGN ADAPTATION QUERIES
+   ========================================================================== */
+@media (max-width: 1200px) {
+  .footer-contact-strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 992px) {
+  .footer-directory {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 32px;
+  }
+}
+/* Responsive Mobile Fullscreen Styling */
+/* Responsive Mobile Fullscreen Styling */
+@media (max-width: 768px) {
+  .top-bar {
+    flex-wrap: wrap; /* Allows the menu to drop below the header items */
+  }
+  .desktop-only {
+    display: none; /* Hide separators that look bad on mobile */
+  }
+
+  .top-bar-right {
+    /* Hide the menu by default on mobile */
+    align-items: flex-end;
+    width: 100%;
+    flex-direction: column; /* Stack items vertically */
+    justify-content: space-between;
+    flex-wrap: wrap;
+    padding-top: 12px;
+    margin-top: 8px;
+    border-top: 1px solid #e2e8f0;
+    gap: 16px;
+  }
+
+  .top-bar-right.mobile-open {
+    display: flex; /* Show the menu when the button is clicked */
+  }
+
+  .right-Side {
+    align-items: flex-end;
+  }
+
+  .top-bar {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  /* Fullscreen Modal Dropdown on Mobile */
+  .dropdown-menu.show {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100dvh; /* Uses dynamic viewport height to bypass iOS/Android address bar glitches */
+    background-color: #ffffff;
+    z-index: 99999; /* Ensures it sits above absolute everything else */
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    animation: fadeIn 0.2s ease-in-out;
+    overflow-y: auto; /* Allows scrolling inside the menu if items exceed screen height */
+    box-sizing: border-box;
+  }
+
+  .dropdown-header-mobile {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 20px;
+    font-weight: 600;
+    color: #1e293b;
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 32px; /* Made slightly larger for easier mobile tapping */
+    color: #64748b;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 8px;
+  }
+
+  .dropdown-menu.show a {
+    padding: 16px 8px;
+    font-size: 18px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+}
+
+@media (max-width: 768px) {
+  .footer-contact-strip {
+    grid-template-columns: 1fr;
+    padding-bottom: 20px;
+  }
+  
+  .footer-directory {
+    grid-template-columns: 1fr;
+    padding-top: 40px;
+    padding-bottom: 30px;
+  }
+  
+  .footer-copyright-bar {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px){
+  .main-header {
+    padding: 20px 4%;
+  }
+
+  .logo-text {
+    font-size: 1.8rem;
+  }
+
+  .search-container {
+    display: none; /* Hides search bar on very small screens to save space */
+  }
+
+  .hero-banner {
+    padding: 30px 4%;
+  }
+
+  .hero-text-side h1 {
+    font-size: 2rem;
+  }
+}
+
+

@@ -9,5 +9,4 @@ public class PagerHeader(int currentPage, int itemsPerPage, int totalItems, int 
     public int TotalItems { get; set; } = totalItems;
     public int TotalPages { get; set; } = totalPages;
 
-
 }

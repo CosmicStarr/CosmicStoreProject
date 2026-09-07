@@ -27,7 +27,7 @@ public class Repository<T>(ApplicationDbContext context) : IRepository<T> where 
     
     public async Task<IEnumerable<T>> GetAll(Expression<Func<T, bool>>? filter = null, Func<IQueryable<T>, IOrderedQueryable<T>>? orderby = null, string? includeProperties = null)
     {
-        IQueryable<T> query = dbSet;
+        IQueryable<T> query = dbSet.AsNoTracking();
         if(filter != null)
         {
             query = query.Where(filter);
@@ -49,7 +49,7 @@ public class Repository<T>(ApplicationDbContext context) : IRepository<T> where 
     public async Task<PagerList<T>> GetAllParams(PageParams? pageParams = null, Expression<Func<T, bool>>? filter = null, Func<IQueryable<T>, IOrderedQueryable<T>>? orderby = null, string? includeProperties = null)
     {
         pageParams ??= new PageParams();
-        IQueryable<T> query = dbSet;
+        IQueryable<T> query = dbSet.AsNoTracking();
         if(filter != null)
         {
             query = query.Where(filter);
@@ -70,7 +70,7 @@ public class Repository<T>(ApplicationDbContext context) : IRepository<T> where 
 
     public async Task<T> GetFirstOrDefault(Expression<Func<T, bool>>? filter = null, string? includeProperties = null)
     {
-        IQueryable<T> query = dbSet;
+        IQueryable<T> query = dbSet.AsNoTracking();
         if(filter != null)
         {
             query = query.Where(filter);
@@ -108,6 +108,6 @@ public class Repository<T>(ApplicationDbContext context) : IRepository<T> where 
 
     public void Update(T entity)
     {
-        dbSet.Update(entity).State = EntityState.Modified;
+        dbSet.Update(entity);
     }
 }

@@ -1,0 +1,130 @@
+<div class="edit-wrapper">
+  <div class="edit-container">
+    <header class="edit-header">
+      <h2>Edit Product</h2>
+      <p>Update product details, pricing, and media.</p>
+    </header>
+
+    <form [formGroup]="productForm" (ngSubmit)="onSubmit()" class="cosmic-form">
+      
+      <!-- Section 1: General Info -->
+      <section class="form-section">
+        <h3>General Information</h3>
+        
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Product Name (EN)</label>
+            <input type="text" formControlName="nameEn" placeholder="e.g. Wireless Mouse">
+          </div>
+          
+          <div class="form-group">
+            <label>SKU</label>
+            <input type="text" formControlName="sku" placeholder="e.g. MS-12345">
+          </div>
+          
+          <div class="form-group">
+            <label>Category</label>
+            <input type="text" formControlName="category" placeholder="e.g. Electronics">
+          </div>
+          
+          <div class="form-group">
+            <label>Sell Price ($)</label>
+            <input type="number" formControlName="sellPrice" placeholder="0.00">
+          </div>
+        </div>
+
+        <div class="form-group full-width mt-16">
+          <label>Main Image URL</label>
+          <input type="text" formControlName="bigImage" placeholder="https://...">
+        </div>
+
+        <div class="form-group full-width mt-16">
+          <label>Description</label>
+          <textarea formControlName="descriptionEn" rows="4" placeholder="Enter product description here..."></textarea>
+        </div>
+      </section>
+
+      <!-- Section 2: Product Status -->
+      <section class="form-section">
+        <h3>Product Status Flags</h3>
+        <div class="checkbox-grid">
+          <label class="checkbox-label">
+            <input type="checkbox" formControlName="isNewArrival">
+            <span class="custom-checkbox"></span>
+            New Arrival
+          </label>
+          
+          <label class="checkbox-label">
+            <input type="checkbox" formControlName="isTopSelling">
+            <span class="custom-checkbox"></span>
+            Top Selling
+          </label>
+          
+          <label class="checkbox-label">
+            <input type="checkbox" formControlName="isFeatured">
+            <span class="custom-checkbox"></span>
+            Featured
+          </label>
+        </div>
+      </section>
+
+      <!-- Section 3: Dynamic Image Gallery -->
+      <section class="form-section gallery-section">
+        <h3>Image Gallery</h3>
+        
+        <!-- Add Image Bar -->
+        <div class="add-image-bar">
+          <input #newUrl type="text" class="custom-input" placeholder="Paste new image URL here">
+          <button type="button" class="btn-secondary" (click)="addImage(newUrl.value); newUrl.value=''">
+            + Add Image
+          </button>
+        </div>
+
+        <!-- Dynamic FormArray Loop -->
+        <div formArrayName="productImages" class="gallery-grid">
+          @for (group of productImagesArray.controls; track $index) {
+            <div [formGroupName]="$index" class="gallery-card">
+              <div class="card-header">
+                <span class="badge">Image #{{$index + 1}}</span>
+              </div>
+              
+              <div class="card-body">
+                <div class="form-group full-width">
+                  <label>Photo URL</label>
+                  <input formControlName="photoUrl" type="text" placeholder="Image URL">
+                </div>
+                
+                <div class="form-grid compact-grid mt-12">
+                  <div class="form-group">
+                    <label>Product ID</label>
+                    <input type="text" formControlName="productId" placeholder="Link ID">
+                  </div>
+                  <div class="form-group">
+                    <label>SKU Value</label>
+                    <input formControlName="skuPhoto" type="text" placeholder="e.g. RED-S">
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- Form Actions -->
+      <div class="form-actions">
+        <button type="submit" class="submit-btn" [disabled]="productForm.invalid">
+          Save Changes
+        </button>
+      </div>
+      
+    </form>
+  </div>
+</div>
+
+<!-- <pre>{{ productForm.value | json }}</pre> -->
+
+  
+
+
+
+

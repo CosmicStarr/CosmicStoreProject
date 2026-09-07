@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "/Z0ubGarKnI=",
+  "dgSpecHash": "W9p+JHiC3+A=",
   "success": true,
   "projectFilePath": "C:\\Users\\Norma\\CosmicStoreProject\\Data\\Data.csproj",
   "expectedPackageFiles": [
@@ -38,6 +38,8 @@
     "C:\\Users\\Norma\\.nuget\\packages\\microsoft.visualstudio.solutionpersistence\\1.0.52\\microsoft.visualstudio.solutionpersistence.1.0.52.nupkg.sha512",
     "C:\\Users\\Norma\\.nuget\\packages\\mono.texttemplating\\3.0.0\\mono.texttemplating.3.0.0.nupkg.sha512",
     "C:\\Users\\Norma\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg.sha512",
+    "C:\\Users\\Norma\\.nuget\\packages\\respite\\3.0.11\\respite.3.0.11.nupkg.sha512",
+    "C:\\Users\\Norma\\.nuget\\packages\\stackexchange.redis\\3.0.11\\stackexchange.redis.3.0.11.nupkg.sha512",
     "C:\\Users\\Norma\\.nuget\\packages\\system.clientmodel\\1.5.1\\system.clientmodel.1.5.1.nupkg.sha512",
     "C:\\Users\\Norma\\.nuget\\packages\\system.codedom\\6.0.0\\system.codedom.6.0.0.nupkg.sha512",
     "C:\\Users\\Norma\\.nuget\\packages\\system.composition\\9.0.0\\system.composition.9.0.0.nupkg.sha512",
@@ -48,6 +50,7 @@
     "C:\\Users\\Norma\\.nuget\\packages\\system.composition.typedparts\\9.0.0\\system.composition.typedparts.9.0.0.nupkg.sha512",
     "C:\\Users\\Norma\\.nuget\\packages\\system.configuration.configurationmanager\\9.0.4\\system.configuration.configurationmanager.9.0.4.nupkg.sha512",
     "C:\\Users\\Norma\\.nuget\\packages\\system.identitymodel.tokens.jwt\\7.7.1\\system.identitymodel.tokens.jwt.7.7.1.nupkg.sha512",
+    "C:\\Users\\Norma\\.nuget\\packages\\system.io.hashing\\10.0.5\\system.io.hashing.10.0.5.nupkg.sha512",
     "C:\\Users\\Norma\\.nuget\\packages\\system.memory.data\\8.0.1\\system.memory.data.8.0.1.nupkg.sha512",
     "C:\\Users\\Norma\\.nuget\\packages\\system.security.cryptography.pkcs\\9.0.4\\system.security.cryptography.pkcs.9.0.4.nupkg.sha512",
     "C:\\Users\\Norma\\.nuget\\packages\\system.security.cryptography.protecteddata\\9.0.4\\system.security.cryptography.protecteddata.9.0.4.nupkg.sha512"

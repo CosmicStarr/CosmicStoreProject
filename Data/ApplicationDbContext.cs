@@ -1,11 +1,13 @@
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Models;
 
 namespace Data;
 
-public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : IdentityDbContext<AppUser>(options)
+public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : DbContext(options)
 {
-    public DbSet<Products> GetProducts {get; set;}
-
+    public DbSet<FlatProduct> FlatProducts { get; set; }   
+    public DbSet<FlatCategory> FlatCategories { get; set; }
+   
 }
