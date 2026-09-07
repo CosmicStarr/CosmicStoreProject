@@ -23,6 +23,7 @@
         <a routerLink="/profile">Profile Settings</a>
         <a routerLink="/orders">My Orders</a>
         <a routerLink="/wishlist">Wishlist</a>
+        <a routerLink="/cart">Cart ({{ cartService.itemCount() }})</a>
         <a class="logout-link" (click)="logout()">Sign Out</a>
       </div>
     </div>
@@ -32,6 +33,8 @@
     <a routerLink="login" class="auth-link">Login</a>
     <span class="separator desktop-only">|</span>
     <a routerLink="register" class="auth-link">Register</a>
+    <span class="separator desktop-only">|</span>
+    <a routerLink="/cart" class="auth-link">Cart ({{ cartService.itemCount() }})</a>
   </div>
 }
 </div>

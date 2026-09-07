@@ -1,68 +1,187 @@
 using System.Text.Json;
 using Data.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Models;
 using StackExchange.Redis;
 
-namespace Data.Classes
+namespace Data.Classes;
+
+public class ShoppingCartService : IShoppingCartService
 {
-    public class ShoppingCartService : IShoppingCartService
+    private readonly IDatabase _database;
+    private readonly IStoreUnitOfWork _storeUnitOfWork;
+    private static readonly TimeSpan CartExpiry = TimeSpan.FromDays(30);
+
+    public ShoppingCartService(IDatabase database, IStoreUnitOfWork storeUnitOfWork)
     {
-        private readonly IDatabase _database;
-        private readonly IUnitOfWork _unitOfWork;
-        public ShoppingCartService(IDatabase database,IUnitOfWork unitOfWork)
+        _database = database;
+        _storeUnitOfWork = storeUnitOfWork;
+    }
+
+    public async Task<ShoppingCart?> GetShoppingCartAsync(string id, string? userId)
+    {
+        if (string.IsNullOrWhiteSpace(id) || id is "undefined" or "null")
+            return null;
+
+        var cartId = await ResolveCartIdAsync(id, userId);
+        if (cartId is null) return null;
+
+        var data = await _database.StringGetAsync(cartId);
+        if (data.IsNullOrEmpty) return null;
+
+        return JsonSerializer.Deserialize<ShoppingCart>(data.ToString());
+    }
+
+    public async Task<ShoppingCart?> UpdateShoppingCartAsync(ShoppingCart shoppingCart, string? userId)
+    {
+        var saved = await _database.StringSetAsync(
+            shoppingCart.Id,
+            JsonSerializer.Serialize(shoppingCart),
+            CartExpiry);
+
+        if (!saved) return null;
+
+        if (!string.IsNullOrEmpty(userId))
+            await LinkCartToUserAsync(shoppingCart.Id, userId);
+
+        return await GetShoppingCartAsync(shoppingCart.Id, userId);
+    }
+
+    public async Task<ShoppingCart?> AddItemAsync(string? cartId, string productId, int quantity, string? userId)
+    {
+        if (quantity < 1) return null;
+
+        var product = await _storeUnitOfWork.Repository<Products>()
+            .GetFirstOrDefault(p => p.Id == productId);
+
+        if (product is null) return null;
+
+        cartId ??= Guid.NewGuid().ToString();
+        var cart = await GetShoppingCartAsync(cartId, userId) ?? new ShoppingCart { Id = cartId };
+
+        var existing = cart.ShoppingCartItems.FirstOrDefault(i => i.Sku == product.Sku);
+        if (existing is not null)
         {
-            _database = database;
-            _unitOfWork = unitOfWork;
-            
+            existing.Amount += quantity;
+            existing.price = product.SellPrice;
+            existing.Name = product.NameEn;
         }
-        public async Task<bool> DeleteCartAsync(string Id, string? user)
+        else
         {
-            var savedCart = await _unitOfWork.Repository<ShoppingCartSessionId>().GetFirstOrDefault(x=>x.ActualShoppingCartId==Id && x.ApplicationUser == user);
-            if(savedCart is not null)
+            cart.ShoppingCartItems.Add(new CartItems
             {
-                _unitOfWork.Repository<ShoppingCartSessionId>().Remove(savedCart);
-            }
-            await _unitOfWork.Complete();
-            return await _database.KeyDeleteAsync(Id);
+                Name = product.NameEn,
+                Sku = product.Sku,
+                price = product.SellPrice,
+                Amount = quantity
+            });
         }
-      
-        public async Task<ShoppingCart> GetShoppingCartAsync(string Id, string? user)
+
+        return await UpdateShoppingCartAsync(cart, userId);
+    }
+
+    public async Task<ShoppingCart?> RemoveItemAsync(string cartId, string sku, string? userId)
+    {
+        var cart = await GetShoppingCartAsync(cartId, userId);
+        if (cart is null) return null;
+
+        cart.ShoppingCartItems.RemoveAll(i => i.Sku == sku);
+        return await UpdateShoppingCartAsync(cart, userId);
+    }
+
+    public async Task<ShoppingCart?> MergeGuestCartAsync(string guestCartId, string userId)
+    {
+        var guestCart = await GetShoppingCartAsync(guestCartId, null);
+        if (guestCart is null || guestCart.ShoppingCartItems.Count == 0)
+            return await GetUserCartAsync(userId);
+
+        var userSession = await _storeUnitOfWork.Repository<ShoppingCartSessionId>()
+            .GetFirstOrDefault(s => s.ApplicationUser == userId);
+
+        if (userSession is null)
         {
-        #nullable disable
-            if(Id == "undefined" || Id == "null"||string.IsNullOrEmpty(Id)) return null;
-            var Data = await _database.StringGetAsync(Id);
-            if(Data.IsNullOrEmpty) return null;
-            return System.Text.Json.JsonSerializer.Deserialize<ShoppingCart>(Data.ToString());
+            await LinkCartToUserAsync(guestCartId, userId);
+            return guestCart;
         }
-        
-        public async Task<ShoppingCart> UpdateShoppingCartAsync(ShoppingCart shoppingCart, string user)
+
+        var userCart = await GetShoppingCartAsync(userSession.ActualShoppingCartId, userId);
+        if (userCart is null)
         {
-            var savedCart = await _unitOfWork.Repository<ShoppingCartSessionId>().GetFirstOrDefault(x=>x.ApplicationUser == user);
-            if(savedCart is null && user is not null)
-            {
-                var cartInfo = new ShoppingCartSessionId
-                {
-                  ActualShoppingCartId = shoppingCart.Id,
-                  ApplicationUser = user 
-                };
-                _unitOfWork.Repository<ShoppingCartSessionId>().Add(cartInfo);
-                await _unitOfWork.Complete();
-                var nuCart = await _database.StringSetAsync(shoppingCart.Id,JsonSerializer.Serialize(shoppingCart));
-                if(!nuCart) return null;
-                return await GetShoppingCartAsync(savedCart.ActualShoppingCartId,user);
-            }
-            else if(savedCart is not null)
-            {
-                var UpdatedCart = await _database.StringSetAsync(savedCart.ActualShoppingCartId,JsonSerializer.Serialize(shoppingCart));
-                if(!UpdatedCart) return null;
-                return await GetShoppingCartAsync(savedCart.ActualShoppingCartId,user);
-            }
+            await LinkCartToUserAsync(guestCartId, userId);
+            return guestCart;
+        }
+
+        foreach (var item in guestCart.ShoppingCartItems)
+        {
+            var existing = userCart.ShoppingCartItems.FirstOrDefault(i => i.Sku == item.Sku);
+            if (existing is not null)
+                existing.Amount += item.Amount;
             else
-            {
-                var guestCart = await _database.StringSetAsync(shoppingCart.Id,JsonSerializer.Serialize(shoppingCart));
-                if(!guestCart) return null;
-                return await GetShoppingCartAsync(shoppingCart.Id,user);
-            }
+                userCart.ShoppingCartItems.Add(item);
         }
+
+        await _database.KeyDeleteAsync(guestCartId);
+        return await UpdateShoppingCartAsync(userCart, userId);
+    }
+
+    public async Task<bool> DeleteCartAsync(string id, string? userId)
+    {
+        var cartId = await ResolveCartIdAsync(id, userId) ?? id;
+        var session = await _storeUnitOfWork.Repository<ShoppingCartSessionId>()
+            .GetFirstOrDefault(s => s.ActualShoppingCartId == cartId);
+
+        if (session is not null)
+        {
+            _storeUnitOfWork.Repository<ShoppingCartSessionId>().Remove(session);
+            await _storeUnitOfWork.Complete();
+        }
+
+        return await _database.KeyDeleteAsync(cartId);
+    }
+
+    private async Task<ShoppingCart?> GetUserCartAsync(string userId)
+    {
+        var session = await _storeUnitOfWork.Repository<ShoppingCartSessionId>()
+            .GetFirstOrDefault(s => s.ApplicationUser == userId);
+
+        return session is null
+            ? null
+            : await GetShoppingCartAsync(session.ActualShoppingCartId, userId);
+    }
+
+    private async Task<string?> ResolveCartIdAsync(string id, string? userId)
+    {
+        if (!string.IsNullOrEmpty(userId))
+        {
+            var session = await _storeUnitOfWork.Repository<ShoppingCartSessionId>()
+                .GetFirstOrDefault(s => s.ApplicationUser == userId);
+
+            if (session is not null)
+                return session.ActualShoppingCartId;
+        }
+
+        return id;
+    }
+
+    private async Task LinkCartToUserAsync(string cartId, string userId)
+    {
+        var existing = await _storeUnitOfWork.Repository<ShoppingCartSessionId>()
+            .GetFirstOrDefault(s => s.ApplicationUser == userId);
+
+        if (existing is not null)
+        {
+            if (existing.ActualShoppingCartId != cartId)
+                existing.ActualShoppingCartId = cartId;
+        }
+        else
+        {
+            _storeUnitOfWork.Repository<ShoppingCartSessionId>().Add(new ShoppingCartSessionId
+            {
+                ActualShoppingCartId = cartId,
+                ApplicationUser = userId
+            });
+        }
+
+        await _storeUnitOfWork.Complete();
     }
 }

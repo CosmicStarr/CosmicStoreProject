@@ -1,0 +1,127 @@
+:root {
+  --primary-orange: #ff9100;
+  --text-dark: #1e293b;
+  --text-muted: #64748b;
+  --border-light: #e2e8f0;
+  --bg-light: #f8fafc;
+}
+
+.checkout-wrapper {
+  background: var(--bg-light);
+  min-height: 100vh;
+  padding: 32px 20px;
+}
+
+.checkout-container {
+  max-width: 720px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 12px;
+  padding: 32px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.checkout-header h2 {
+  margin: 0 0 4px;
+}
+
+.checkout-header p {
+  margin: 0 0 24px;
+  color: var(--text-muted);
+}
+
+.form-section {
+  margin-bottom: 28px;
+}
+
+.form-section h3 {
+  margin: 0 0 16px;
+  color: var(--text-dark);
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.summary-item, .summary-total {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.summary-total {
+  border-bottom: none;
+  margin-top: 8px;
+  font-size: 18px;
+}
+
+.payment-note {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+.error-container {
+  background: #fef2f2;
+  border-left: 4px solid #ef4444;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.error-text {
+  color: #b91c1c;
+  margin: 0;
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.primary-btn, .secondary-btn {
+  padding: 12px 20px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+}
+
+.primary-btn {
+  background: var(--primary-orange);
+  color: #fff;
+}
+
+.primary-btn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.secondary-btn {
+  background: #fff;
+  color: var(--text-dark);
+  border: 1px solid var(--border-light);
+}

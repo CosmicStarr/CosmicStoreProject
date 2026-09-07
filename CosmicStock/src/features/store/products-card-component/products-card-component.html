@@ -1,0 +1,173 @@
+ <main class="detail-layout container">
+    
+    <!-- LEFT SIDEBAR -->
+    <aside class="sidebar">
+      
+      <!-- Keywords Mini Search -->
+      <div class="sidebar-search">
+        <input type="text" placeholder="keywords">
+        <button class="sidebar-search-btn"><i class="fa-solid fa-magnifying-glass"></i></button>
+      </div>
+
+      <!-- Products Categories -->
+      <div class="filter-group">
+        <h2 class="filter-title">Products Categories</h2>
+        <ul class="filter-list">
+          <li><span class="bullet red"></span><a href="#">Accessories</a> <span class="count">(3)</span></li>
+          <li><span class="bullet red"></span><a href="#">Electronics & Computer</a> <span class="count">(5)</span></li>
+          <li><span class="bullet red"></span><a href="#">Laptops & Desktops</a> <span class="count">(2)</span></li>
+          <li><span class="bullet red"></span><a href="#">Mobiles & Tablets</a> <span class="count">(8)</span></li>
+          <li><span class="bullet red"></span><a href="#">SmartPhone & Smart TV</a> <span class="count">(5)</span></li>
+        </ul>
+      </div>
+
+      <!-- Select By Color -->
+      <div class="filter-group">
+        <h2 class="filter-title">Select By Color</h2>
+        <ul class="filter-list check-list">
+          <li><input type="radio" name="color" id="gold"> <label for="gold">Gold</label></li>
+          <li><input type="radio" name="color" id="green"> <label for="green">Green</label></li>
+          <li><input type="radio" name="color" id="white"> <label for="white">White</label></li>
+        </ul>
+      </div>
+
+      <!-- Featured Products Widget Column -->
+      <div class="filter-group">
+        <h2 class="filter-title">Featured products</h2>
+        <div class="featured-column">
+          
+          <!-- Mini Product 1 -->
+          <div class="mini-product-card">
+            <img src="https://unsplash.com" alt="Smartphone mini">
+            <div class="mini-info">
+              <h4>SmartPhone</h4>
+              <div class="stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+              <p class="mini-price">2.99 $ <span class="old-price">4.11 $</span></p>
+            </div>
+          </div>
+
+          <!-- Mini Product 2 -->
+          <div class="mini-product-card">
+            <img src="https://unsplash.com" alt="Camera mini">
+            <div class="mini-info">
+              <h4>Smart Camera</h4>
+              <div class="stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+              <p class="mini-price">2.99 $ <span class="old-price">4.11 $</span></p>
+            </div>
+          </div>
+
+          <!-- Mini Product 3 -->
+          <div class="mini-product-card">
+            <img src="https://unsplash.com" alt="Watch mini">
+            <div class="mini-info">
+              <h4>Smart Camera</h4>
+              <div class="stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+              <p class="mini-price">2.99 $ <span class="old-price">4.11 $</span></p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </aside>
+
+ 
+      
+      <!-- TOP PORTION: GALLERY & METADATA -->
+  <!-- rest of your html -->
+@if(product()){
+     <!-- RIGHT CORE CONTENT SECTION -->
+<section class="main-content">
+   <div class="product-summary-block">
+                  <!-- Interactive Gallery Slider -->
+        <div class="gallery-wrapper">
+          <div class="main-slider">
+            <button class="slide-arrow left-arrow"><i class="fa-solid fa-chevron-left"></i></button>
+            <img [src]="product()?.bigImage" alt="Main Smart Camera View">
+            <button class="slide-arrow right-arrow"><i class="fa-solid fa-chevron-right"></i></button>
+          </div>
+          <div class="thumbnails-grid">
+          
+             @for (item of product()?.pictures; track item?.photoUrl) {
+                <div class="thumb active"><img [src]="item.photoUrl" alt="Thumb 1"></div>
+             }
+          </div>
+        </div>
+
+        <!-- Buy Panel / Descriptive Options -->
+        <div class="purchase-details">
+          <h1 class="main-product-title">{{ product()?.nameEn }}</h1>
+          <p class="category-meta">Category: <span>{{ product()?.category }}</span></p>
+          
+          <div class="main-price">{{product()?.sellPrice|currency:'USD':'symbol'}}</div>
+          
+          <div class="rating-row">
+            <div class="stars red-stars">
+              <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+            </div>
+          </div>
+
+          <!-- Social Share Buttons Grid -->
+          <div class="share-row">
+            <button class="share-btn fb-share"><i class="fa-brands fa-facebook-f"></i> Share</button>
+            <button class="share-btn tw-share"><i class="fa-brands fa-twitter"></i> Share</button>
+          </div>
+
+          <div class="stock-status">
+            <p>Product SKU: <span>{{ product()?.sku }}</span></p>
+            <p>Available: <span class="in-stock">20 items in stock</span></p>
+          </div>
+
+          <p class="short-description">
+            The generated Lorem Ipsum is therefore always free from repetition injected humour, or non-characteristic words etc.
+          </p>
+          <p class="short-description">
+            Susp endisse ultricies nisi vel quam suscipit. Sabertooth peacock flounder; chain pickerel hatchetfish, pencilfish snailfish
+          </p>
+
+          <!-- Counter and Action Button Block -->
+          <div class="cart-actions-row">
+            <div class="quantity-counter">
+              <button type="button" class="counter-btn" (click)="decrementQty()">-</button>
+              <input type="text" [value]="quantity()" readonly aria-label="Quantity">
+              <button type="button" class="counter-btn" (click)="incrementQty()">+</button>
+            </div>
+            <button type="button" class="add-to-cart-orange" (click)="addToCart()" [disabled]="addingToCart">
+              <i class="fa-solid fa-basket-shopping"></i> {{ addingToCart ? 'Adding...' : 'Add to cart' }}
+            </button>
+            <a routerLink="/cart" class="view-cart-link">View Cart</a>
+          </div>
+          @if (cartMessage) {
+            <p class="cart-feedback">{{ cartMessage }}</p>
+          }
+        </div>
+
+      </div>
+
+      <!-- BOTTOM PORTION: PRODUCT TABS (Description & Reviews) -->
+      <div class="tabs-component">
+        <div class="tabs-nav">
+          <button class="tab-link active">Description</button>
+          <button class="tab-link">Reviews</button>
+        </div>
+        <div class="tab-content">
+          <p class="tab-p">
+            Our new <strong>HPB12 / A12 battery</strong> is rated at 2000mAh and designed to power up Black and Decker / FireStorm line of 12V tools allowing users to run multiple devices off the same battery pack. The HPB12 is compatible with the following Black and Decker power tool models:
+          </p>
+          <h4 class="tab-sub-title">Black & Decker Drills and Drivers:</h4>
+          <p class="serial-numbers-dump">
+            {{product()?.descriptionEn}}
+          </p>
+        </div>
+      </div>
+
+    </section>
+
+  }   
+
+  </main>
+
+  <!-- Sticky Bottom Scroll To Top Button -->
+ <button class="back-to-top">↑</button>
+
+
+

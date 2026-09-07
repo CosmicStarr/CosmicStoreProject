@@ -1,0 +1,64 @@
+<div class="checkout-wrapper">
+  <div class="checkout-container">
+    <header class="checkout-header">
+      <h2>Checkout</h2>
+      <p>Complete your order details below</p>
+    </header>
+
+    <form [formGroup]="checkoutForm" (ngSubmit)="onSubmit()">
+      <section class="form-section">
+        <h3>Shipping Information</h3>
+        <div class="form-group">
+          <label for="fullName">Full Name</label>
+          <input id="fullName" type="text" formControlName="fullName" placeholder="John Doe">
+        </div>
+        <div class="form-group">
+          <label for="streetAddress">Street Address</label>
+          <input id="streetAddress" type="text" formControlName="streetAddress" placeholder="123 Main St">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="city">City</label>
+            <input id="city" type="text" formControlName="city">
+          </div>
+          <div class="form-group">
+            <label for="provinceOrState">State / Province</label>
+            <input id="provinceOrState" type="text" formControlName="provinceOrState">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="countryCode">Country Code</label>
+          <input id="countryCode" type="text" formControlName="countryCode" placeholder="US">
+        </div>
+      </section>
+
+      <section class="form-section">
+        <h3>Order Summary</h3>
+        @for (item of cartService.cart()?.shoppingCartItems ?? []; track item.sku) {
+          <div class="summary-item">
+            <span>{{ item.name }} × {{ item.amount }}</span>
+            <span>{{ item.price * item.amount | currency:'USD':'symbol' }}</span>
+          </div>
+        }
+        <div class="summary-total">
+          <span>Total</span>
+          <strong>{{ cartService.subtotal() | currency:'USD':'symbol' }}</strong>
+        </div>
+        <p class="payment-note">Payment uses a development placeholder until Stripe is integrated.</p>
+      </section>
+
+      @if (error) {
+        <div class="error-container">
+          <p class="error-text">{{ error }}</p>
+        </div>
+      }
+
+      <div class="form-actions">
+        <a routerLink="/cart" class="secondary-btn">Back to Cart</a>
+        <button type="submit" class="primary-btn" [disabled]="checkoutForm.invalid || submitting">
+          {{ submitting ? 'Placing Order...' : 'Place Order' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

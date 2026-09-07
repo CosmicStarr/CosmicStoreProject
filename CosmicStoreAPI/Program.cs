@@ -101,6 +101,7 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IStoreUnitOfWork, StoreUnitOfWork>();
 builder.Services.AddScoped<IEditCjProducts, EditCjProducts>();
 builder.Services.AddScoped<IShoppingCartService, ShoppingCartService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddTransient<IEmailSender, EmailSender>();
 builder.Services.AddTransient<ExceptionMiddleware>();
 builder.Services.AddHttpClient(); // Generic client for the worker

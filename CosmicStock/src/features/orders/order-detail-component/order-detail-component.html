@@ -1,0 +1,44 @@
+<div class="orders-wrapper">
+  <div class="orders-container">
+    @if (order()) {
+      <header>
+        <a routerLink="/orders" class="back-link">← Back to Orders</a>
+        <h2>Order #{{ order()!.orderId.slice(0, 8) }}</h2>
+        <p class="muted">Placed on {{ order()!.createdAt | date:'medium' }}</p>
+      </header>
+
+      <section class="detail-card">
+        <h3>Status</h3>
+        <p class="status">{{ order()!.status }}</p>
+        @if (order()!.cjShipmentOrderId) {
+          <p class="muted">CJ Order: {{ order()!.cjShipmentOrderId }}</p>
+        }
+      </section>
+
+      <section class="detail-card">
+        <h3>Shipping</h3>
+        <p>{{ order()!.customerName }}</p>
+        <p>{{ order()!.shippingAddress }}</p>
+        <p>{{ order()!.city }}, {{ order()!.state }} {{ order()!.country }}</p>
+      </section>
+
+      <section class="detail-card">
+        <h3>Items</h3>
+        @for (item of order()!.items; track item.sku) {
+          <div class="item-row">
+            <span>{{ item.sku }} × {{ item.quantity }}</span>
+            <span>{{ item.priceAtPurchase * item.quantity | currency:'USD':'symbol' }}</span>
+          </div>
+        }
+        <div class="total-row">
+          <span>Total</span>
+          <strong>{{ order()!.total | currency:'USD':'symbol' }}</strong>
+        </div>
+      </section>
+    } @else if (loading) {
+      <p class="muted">Loading order...</p>
+    } @else {
+      <p class="muted">Order not found.</p>
+    }
+  </div>
+</div>

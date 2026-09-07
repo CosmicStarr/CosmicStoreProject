@@ -16,7 +16,7 @@ namespace Models
         [Key]
         public required string Id { get; set; }
         public List<CartItems> ShoppingCartItems { get; set; } = new();
-        public required string ClientSecret { get; set; }
-        public required string PaymentId { get; set; }
+        public string ClientSecret { get; set; } = string.Empty;
+        public string PaymentId { get; set; } = string.Empty;
     }
 }

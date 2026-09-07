@@ -1,0 +1,40 @@
+using System;
+using System.Collections;
+using Data.Interfaces;
+
+namespace Data.Classes;
+
+public class StoreUnitOfWork(ApplicationDbStoreContext context) : IStoreUnitOfWork
+{
+    private Hashtable? _repo;
+    private readonly ApplicationDbStoreContext _context = context;
+
+    public async Task<int> Complete()
+    {
+        return await _context.SaveChangesAsync();
+    }
+
+#pragma warning disable CA1816 // Dispose methods should call SuppressFinalize
+    public void Dispose()
+#pragma warning restore CA1816 // Dispose methods should call SuppressFinalize
+    {
+        _context.Dispose();
+    }
+
+    public IStoreRepo<T> Repository<T>() where T : class
+    {
+        _repo ??= [];
+        var type = typeof(T).Name;
+        if (!_repo.ContainsKey(type))
+        {
+            var repoType = typeof(StoreRepo<>);
+            var repoInstance = Activator.CreateInstance(repoType.MakeGenericType(typeof(T)),_context);
+            _repo.Add(type,repoInstance);
+        }
+#pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.
+#pragma warning disable CS8603 // Possible null reference return.
+        return (IStoreRepo<T>)_repo[type];
+#pragma warning restore CS8603 // Possible null reference return.
+#pragma warning restore CS8600 // Converting null literal or possible null value to non-nullable type.
+    }
+}

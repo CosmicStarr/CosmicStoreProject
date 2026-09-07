@@ -1,0 +1,32 @@
+<div class="orders-wrapper">
+  <div class="orders-container">
+    <header>
+      <h2>My Orders</h2>
+      <p>Track your past and current orders</p>
+    </header>
+
+    @if (loading) {
+      <p class="muted">Loading orders...</p>
+    } @else if (orders().length === 0) {
+      <div class="empty">
+        <p>You haven't placed any orders yet.</p>
+        <a routerLink="/store" class="primary-btn">Start Shopping</a>
+      </div>
+    } @else {
+      <div class="orders-list">
+        @for (order of orders(); track order.orderId) {
+          <a class="order-card" [routerLink]="['/orders', order.orderId]">
+            <div>
+              <h3>Order #{{ order.orderId.slice(0, 8) }}</h3>
+              <p class="muted">{{ order.createdAt | date:'medium' }}</p>
+            </div>
+            <div class="order-meta">
+              <span class="status">{{ order.status }}</span>
+              <strong>{{ order.total | currency:'USD':'symbol' }}</strong>
+            </div>
+          </a>
+        }
+      </div>
+    }
+  </div>
+</div>

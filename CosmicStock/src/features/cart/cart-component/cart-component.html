@@ -1,0 +1,42 @@
+<div class="cart-wrapper">
+  <div class="cart-container">
+    <header class="cart-header">
+      <h2>Shopping Cart</h2>
+      <p>{{ itemCount() }} item(s) in your cart</p>
+    </header>
+
+    @if (cartService.cart()?.shoppingCartItems.length) {
+      <div class="cart-items">
+        @for (item of cartService.cart()!.shoppingCartItems; track item.sku) {
+          <article class="cart-item">
+            <div class="item-info">
+              <h3>{{ item.name }}</h3>
+              <p class="sku">SKU: {{ item.sku }}</p>
+            </div>
+            <div class="item-qty">Qty: {{ item.amount }}</div>
+            <div class="item-price">{{ item.price * item.amount | currency:'USD':'symbol' }}</div>
+            <button type="button" class="remove-btn" (click)="removeItem(item.sku)" aria-label="Remove item">
+              Remove
+            </button>
+          </article>
+        }
+      </div>
+
+      <div class="cart-summary">
+        <div class="summary-row">
+          <span>Subtotal</span>
+          <strong>{{ cartService.subtotal() | currency:'USD':'symbol' }}</strong>
+        </div>
+        <div class="cart-actions">
+          <a routerLink="/store" class="secondary-btn">Continue Shopping</a>
+          <a routerLink="/checkout" class="primary-btn">Proceed to Checkout</a>
+        </div>
+      </div>
+    } @else {
+      <div class="empty-cart">
+        <p>Your cart is empty.</p>
+        <a routerLink="/store" class="primary-btn">Browse Products</a>
+      </div>
+    }
+  </div>
+</div>
