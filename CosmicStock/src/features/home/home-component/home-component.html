@@ -1,0 +1,390 @@
+
+<!-- Top Utility Bar -->
+<div class="top-bar">
+  <div class="top-bar-left">
+    <a routerLink="#">Help</a>
+    <span class="separator">|</span>
+    <a routerLink="#">Support</a>
+    <span class="separator">|</span>
+    <a routerLink="#">Contact</a>
+  </div>
+  
+  <!-- Right side container - hidden on mobile until button is clicked -->
+@if (userService.currentUser$ | async; as user){
+  <div class="top-bar-right" [class.mobile-open]="isMobileMenuOpen">
+    <!-- Dashboard Dropdown -->
+    <div class="dropdown-container" (click)="toggleDropdown('dashboard')">
+      <div class="dropdown-toggle">👤 My Dashboard ▾</div>
+      <div class="dropdown-menu dashboard-menu" [class.show]="activeDropdown === 'dashboard'">
+        <div class="dropdown-header-mobile">
+          <span>My Account</span>
+          <button class="close-btn" (click)="closeDropdowns($event)">&times;</button>
+        </div>
+        <a routerLink="/profile">Profile Settings</a>
+        <a routerLink="/orders">My Orders</a>
+        <a routerLink="/wishlist">Wishlist</a>
+        <a class="logout-link" (click)="logout()">Sign Out</a>
+      </div>
+    </div>
+  </div>
+}@else {
+  <div class="right-Side">
+    <a routerLink="login" class="auth-link">Login</a>
+    <span class="separator desktop-only">|</span>
+    <a routerLink="register" class="auth-link">Register</a>
+  </div>
+}
+</div>
+  
+<!-- Main Header -->
+<header class="main-header">
+  <div class="logo">
+    <span class="logo-icon">🛍️</span>
+    <span class="logo-text">Electro</span>
+  </div>
+  
+  <div class="search-container">
+    <input type="text" placeholder="Search Looking For?" class="search-input">
+  </div>
+</header>
+
+<!-- Category Navigation Bar -->
+<nav class="category-nav">
+  <button class="all-categories-btn">
+    <span class="hamburger">☰</span> All Categories
+  </button>
+</nav>
+
+<!-- Main Interface Body -->
+<main class="page-container">
+  <!-- Hero Promo Banner Section -->
+  <section class="hero-banner">
+    <div class="hero-image-side">
+      <img src="https://unsplash.com" alt="Laptop Preview" class="hero-laptop-img">
+    </div>
+    <div class="hero-text-side">
+      <span class="hero-subtitle">SAVE UP TO A $100</span>
+      <h1>On Selected Desktops & Smartphones</h1>
+      <p class="terms-text">Terms and Condition Apply</p>
+      <a routerLink="/store" class="shop-now-btn">Shop Now</a>
+    </div>
+  </section>
+</main>
+
+<!-- 6-Column Value Grid (Add below category menu) -->
+<section class="value-strip">
+  <div class="value-box">
+    <div class="val-icon">🔄</div>
+    <div class="val-text">
+      <h4>FREE RETURN</h4>
+      <p>30 days money back guarantee!</p>
+    </div>
+  </div>
+  <div class="value-box">
+    <div class="val-icon">✈️</div>
+    <div class="val-text">
+      <h4>FREE SHIPPING</h4>
+      <p>Free shipping on all order</p>
+    </div>
+  </div>
+  <div class="value-box">
+    <div class="val-icon">⚽</div>
+    <div class="val-text">
+      <h4>SUPPORT 24/7</h4>
+      <p>We support online 24 hrs a day</p>
+    </div>
+  </div>
+  <div class="value-box">
+    <div class="val-icon">💳</div>
+    <div class="val-text">
+      <h4>RECEIVE GIFT CARD</h4>
+      <p>Recieve gift all over oder $50</p>
+    </div>
+  </div>
+  <div class="value-box">
+    <div class="val-icon">🔒</div>
+    <div class="val-text">
+      <h4>SECURE PAYMENT</h4>
+      <p>We Value Your Security</p>
+    </div>
+  </div>
+  <div class="value-box">
+    <div class="val-icon">📶</div>
+    <div class="val-text">
+      <h4>ONLINE SERVICE</h4>
+      <p>Free return products in 30 days</p>
+    </div>
+  </div>
+</section>
+<!--Search by category-->
+
+<!--Search by category end-->
+<!-- Dual Promo Campaign Split Banners -->
+<section class="campaign-split">
+  <!-- Left Promo Banner -->
+  <div class="promo-card">
+    <div class="promo-info">
+      <span class="sub-tag">Find The Best Camera for You!</span>
+      <h3>Smart Camera</h3>
+      <div class="discount-pill">40% Off</div>
+    </div>
+    <div class="promo-media">
+      <img src="https://unsplash.com" alt="Polaroid Camera" class="promo-img">
+    </div>
+  </div>
+
+  <!-- Right Promo Banner -->
+  <div class="promo-card">
+    <div class="promo-info">
+      <span class="sub-tag">Find The Best Whatches for You!</span>
+      <h3>Smart Whatch</h3>
+      <div class="discount-pill">20% Off</div>
+    </div>
+    <div class="promo-media">
+      <img src="https://unsplash.com" alt="Smart Watch" class="promo-img">
+    </div>
+  </div>
+</section>
+
+<!-- Product Grid Catalog Interface -->
+<section class="catalog-section">
+    <!-- Catalog Tabbed Controls -->
+    <div class="catalog-header">
+        <h2>Our Products</h2>
+    <!-- your.component.html -->
+    <div class=" tab-controls filter-menu">
+      <button class="tab-btn"
+        (click)="getAllProducts('NewArrival')" 
+        [class.active]="highlightType === 'NewArrival'">
+        New Arrivals
+      </button>
+      <button class="tab-btn"
+        (click)="getAllProducts('TopSelling')" 
+        [class.active]="highlightType === 'TopSelling'">
+        Top Selling
+      </button>
+      <button class="tab-btn "
+        (click)="getAllProducts('Featured')" 
+        [class.active]="highlightType === 'Featured'">
+        Featured
+      </button>
+    </div>
+  </div>
+  <!-- Product Item Grid Wrapper -->
+  <div class="catalog-grid">
+    <!-- Card 1 -->
+     @for (product of products() || []; track product.sku){
+    <a class="item-card" [routerLink]="['/store', product.id]">
+      <div class="img-container">
+        <span class="ribbon status-new">New</span>
+        <img [src]="product.bigImage" alt="{{ product.nameEn }}">
+      </div>
+    </a>
+    }
+</div>
+</section>
+
+<!-- Overflow Product Grid Section -->
+<section class="overflow-products">
+  <div class="overflow-grid">
+    
+    <!-- Card 1 -->
+    <div class="overflow-card">
+      <div class="card-media">
+        <img src="https://unsplash.com" alt="Smartphone" class="overflow-img">
+      </div>
+      <div class="card-info">
+        <span class="category-lbl">SmartPhone</span>
+        <h3 class="item-name">Apple iPad Mini G2356</h3>
+        <div class="price-line">
+          <span class="old-price">$1,250.00</span>
+          <span class="sale-price">$1,050.00</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2 -->
+    <div class="overflow-card">
+      <div class="card-media">
+        <img src="https://unsplash.com" alt="Smartphone" class="overflow-img">
+      </div>
+      <div class="card-info">
+        <span class="category-lbl">SmartPhone</span>
+        <h3 class="item-name">Apple iPad Mini G2356</h3>
+        <div class="price-line">
+          <span class="old-price">$1,250.00</span>
+          <span class="sale-price">$1,050.00</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3 -->
+    <div class="overflow-card">
+      <div class="card-media">
+        <img src="https://unsplash.com" alt="Smartphone" class="overflow-img">
+      </div>
+      <div class="card-info">
+        <span class="category-lbl">SmartPhone</span>
+        <h3 class="item-name">Apple iPad Mini G2356</h3>
+        <div class="price-line">
+          <span class="old-price">$1,250.00</span>
+          <span class="sale-price">$1,050.00</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 4 -->
+    <div class="overflow-card">
+      <div class="card-media">
+        <img src="https://unsplash.com" alt="Smartphone" class="overflow-img">
+      </div>
+      <div class="card-info">
+        <span class="category-lbl">SmartPhone</span>
+        <h3 class="item-name">Apple iPad Mini G2356</h3>
+        <div class="price-line">
+          <span class="old-price">$1,250.00</span>
+          <span class="sale-price">$1,050.00</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- Large Campaign Split Section -->
+<section class="large-campaigns">
+  
+  <!-- Left Side: EOS Rebel Banner -->
+  <div class="large-promo-banner camera-promo">
+    <div class="large-promo-content">
+      <h2 class="promo-heading">EOS Rebel T7i Kit</h2>
+      <p class="promo-price">$899.99</p>
+      <a routerLink="#" class="round-shop-btn">Shop Now</a>
+    </div>
+    <div class="large-promo-image">
+      <img src="https://unsplash.com" alt="DSLR Camera" class="camera-img-asset">
+    </div>
+  </div>
+
+  <!-- Right Side: Sale Headphone Banner -->
+  <div class="large-promo-banner audio-promo">
+    <div class="large-promo-content center-aligned">
+      <span class="red-alert-tag">SALE</span>
+      <h2 class="promo-heading white-text">Get UP To 50% Off</h2>
+      <a routerLink="/store" class="round-shop-btn white-btn">Shop Now</a>
+    </div>
+    <div class="large-promo-image back-bg-image">
+      <img src="https://unsplash.com" alt="Headphones" class="headphone-img-asset">
+    </div>
+  </div>
+
+</section>
+
+<footer class="site-footer">
+  <!-- Top Contact Cards Row -->
+  <div class="footer-contact-strip">
+    <div class="contact-card">
+      <div class="icon-circle">📍</div>
+      <div class="card-text">
+        <h3>Address</h3>
+        <p>123 Street New York, USA</p>
+      </div>
+    </div>
+    
+    <div class="contact-card">
+      <div class="icon-circle">✉️</div>
+      <div class="card-text">
+        <h3>Mail Us</h3>
+        <p>info@example.com</p>
+      </div>
+    </div>
+    
+    <div class="contact-card">
+      <div class="icon-circle">📞</div>
+      <div class="card-text">
+        <h3>Telephone</h3>
+        <p>(+012) 3456 7890</p>
+      </div>
+    </div>
+    
+    <div class="contact-card">
+      <div class="icon-circle">🌐</div>
+      <div class="card-text">
+        <h3>Yoursite@ex.com</h3>
+        <p>(+012) 3456 7890</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Links & Newsletter Directory -->
+  <div class="footer-directory">
+    
+    <!-- Newsletter Column -->
+    <div class="directory-column">
+      <h2>Newsletter</h2>
+      <p class="newsletter-desc">Dolor amet sit justo amet elitr clita ipsum elitr est. Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+      <div class="footer-signup-form">
+        <input type="email" placeholder="Enter your email" class="signup-input">
+        <button class="signup-btn">SignUp</button>
+      </div>
+    </div>
+
+    <!-- Customer Service Column -->
+    <div class="directory-column">
+      <h2>Customer Service</h2>
+      <ul class="footer-links-list">
+        <li><a routerlink="#">Contact Us</a></li>
+        <li><a routerlink="#">Returns</a></li>
+        <li><a routerlink="#">Order History</a></li>
+        <li><a routerlink="#">Site Map</a></li>
+        <li><a routerlink="#">Testimonials</a></li>
+        <li><a routerlink="#">My Account</a></li>
+        <li><a routerlink="#">Unsubscribe Notification</a></li>
+      </ul>
+    </div>
+
+    <!-- Information Column -->
+    <div class="directory-column">
+      <h2>Information</h2>
+      <ul class="footer-links-list">
+        <li><a routerlink="#">About Us</a></li>
+        <li><a routerlink="#">Delivery infomation</a></li>
+        <li><a routerlink="#">Privacy Policy</a></li>
+        <li><a routerlink="#">Terms & Conditions</a></li>
+        <li><a routerlink="#">Warranty</a></li>
+        <li><a routerlink="#">FAQ</a></li>
+        <li><a routerlink="#">Seller Login</a></li>
+      </ul>
+    </div>
+
+    <!-- Extras Column -->
+    <div class="directory-column">
+      <h2>Extras</h2>
+      <ul class="footer-links-list">
+        <li><a routerlink="#">Brands</a></li>
+        <li><a routerlink="#">Gift Vouchers</a></li>
+        <li><a routerlink="#">Affiliates</a></li>
+        <li><a routerlink="#">Wishlist</a></li>
+        <li><a routerlink="#">Order History</a></li>
+        <li><a routerlink="#">Track Your Order</a></li>
+        <li><a routerlink="#">Track Your Order</a></li>
+      </ul>
+    </div>
+
+  </div>
+
+  <!-- Copyright Bottom Ribbon -->
+  <div class="footer-copyright-bar">
+    <div class="copyright-left">
+      © <a routerlink="#">Your Site Name</a>, All right reserved.
+    </div>
+    <div class="copyright-right">
+      Designed By <a routerlink="#">HTML Codex</a>
+    </div>
+  </div>
+</footer>
+
+
+<!-- Back to Top Button -->
+<button class="back-to-top">↑</button>
+

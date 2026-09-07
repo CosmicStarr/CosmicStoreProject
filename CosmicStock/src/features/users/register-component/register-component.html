@@ -1,0 +1,67 @@
+<div class="register-wrapper">
+  <div class="register-container">
+    <div class="register-header">
+      <h2>Create an Account</h2>
+      <p>Join CosmicStore to start shopping</p>
+    </div>
+
+    <!-- Bound to the FormGroup we created earlier -->
+    <form [formGroup]="registerForm" (ngSubmit)="onSubmit()">
+      
+      <div class="form-group">
+        <label for="displayName">Username</label>
+        <input 
+          type="text" 
+          id="userName" 
+          formControlName="userName" 
+          placeholder="Enter your username">
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input 
+          type="email" 
+          id="email" 
+          formControlName="email" 
+          placeholder="you@example.com">
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input 
+          type="password" 
+          id="password" 
+          formControlName="password" 
+          placeholder="Create a password">
+      </div>
+
+      <div class="form-group">
+        <label for="confirmPassword">Confirm Password</label>
+        <input 
+          type="password" 
+          id="confirmPassword" 
+          formControlName="confirmPassword" 
+          placeholder="Confirm your password">
+      </div>
+
+      <!-- Angular 17+ control flow to display the List<IdentityError> mappings -->
+      @if (errors.length > 0) {
+        <div class="error-container">
+          @for (error of errors; track $index) {
+            <p class="error-text">⚠ {{ error }}</p>
+          }
+        </div>
+      }
+
+      <!-- Button disables automatically if form validators fail -->
+      <button type="submit" class="submit-btn" [disabled]="registerForm.invalid">
+        Register
+      </button>
+      
+    </form>
+
+    <div class="form-footer">
+      Already have an account? <a routerLink="/login">Log in here</a>
+    </div>
+  </div>
+</div>
