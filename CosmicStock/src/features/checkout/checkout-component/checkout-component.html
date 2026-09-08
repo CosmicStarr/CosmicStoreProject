@@ -47,6 +47,36 @@
       </section>
 
       <section class="form-section">
+        <h3>Shipping Method</h3>
+        @if (shippingLoading()) {
+          <p class="muted">Fetching shipping rates...</p>
+        } @else if (!shippingOptions().length) {
+          <p class="muted">Enter a destination to see shipping options.</p>
+        } @else {
+          <fieldset class="shipping-options">
+            <legend class="visually-hidden">Choose a shipping method</legend>
+            @for (option of shippingOptions(); track option.logisticName) {
+              <label class="shipping-option" [class.selected]="option.logisticName === selectedShipping()?.logisticName">
+                <input
+                  type="radio"
+                  name="shippingMethod"
+                  [value]="option.logisticName"
+                  [checked]="option.logisticName === selectedShipping()?.logisticName"
+                  (change)="selectShipping(option)">
+                <span class="shipping-detail">
+                  <strong>{{ option.logisticName }}</strong>
+                  @if (option.deliveryTime) {
+                    <span class="muted">Estimated {{ option.deliveryTime }} days</span>
+                  }
+                </span>
+                <span class="shipping-price">{{ option.freightCost | currency:'USD':'symbol' }}</span>
+              </label>
+            }
+          </fieldset>
+        }
+      </section>
+
+      <section class="form-section">
         <h3>Order Summary</h3>
         @for (item of cartService.cart()?.shoppingCartItems ?? []; track item.sku) {
           <div class="summary-item">
@@ -54,11 +84,32 @@
             <span>{{ item.price * item.amount | currency:'USD':'symbol' }}</span>
           </div>
         }
+        <div class="summary-item">
+          <span>Subtotal</span>
+          <span>{{ cartService.subtotal() | currency:'USD':'symbol' }}</span>
+        </div>
+        <div class="summary-item">
+          <span>Shipping{{ selectedShipping() ? ' — ' + selectedShipping()!.logisticName : '' }}</span>
+          <span>{{ (selectedShipping()?.freightCost ?? 0) | currency:'USD':'symbol' }}</span>
+        </div>
         <div class="summary-total">
           <span>Total</span>
-          <strong>{{ cartService.subtotal() | currency:'USD':'symbol' }}</strong>
+          <strong>{{ orderTotal() | currency:'USD':'symbol' }}</strong>
         </div>
-        <p class="payment-note">Payment uses a development placeholder until Stripe is integrated.</p>
+      </section>
+
+      <section class="form-section">
+        <h3>Payment</h3>
+        <div class="form-group">
+          <label for="cardElement">Card details</label>
+          <div id="cardElement" #cardElement class="card-element"></div>
+        </div>
+        @if (cardError()) {
+          <p class="card-error" role="alert">{{ cardError() }}</p>
+        }
+        <p class="payment-note">
+          Card details go straight to Stripe and never reach our servers.
+        </p>
       </section>
 
       @if (error) {
@@ -67,10 +118,17 @@
         </div>
       }
 
+      @if (submitting && statusMessage()) {
+        <p class="status-message" role="status">{{ statusMessage() }}</p>
+      }
+
       <div class="form-actions">
         <a routerLink="/cart" class="secondary-btn">Back to Cart</a>
-        <button type="submit" class="primary-btn" [disabled]="checkoutForm.invalid || submitting">
-          {{ submitting ? 'Placing Order...' : 'Place Order' }}
+        <button
+          type="submit"
+          class="primary-btn"
+          [disabled]="checkoutForm.invalid || submitting || !cardReady()">
+          {{ submitting ? 'Processing...' : 'Pay ' + (orderTotal() | currency:'USD':'symbol') }}
         </button>
       </div>
     </form>

@@ -1,12 +1,13 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { AccountService } from '../../../core/services/account-service';
 import { AddressService } from '../../../core/services/address-service';
 import { IUserAddress } from '../../models/UserInfo';
 
 @Component({
   selector: 'app-profile',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './profile.html',
   styleUrl: './profile.scss',
 })

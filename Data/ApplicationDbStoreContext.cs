@@ -33,6 +33,19 @@ public class ApplicationDbStoreContext(DbContextOptions<ApplicationDbStoreContex
             .HasIndex(w => new { w.AppUserId, w.ProductId })
             .IsUnique();
 
+        modelBuilder.Entity<ProductVariant>()
+            .HasIndex(v => new { v.ProductId, v.CjVariantId })
+            .IsUnique();
+
+        modelBuilder.Entity<ProductVariant>()
+            .HasIndex(v => v.Sku);
+
+        modelBuilder.Entity<ProductVariant>()
+            .HasOne(v => v.Product)
+            .WithMany()
+            .HasForeignKey(v => v.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         modelBuilder.Entity<WishlistItem>()
             .HasOne(w => w.Product)
             .WithMany()
@@ -51,4 +64,5 @@ public class ApplicationDbStoreContext(DbContextOptions<ApplicationDbStoreContex
     public DbSet<ShoppingCartSessionId> ShoppingCartSessions { get; set; }
     public DbSet<UserAddress> UserAddresses { get; set; }
     public DbSet<WishlistItem> WishlistItems { get; set; }
+    public DbSet<ProductVariant> ProductVariants { get; set; }
 }

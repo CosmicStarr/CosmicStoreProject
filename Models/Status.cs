@@ -19,5 +19,13 @@ public enum Status
     [EnumMember(Value = "Submitted")]
     Submitted,
     [EnumMember(Value = "Paid")]
-    Paid
+    Paid,
+    [EnumMember(Value = "Shipped")]
+    Shipped,
+    [EnumMember(Value = "Delivered")]
+    Delivered,
+    [EnumMember(Value = "Cancelled")]
+    Cancelled,
+    [EnumMember(Value = "Refunded")]
+    Refunded
 }

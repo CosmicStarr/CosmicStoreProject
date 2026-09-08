@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Models;
 
@@ -22,9 +23,21 @@ public class Order
     public string State { get; set; } = string.Empty;
     public string Country { get; set; } = string.Empty;
 
-    // The Stripe/PayPal transaction ID for accounting
+    // The Stripe PaymentIntent id, used for accounting and webhook reconciliation
     public string PaymentTransactionId { get; set; } = string.Empty;
-    
+
+    public string PaymentStatus { get; set; } = nameof(Models.Status.Pending);
+
+    // Shipping selection and CJ fulfilment tracking
+    public string LogisticName { get; set; } = "CJPacket Ordinary";
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal ShippingCost { get; set; }
+
+    public string? TrackingNumber { get; set; }
+
+    public DateTime? LastStatusSyncAt { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation Property

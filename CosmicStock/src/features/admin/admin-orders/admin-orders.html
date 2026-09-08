@@ -1,6 +1,13 @@
 <header class="page-header">
   <h1>Orders</h1>
+  <button type="button" class="secondary-btn" [disabled]="busyOrderId() === 'all'" (click)="syncAll()">
+    {{ busyOrderId() === 'all' ? 'Syncing...' : 'Sync all from CJ' }}
+  </button>
 </header>
+
+@if (message()) {
+  <p class="action-message" role="status">{{ message() }}</p>
+}
 
 @if (loading) {
   <p class="muted">Loading orders...</p>
@@ -14,8 +21,12 @@
           <th>Order</th>
           <th>Customer</th>
           <th>Status</th>
+          <th>Payment</th>
+          <th>Shipping</th>
+          <th>Tracking</th>
           <th>Total</th>
           <th>Date</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -24,8 +35,44 @@
             <td>{{ order.orderId.slice(0, 8) }}</td>
             <td>{{ order.customerName }}<br><span class="muted">{{ order.customerEmail }}</span></td>
             <td><span class="status">{{ order.status }}</span></td>
+            <td>
+              <span class="payment-status" [class.unpaid]="order.paymentStatus !== 'PaymentRecevied'">
+                {{ order.paymentStatus || '—' }}
+              </span>
+            </td>
+            <td>
+              {{ order.logisticName }}
+              <br><span class="muted">{{ order.shippingCost | currency:'USD':'symbol' }}</span>
+            </td>
+            <td>
+              @if (order.trackingNumber) {
+                <code>{{ order.trackingNumber }}</code>
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
             <td>{{ order.total | currency:'USD':'symbol' }}</td>
             <td>{{ order.createdAt | date:'short' }}</td>
+            <td>
+              <div class="row-actions">
+                <button
+                  type="button"
+                  [disabled]="busyOrderId() === order.orderId"
+                  (click)="syncOrder(order)">Sync</button>
+                @if (canCancel(order)) {
+                  <button
+                    type="button"
+                    [disabled]="busyOrderId() === order.orderId"
+                    (click)="cancelOrder(order)">Cancel</button>
+                }
+                @if (canRefund(order)) {
+                  <button
+                    type="button"
+                    [disabled]="busyOrderId() === order.orderId"
+                    (click)="refundOrder(order)">Refund</button>
+                }
+              </div>
+            </td>
           </tr>
         }
       </tbody>

@@ -1,0 +1,39 @@
+import { inject, Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { environment } from '../../env/environment';
+import { ICjBalance, IOrder } from '../../features/models/order';
+
+@Injectable({ providedIn: 'root' })
+export class AdminCjService {
+  private http = inject(HttpClient);
+  private apiUrl = `${environment.baseUrl}AdminCj`;
+
+  getBalance(): Observable<ICjBalance> {
+    return this.http.get<ICjBalance>(`${this.apiUrl}/balance`);
+  }
+
+  syncVariants(): Observable<{ mappedVariants: number }> {
+    return this.http.post<{ mappedVariants: number }>(`${this.apiUrl}/sync/variants`, {});
+  }
+
+  syncStock(): Observable<{ updatedVariants: number }> {
+    return this.http.post<{ updatedVariants: number }>(`${this.apiUrl}/sync/stock`, {});
+  }
+
+  syncPendingOrders(): Observable<{ updatedOrders: number }> {
+    return this.http.post<{ updatedOrders: number }>(`${this.apiUrl}/orders/sync`, {});
+  }
+
+  syncOrder(orderId: string): Observable<IOrder> {
+    return this.http.post<IOrder>(`${this.apiUrl}/orders/${orderId}/sync`, {});
+  }
+
+  cancelOrder(orderId: string): Observable<IOrder> {
+    return this.http.post<IOrder>(`${this.apiUrl}/orders/${orderId}/cancel`, {});
+  }
+
+  refundOrder(orderId: string): Observable<IOrder> {
+    return this.http.post<IOrder>(`${this.apiUrl}/orders/${orderId}/refund`, {});
+  }
+}

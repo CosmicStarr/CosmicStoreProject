@@ -19,3 +19,55 @@
     </p>
   }
 </section>
+
+<section class="settings-card">
+  <h2>CJ Wallet</h2>
+  <p class="muted">
+    Orders are paid from this balance. Fulfilment stalls once it runs out.
+  </p>
+
+  @if (balance(); as wallet) {
+    <div class="setting-row">
+      <span>Available balance</span>
+      <strong [class.low-balance]="wallet.isLow">
+        {{ wallet.amount | currency:wallet.currency:'symbol' }}
+      </strong>
+    </div>
+    @if (wallet.isLow) {
+      <p class="warning" role="status">
+        Balance is below the {{ wallet.threshold | currency:wallet.currency:'symbol' }} alert threshold. Top up to keep orders flowing.
+      </p>
+    }
+  } @else if (balanceError()) {
+    <p class="warning" role="status">{{ balanceError() }}</p>
+  } @else {
+    <p class="muted">Loading balance...</p>
+  }
+
+  <button type="button" class="secondary-btn" (click)="loadBalance()">Refresh balance</button>
+</section>
+
+<section class="settings-card">
+  <h2>CJ Sync</h2>
+  <p class="muted">
+    Background workers run these on a schedule. Use the buttons to force a run now.
+  </p>
+
+  <div class="sync-actions">
+    <button type="button" class="secondary-btn" [disabled]="syncing()" (click)="syncVariants()">
+      Map product variants
+    </button>
+    <button type="button" class="secondary-btn" [disabled]="syncing()" (click)="syncStock()">
+      Refresh stock
+    </button>
+    <button type="button" class="secondary-btn" [disabled]="syncing()" (click)="syncOrders()">
+      Sync order statuses
+    </button>
+  </div>
+
+  @if (syncing()) {
+    <p class="muted">Running...</p>
+  } @else if (syncMessage()) {
+    <p class="sync-message" role="status">{{ syncMessage() }}</p>
+  }
+</section>

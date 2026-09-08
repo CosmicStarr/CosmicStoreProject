@@ -11,6 +11,10 @@ public class AngularCheckoutRequest
     
     // 2. Payment Info
     public string StripePaymentMethodId { get; set; } = string.Empty;
+
+    // 2b. Selected CJ shipping method (falls back to the configured default when omitted)
+    public string? LogisticName { get; set; }
+    public decimal ShippingCost { get; set; }
     
     // 3. Cart Items (Using YOUR database SKUs or IDs)
     public List<CartItems> Items { get; set; } = new();

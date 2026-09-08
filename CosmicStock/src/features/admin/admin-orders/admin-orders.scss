@@ -1,5 +1,13 @@
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
 .page-header h1 {
-  margin: 0 0 24px;
+  margin: 0;
 }
 
 .muted {
@@ -34,4 +42,69 @@ th {
 .status {
   color: var(--primary-orange);
   font-weight: 600;
+}
+
+.payment-status {
+  font-weight: 600;
+  color: #15803d;
+
+  &.unpaid {
+    color: var(--text-muted);
+  }
+}
+
+.secondary-btn {
+  padding: 10px 16px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover:not([disabled]) {
+    border-color: var(--primary-orange);
+  }
+
+  &[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.action-message {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  background: var(--bg-light);
+  border-left: 4px solid var(--primary-orange);
+}
+
+.row-actions {
+  display: flex;
+  gap: 6px;
+
+  button {
+    padding: 6px 10px;
+    font-size: 13px;
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+
+    &:hover:not([disabled]) {
+      border-color: var(--primary-orange);
+    }
+
+    &[disabled] {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+}
+
+code {
+  background: var(--bg-light);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 13px;
 }

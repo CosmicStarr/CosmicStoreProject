@@ -93,15 +93,18 @@ builder.Services.AddSingleton<ICacheService, CacheService>();
 // ==========================================
 builder.Services.Configure<CjAuthRequest>(builder.Configuration.GetSection("CJDropshipping"));
 
-//builder.Services.AddHttpClient<CjAuthManager>();
+builder.Services.AddHttpClient<CjAuthManager>();
 builder.Services.AddHttpClient<ICJDropshippingService, CJDropshippingService>();
-//builder.Services.AddHostedService<CJProductSyncWorker>();
+builder.Services.AddHostedService<CJProductSyncWorker>();
+builder.Services.AddHostedService<CjOrderStatusWorker>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IStoreUnitOfWork, StoreUnitOfWork>();
 builder.Services.AddScoped<IEditCjProducts, EditCjProducts>();
 builder.Services.AddScoped<IShoppingCartService, ShoppingCartService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<ICjCatalogSyncService, CjCatalogSyncService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddTransient<IEmailSender, EmailSender>();
 builder.Services.AddTransient<ExceptionMiddleware>();
 builder.Services.AddHttpClient(); // Generic client for the worker

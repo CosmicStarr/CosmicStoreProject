@@ -9,6 +9,20 @@
   font-size: 28px;
 }
 
+.page-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.home-link {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
 .card {
   background: #fff;
   border: 1px solid #e2e8f0;

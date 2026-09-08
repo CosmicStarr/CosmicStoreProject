@@ -1,0 +1,44 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+*.dll
+*.pdb
+*.exe
+*.cache
+
+# Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userprefs
+
+# Secrets — never commit these. Use: dotnet user-secrets set "Key" "value"
+appsettings.*.local.json
+secrets.json
+*.pfx
+.env
+.env.*
+
+# Node / Angular
+node_modules/
+dist/
+.angular/
+npm-debug.log*
+yarn-error.log*
+
+# Test and coverage output
+[Tt]est[Rr]esult*/
+coverage/
+*.trx
+
+# OS noise
+Thumbs.db
+.DS_Store
+
+# Office lock files
+~$*

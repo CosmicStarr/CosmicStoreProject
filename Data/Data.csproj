@@ -11,6 +11,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.7" />
     <PackageReference Include="StackExchange.Redis" Version="3.0.11" />
+    <PackageReference Include="Stripe.net" Version="52.4.1" />
   </ItemGroup>
 
   <ItemGroup>
