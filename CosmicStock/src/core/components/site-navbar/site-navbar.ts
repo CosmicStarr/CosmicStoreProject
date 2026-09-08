@@ -1,5 +1,6 @@
 import { AsyncPipe } from '@angular/common';
 import { Component, HostListener, inject, OnInit, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { filter } from 'rxjs';
 import { AccountService } from '../../services/account-service';
@@ -8,7 +9,7 @@ import { isAdminUser } from '../../utils/auth-utils';
 
 @Component({
   selector: 'app-site-navbar',
-  imports: [RouterLink, RouterLinkActive, AsyncPipe],
+  imports: [RouterLink, RouterLinkActive, AsyncPipe, FormsModule],
   templateUrl: './site-navbar.html',
   styleUrl: './site-navbar.scss',
 })
@@ -22,6 +23,8 @@ export class SiteNavbarComponent implements OnInit {
   protected isAdmin = signal(false);
   activeDropdown: string | null = null;
   isMobileMenuOpen = false;
+
+  searchTerm = '';
 
   ngOnInit(): void {
     this.cartService.loadCart();
@@ -66,6 +69,15 @@ export class SiteNavbarComponent implements OnInit {
     this.accountService.logout();
     this.isAdmin.set(false);
     this.activeDropdown = null;
+  }
+
+  submitSearch(event: Event) {
+    event.preventDefault();
+    const term = this.searchTerm.trim();
+    this.router.navigate(['/store'], {
+      queryParams: term ? { search: term, page: 1 } : { search: null, page: null },
+      queryParamsHandling: 'merge',
+    });
   }
 
   private updateVisibility(url: string) {

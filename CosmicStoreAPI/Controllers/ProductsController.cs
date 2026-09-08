@@ -9,98 +9,145 @@ using Microsoft.Data.SqlClient;
 
 namespace CosmicStoreAPI.Controllers;
 
-
 public class ProductsController(IStoreUnitOfWork storeUnitOfWork, IEditCjProducts editCjProducts, ICacheService cacheService) : BaseController
 {
-
     private readonly IStoreUnitOfWork _storeUnitOfWork = storeUnitOfWork;
     private readonly IEditCjProducts _editCjProducts = editCjProducts;
     private readonly ICacheService _cacheService = cacheService;
-    
-    [HttpGet("joined-products")]
-    public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetJoinedProducts(
-    [FromQuery] PageParams pageParams)
-    {
-        // 1. Define a unique cache key based on the category
-        string cacheKey = string.IsNullOrEmpty(pageParams.Category) 
-            ? "products_all" 
-            : $"products_category_{pageParams.Category.ToLower()}";
 
-        if (pageParams.ClearCache)
+    [HttpGet("joined-products")]
+    public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetJoinedProducts([FromQuery] PageParams pageParams)
+    {
+        var groupedInfo = await LoadProductsAsync(pageParams.Category, pageParams.ClearCache);
+        groupedInfo = ApplyFilters(groupedInfo, pageParams);
+
+        var paginatedData = PagerList<ProductResponseDto>.Create(groupedInfo, pageParams.PageNumber, pageParams.PageSize);
+
+        Response.AddPaginationHeader(
+            paginatedData.CurrentPage,
+            paginatedData.PageSize,
+            paginatedData.TotalCount,
+            paginatedData.TotalPages);
+
+        return Ok(paginatedData);
+    }
+
+    [HttpGet("categories")]
+    public async Task<ActionResult<IEnumerable<CategorySummaryDto>>> GetCategories([FromQuery] bool clearCache = false)
+    {
+        var products = await LoadProductsAsync(null, clearCache);
+
+        var categories = products
+            .Where(p => !string.IsNullOrWhiteSpace(p.Category))
+            .GroupBy(p => p.Category!)
+            .Select(g => new CategorySummaryDto { Name = g.Key, Count = g.Count() })
+            .OrderBy(c => c.Name)
+            .ToList();
+
+        return Ok(categories);
+    }
+
+    [HttpGet("{id}")]
+    public async Task<ActionResult<ProductResponseDto>> GetSingleProduct(string id)
+    {
+        var productIdParam = new SqlParameter("@ProductId", id);
+        var parameters = new object[] { productIdParam };
+        var rawData = await _storeUnitOfWork.Repository<ProductWithPictureDto>()
+            .GetFromSqlAsync(SqlConstants.StoredProcedures.GetSingleProductWithPictures, parameters);
+        var groupedInfo = _editCjProducts.GroupData(rawData);
+        var info = groupedInfo.FirstOrDefault();
+
+        if (info is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(info);
+    }
+
+    [HttpGet("{id}/related")]
+    public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetRelatedProducts(string id, [FromQuery] int limit = 4)
+    {
+        var productIdParam = new SqlParameter("@ProductId", id);
+        var parameters = new object[] { productIdParam };
+        var rawData = await _storeUnitOfWork.Repository<ProductWithPictureDto>()
+            .GetFromSqlAsync(SqlConstants.StoredProcedures.GetSingleProductWithPictures, parameters);
+        var current = _editCjProducts.GroupData(rawData).FirstOrDefault();
+
+        if (current is null || string.IsNullOrWhiteSpace(current.Category))
+        {
+            return Ok(Array.Empty<ProductResponseDto>());
+        }
+
+        var groupedInfo = await LoadProductsAsync(current.Category, false);
+        var related = groupedInfo
+            .Where(p => p.Id != id)
+            .Take(Math.Clamp(limit, 1, 12))
+            .ToList();
+
+        return Ok(related);
+    }
+
+    private async Task<List<ProductResponseDto>> LoadProductsAsync(string? category, bool clearCache)
+    {
+        var cacheKey = string.IsNullOrEmpty(category)
+            ? "products_all"
+            : $"products_category_{category.ToLower()}";
+
+        if (clearCache)
         {
             await _cacheService.RemoveData(cacheKey);
         }
-        // 2. Try to get the grouped data from Redis
+
         var groupedInfo = await _cacheService.GetCachedObject<List<ProductResponseDto>>(cacheKey);
 
-        if (groupedInfo == null)
+        if (groupedInfo is null)
         {
-            // Cache Miss: Fetch from SQL Database
-            var categoryParam = new SqlParameter("@Category", (object?)pageParams.Category ?? DBNull.Value);
+            var categoryParam = new SqlParameter("@Category", (object?)category ?? DBNull.Value);
             var parameters = new object[] { categoryParam };
-            
-            // Execute the stored procedure to get the flat data
+
             var rawData = await _storeUnitOfWork.Repository<ProductWithPictureDto>()
-                    .GetFromSqlAsync(SqlConstants.StoredProcedures.GetProductsWithPictures, parameters);
-            
-            // Group the flat data into nested structure        
+                .GetFromSqlAsync(SqlConstants.StoredProcedures.GetProductsWithPictures, parameters);
+
             groupedInfo = _editCjProducts.GroupData(rawData).ToList();
-            
-            // Save to Redis for future requests (e.g., caching for 1 hour)
-            if (groupedInfo.Any())
+
+            if (groupedInfo.Count > 0)
             {
                 await _cacheService.ObjectToCache(cacheKey, groupedInfo, TimeSpan.FromHours(1));
             }
         }
 
-        // 3. Apply search filter
-        if (!string.IsNullOrEmpty(pageParams.Search))
-        {
-            groupedInfo = groupedInfo
-                .Where(x => x.NameEn != null && x.NameEn.Contains(pageParams.Search, StringComparison.OrdinalIgnoreCase))
-                .ToList(); 
-        }
-
-        // 4. Apply sorting
-        groupedInfo = pageParams.Sort switch
-        {
-            "priceAsc" => groupedInfo.OrderBy(x => x.SellPrice).ToList(),
-            "priceDesc" => groupedInfo.OrderByDescending(x => x.SellPrice).ToList(),
-            "nameDesc" => groupedInfo.OrderByDescending(x => x.NameEn).ToList(),
-            "newest" => groupedInfo.OrderByDescending(x => x.IsNewArrival).ThenBy(x => x.NameEn).ToList(),
-            _ => groupedInfo.OrderBy(x => x.NameEn).ToList() // Default sorting (name Ascending)
-        };
-
-        // 5. Paginate the filtered and sorted data in-memory
-        var paginatedData = PagerList<ProductResponseDto>.Create(groupedInfo, pageParams.PageNumber, pageParams.PageSize);
-
-        // 6. Attach the Static Header
-        Response.AddPaginationHeader(
-            paginatedData.CurrentPage, 
-            paginatedData.PageSize, 
-            paginatedData.TotalCount, 
-            paginatedData.TotalPages
-        );
-
-        // 7. Return the items
-        return Ok(paginatedData);
+        return groupedInfo;
     }
 
-
-    [HttpGet("{id}")]
-    public async Task<ActionResult<ProductWithPictureDto>>GetSingleProduct(string id)
+    private static List<ProductResponseDto> ApplyFilters(List<ProductResponseDto> products, PageParams pageParams)
     {
-        var productIdParam = new SqlParameter("@ProductId", id);
-        var parameters = new object[] { productIdParam };
-        var rawData = await _storeUnitOfWork.Repository<ProductWithPictureDto>()
-                .GetFromSqlAsync(SqlConstants.StoredProcedures.GetSingleProductWithPictures,parameters);
-        var groupedInfo = _editCjProducts.GroupData(rawData);        
-        var info = groupedInfo.FirstOrDefault();
-        if(info == null)
+        IEnumerable<ProductResponseDto> filtered = products;
+
+        if (!string.IsNullOrWhiteSpace(pageParams.Search))
         {
-            return NotFound();
+            filtered = filtered.Where(x =>
+                (!string.IsNullOrEmpty(x.NameEn) && x.NameEn.Contains(pageParams.Search, StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrEmpty(x.Sku) && x.Sku.Contains(pageParams.Search, StringComparison.OrdinalIgnoreCase)));
         }
-        return Ok(info);
+
+        if (pageParams.MinPrice.HasValue)
+        {
+            filtered = filtered.Where(x => x.SellPrice >= pageParams.MinPrice.Value);
+        }
+
+        if (pageParams.MaxPrice.HasValue)
+        {
+            filtered = filtered.Where(x => x.SellPrice <= pageParams.MaxPrice.Value);
+        }
+
+        return pageParams.Sort switch
+        {
+            "priceAsc" => filtered.OrderBy(x => x.SellPrice).ToList(),
+            "priceDesc" => filtered.OrderByDescending(x => x.SellPrice).ToList(),
+            "nameDesc" => filtered.OrderByDescending(x => x.NameEn).ToList(),
+            "newest" => filtered.OrderByDescending(x => x.IsNewArrival).ThenBy(x => x.NameEn).ToList(),
+            _ => filtered.OrderBy(x => x.NameEn).ToList()
+        };
     }
-    
 }

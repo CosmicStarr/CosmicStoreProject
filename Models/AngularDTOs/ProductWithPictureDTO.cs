@@ -10,6 +10,7 @@ public class ProductWithPictureDto
     public bool IsFeatured { get; set; }
     public bool IsNewArrival { get; set;}
     public bool IsTopSelling { get; set; }
+    public int StockQuantity { get; set; }
     public decimal SellPrice { get; set; }
     public string? BigImage { get; set; }
     public string? Category { get; set; }

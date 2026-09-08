@@ -147,7 +147,13 @@
 
           <div class="stock-status">
             <p>Product SKU: <span>{{ product()?.sku }}</span></p>
-            <p>Available: <span class="in-stock">20 items in stock</span></p>
+            <p>Available:
+              @if ((product()?.stockQuantity ?? 0) > 0) {
+                <span class="in-stock">{{ product()?.stockQuantity }} items in stock</span>
+              } @else {
+                <span class="out-of-stock">Out of stock</span>
+              }
+            </p>
           </div>
 
           <p class="short-description">
@@ -181,6 +187,21 @@
         </div>
 
       </div>
+
+      @if (relatedProducts().length) {
+        <section class="related-products">
+          <h2>Related Products</h2>
+          <div class="related-grid">
+            @for (item of relatedProducts(); track item.id) {
+              <a class="related-card" [routerLink]="['/store', item.id]">
+                <img [src]="item.bigImage" [alt]="item.nameEn">
+                <span>{{ item.nameEn }}</span>
+                <strong>{{ item.sellPrice | currency:'USD':'symbol' }}</strong>
+              </a>
+            }
+          </div>
+        </section>
+      }
 
       <!-- BOTTOM PORTION: PRODUCT TABS (Description & Reviews) -->
       <div class="tabs-component">

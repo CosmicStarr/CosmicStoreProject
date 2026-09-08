@@ -22,5 +22,7 @@ public class PageParams
     public string? Sort { get; set; }
     public string? Search { get; set; }
     public string? Category { get; set; }
-    public bool ClearCache { get; set; } = false; // Default to true to clear cache on first request
+    public decimal? MinPrice { get; set; }
+    public decimal? MaxPrice { get; set; }
+    public bool ClearCache { get; set; } = false;
 }

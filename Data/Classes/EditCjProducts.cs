@@ -29,6 +29,10 @@ public class EditCjProducts(IUnitOfWork unitOfWork, IStoreUnitOfWork storeUnitOf
             existing.BigImage = product.BigImage ?? existing.BigImage;
             existing.Category = product.Category ?? existing.Category;
             existing.CjVariantId = id;
+            if (product.StockQuantity > 0)
+            {
+                existing.StockQuantity = product.StockQuantity;
+            }
 
             _storeUnitOfWork.Repository<Products>().Update(existing);
             storeProduct = existing;
@@ -47,7 +51,8 @@ public class EditCjProducts(IUnitOfWork unitOfWork, IStoreUnitOfWork storeUnitOf
                 IsFeatured = product.IsFeatured,
                 IsNewArrival = product.IsNewArrival,
                 IsTopSelling = product.IsTopSelling,
-                CjVariantId = id
+                CjVariantId = id,
+                StockQuantity = product.StockQuantity > 0 ? product.StockQuantity : 50
             };
 
             _storeUnitOfWork.Repository<Products>().Add(storeProduct);
@@ -99,6 +104,7 @@ public class EditCjProducts(IUnitOfWork unitOfWork, IStoreUnitOfWork storeUnitOf
                 IsFeatured = group.First().IsFeatured,
                 IsNewArrival = group.First().IsNewArrival,
                 IsTopSelling = group.First().IsTopSelling,
+                StockQuantity = group.First().StockQuantity,
                 Pictures = group
                     .Where(x => x.PictureId != null)
                     .Select(x => new PictureDto
@@ -133,6 +139,7 @@ public class EditCjProducts(IUnitOfWork unitOfWork, IStoreUnitOfWork storeUnitOf
             SellPrice = Math.Round(flat.SellPrice * markupMultiplier, 2),
             BigImage = flat.BigImage,
             Category = flat.Category?.CategoryName,
+            StockQuantity = 50,
             ProductImages = images
         };
     }

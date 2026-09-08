@@ -22,6 +22,7 @@ export class ProductDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
 
   product = signal<IProductResponse | null>(null);
+  relatedProducts = signal<IProductResponse[]>([]);
   quantity = signal(1);
   selectedImageIndex = signal(0);
   addingToCart = false;
@@ -119,10 +120,17 @@ export class ProductDetailComponent implements OnInit {
         this.product.set(productDetails);
         this.selectedImageIndex.set(0);
         this.loadWishlistState(productId);
+        this.loadRelatedProducts(productId);
       },
       error: (err) => {
         console.error('Error fetching product details', err);
       }
+    });
+  }
+
+  loadRelatedProducts(productId: string) {
+    this.productService.getRelatedProducts(productId).subscribe({
+      next: (items) => this.relatedProducts.set(items),
     });
   }
 

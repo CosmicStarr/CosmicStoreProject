@@ -1,9 +1,10 @@
-
 export class sunParams{
-    category:string =''
+    category = ''
     sort = ''
     pageNumber = 1
-    pageSize = 10
+    pageSize = 12
     search = ''
-    Highlighted = ''
+    minPrice?: number
+    maxPrice?: number
+    highlighted = ''
 }

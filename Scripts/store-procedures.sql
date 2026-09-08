@@ -22,6 +22,7 @@ BEGIN
         p.SellPrice,
         p.BigImage,
         p.Category,
+        p.StockQuantity,
         CAST(pi.Id AS NVARCHAR(50)) AS PictureId,
         pi.PhotoUrl,
         pi.SkuPhoto
@@ -31,7 +32,7 @@ BEGIN
 END
 GO
 
-IF OBJECT_ID('[store].[GetProductById]', 'P') IS NOT NULL
+IF OBJECT_ID('[store].[GetSingleProductWithPictures]', 'P') IS NOT NULL
     DROP PROCEDURE [store].[GetSingleProductWithPictures];
 GO
 
@@ -52,6 +53,7 @@ BEGIN
         p.SellPrice,
         p.BigImage,
         p.Category,
+        p.StockQuantity,
         CAST(pi.Id AS NVARCHAR(50)) AS PictureId,
         pi.PhotoUrl,
         pi.SkuPhoto
@@ -82,6 +84,7 @@ BEGIN
         p.SellPrice,
         p.BigImage,
         p.Category,
+        p.StockQuantity,
         CAST(pi.Id AS NVARCHAR(50)) AS PictureId,
         pi.PhotoUrl,
         pi.SkuPhoto

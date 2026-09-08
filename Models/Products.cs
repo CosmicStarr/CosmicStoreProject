@@ -22,6 +22,7 @@ public class Products
 
     // YES ?: A category ID might be missing, allow NULL
     public string? Category { get; set; }
+    public int StockQuantity { get; set; }
     // If you added these earlier, make sure they are nullable too
     public IList<ProductImage>? ProductImages { get; set; }
 }

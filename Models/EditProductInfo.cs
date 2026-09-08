@@ -12,5 +12,6 @@ public class EditProductInfo
     public decimal SellPrice { get; set; }
     public string? BigImage { get; set; }
     public string? Category { get; set; }
+    public int StockQuantity { get; set; }
     public IList<ProductImage>? ProductImages { get; set; }
 }

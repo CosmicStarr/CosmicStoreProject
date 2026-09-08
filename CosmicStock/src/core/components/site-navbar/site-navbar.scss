@@ -23,6 +23,32 @@
   text-decoration: none;
 }
 
+.search-container {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  max-width: 520px;
+  border: 1px solid var(--border-light);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  padding: 0.65rem 1rem;
+  outline: none;
+}
+
+.search-submit-btn {
+  border: none;
+  background: var(--primary-orange);
+  color: #fff;
+  padding: 0 1rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
 .header-nav {
   display: flex;
   align-items: center;

@@ -9,8 +9,13 @@ export interface IProductResponse {
   isNewArrival: boolean;
   isTopSelling: boolean;
   sellPrice: number;
+  stockQuantity: number;
   bigImage: string;
   category: string;
-  pictures: IPicture[]; // The one-to-many relationship
+  pictures: IPicture[];
+}
 
+export interface ICategorySummary {
+  name: string;
+  count: number;
 }

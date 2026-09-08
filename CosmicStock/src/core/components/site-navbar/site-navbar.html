@@ -3,9 +3,9 @@
     <div class="top-bar-left">
       <a routerLink="/">Help</a>
       <span class="separator">|</span>
-      <a routerLink="/">Support</a>
+      <a routerLink="/store">Shop</a>
       <span class="separator">|</span>
-      <a routerLink="/">Contact</a>
+      <a routerLink="/account/profile">Contact</a>
     </div>
 
     @if (userService.currentUser$ | async; as user) {
@@ -42,10 +42,17 @@
       <span class="logo-text">Electro</span>
     </a>
 
-    <div class="search-container">
+    <form class="search-container" (ngSubmit)="submitSearch($event)">
       <label for="global-search" class="visually-hidden">Search products</label>
-      <input id="global-search" type="search" placeholder="Search Looking For?" class="search-input">
-    </div>
+      <input
+        id="global-search"
+        type="search"
+        placeholder="Search Looking For?"
+        class="search-input"
+        [(ngModel)]="searchTerm"
+        name="globalSearch">
+      <button type="submit" class="search-submit-btn" aria-label="Search products">Search</button>
+    </form>
 
     <nav class="header-nav" aria-label="Main navigation">
       <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Home</a>
