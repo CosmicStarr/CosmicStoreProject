@@ -70,17 +70,33 @@ getAllProducts(sun: sunParams): Observable<PaginatedResults<IFlatProduct[]>> {
 }
 
   // 2. Send form updates matching your controller's HttpPut("[HttpPut("UpdateProduct/{id}")]")
-updateProduct(id: string, productData: IEditProduct): Observable<any> {
-    // 1. Ensure productImages is an array before sending (safety check)
+  updateProduct(id: string, productData: IEditProduct): Observable<any> {
     if (!productData.productImages || !Array.isArray(productData.productImages)) {
       productData.productImages = [];
     }
-    // 2. Send the JSON object directly. 
-    // Do not use FormData unless you are uploading raw File objects (like from <input type="file">)
     return this.http.post(
-      `${this.apiUrl}EditProducts/UpdateProduct/${id}`, 
+      `${this.apiUrl}EditProducts/UpdateProduct/${id}`,
       productData,
       this.httpOptions
     );
+  }
+
+  publishProduct(id: string, markup?: number): Observable<unknown> {
+    let params = new HttpParams();
+    if (markup !== undefined) {
+      params = params.set('markup', markup.toString());
+    }
+    return this.http.post(`${this.apiUrl}EditProducts/Publish/${id}`, {}, { ...this.httpOptions, params });
+  }
+
+  publishBulk(productIds: string[], markup?: number): Observable<unknown[]> {
+    return this.http.post<unknown[]>(`${this.apiUrl}EditProducts/PublishBulk`, {
+      productIds,
+      markupMultiplier: markup ?? 1.4,
+    }, this.httpOptions);
+  }
+
+  getSettings(): Observable<{ defaultMarkup: number }> {
+    return this.http.get<{ defaultMarkup: number }>(`${this.apiUrl}EditProducts/settings`);
   }
 }

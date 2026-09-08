@@ -6,6 +6,20 @@
     </header>
 
     <form [formGroup]="checkoutForm" (ngSubmit)="onSubmit()">
+      @if (savedAddresses().length) {
+        <section class="form-section">
+          <h3>Saved Addresses</h3>
+          <div class="address-picker">
+            @for (address of savedAddresses(); track address.id) {
+              <button type="button" class="address-chip" (click)="applyAddress(address)">
+                <strong>{{ address.label }}</strong>
+                <span>{{ address.streetAddress }}, {{ address.city }}</span>
+              </button>
+            }
+          </div>
+        </section>
+      }
+
       <section class="form-section">
         <h3>Shipping Information</h3>
         <div class="form-group">

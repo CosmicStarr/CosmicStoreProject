@@ -12,7 +12,9 @@ export class CartService {
   private apiUrl = environment.baseUrl;
 
   private cartState = signal<IShoppingCart | null>(null);
+  private panelOpenState = signal(false);
   readonly cart = this.cartState.asReadonly();
+  readonly panelOpen = this.panelOpenState.asReadonly();
 
   readonly itemCount = computed(() =>
     this.cart()?.shoppingCartItems.reduce((sum, i) => sum + i.amount, 0) ?? 0
@@ -70,6 +72,23 @@ export class CartService {
     return this.http.post<IShoppingCart>(`${this.apiUrl}Cart/merge`, { guestCartId }).pipe(
       tap((cart) => this.setCart(cart))
     );
+  }
+
+  openPanel() {
+    this.loadCart();
+    this.panelOpenState.set(true);
+  }
+
+  closePanel() {
+    this.panelOpenState.set(false);
+  }
+
+  togglePanel() {
+    if (this.panelOpenState()) {
+      this.closePanel();
+    } else {
+      this.openPanel();
+    }
   }
 
   private setCart(cart: IShoppingCart) {

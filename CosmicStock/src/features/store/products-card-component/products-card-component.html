@@ -1,4 +1,5 @@
- <main class="detail-layout container">
+<app-site-navbar />
+<main class="detail-layout container">
     
     <!-- LEFT SIDEBAR -->
     <aside class="sidebar">
@@ -81,16 +82,48 @@
                   <!-- Interactive Gallery Slider -->
         <div class="gallery-wrapper">
           <div class="main-slider">
-            <button class="slide-arrow left-arrow"><i class="fa-solid fa-chevron-left"></i></button>
-            <img [src]="product()?.bigImage" alt="Main Smart Camera View">
-            <button class="slide-arrow right-arrow"><i class="fa-solid fa-chevron-right"></i></button>
+            @if (galleryImages().length > 1) {
+              <button
+                type="button"
+                class="slide-arrow left-arrow"
+                aria-label="Previous photo"
+                (click)="previousImage()"
+              >
+                <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+              </button>
+            }
+            <img
+              [src]="selectedImageUrl()"
+              [alt]="product()?.nameEn + ' product photo ' + (selectedImageIndex() + 1)"
+            >
+            @if (galleryImages().length > 1) {
+              <button
+                type="button"
+                class="slide-arrow right-arrow"
+                aria-label="Next photo"
+                (click)="nextImage()"
+              >
+                <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+              </button>
+            }
           </div>
-          <div class="thumbnails-grid">
-          
-             @for (item of product()?.pictures; track item?.photoUrl) {
-                <div class="thumb active"><img [src]="item.photoUrl" alt="Thumb 1"></div>
-             }
-          </div>
+          @if (galleryImages().length > 1) {
+            <div class="thumbnails-grid" role="listbox" aria-label="Product photos">
+              @for (imageUrl of galleryImages(); track imageUrl; let i = $index) {
+                <button
+                  type="button"
+                  class="thumb"
+                  role="option"
+                  [class.active]="selectedImageIndex() === i"
+                  [attr.aria-selected]="selectedImageIndex() === i"
+                  [attr.aria-label]="'View photo ' + (i + 1) + ' of ' + galleryImages().length"
+                  (click)="selectImage(i)"
+                >
+                  <img [src]="imageUrl" alt="" />
+                </button>
+              }
+            </div>
+          }
         </div>
 
         <!-- Buy Panel / Descriptive Options -->
@@ -134,10 +167,16 @@
             <button type="button" class="add-to-cart-orange" (click)="addToCart()" [disabled]="addingToCart">
               <i class="fa-solid fa-basket-shopping"></i> {{ addingToCart ? 'Adding...' : 'Add to cart' }}
             </button>
+            <button type="button" class="wishlist-btn" (click)="toggleWishlist()" [disabled]="wishlistLoading">
+              {{ inWishlist() ? '♥ Saved' : '♡ Add to Wishlist' }}
+            </button>
             <a routerLink="/cart" class="view-cart-link">View Cart</a>
           </div>
           @if (cartMessage) {
             <p class="cart-feedback">{{ cartMessage }}</p>
+          }
+          @if (wishlistMessage) {
+            <p class="cart-feedback">{{ wishlistMessage }}</p>
           }
         </div>
 

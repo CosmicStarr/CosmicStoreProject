@@ -5,6 +5,10 @@
       <p>Update product details, pricing, and media.</p>
     </header>
 
+    @if (saveMessage) {
+      <p class="status-message" [class.error]="isError" role="status">{{ saveMessage }}</p>
+    }
+
     <form [formGroup]="productForm" (ngSubmit)="onSubmit()" class="cosmic-form">
       
       <!-- Section 1: General Info -->
@@ -112,6 +116,9 @@
 
       <!-- Form Actions -->
       <div class="form-actions">
+        <button type="button" class="publish-btn" (click)="publishToStore()">
+          Publish to Store
+        </button>
         <button type="submit" class="submit-btn" [disabled]="productForm.invalid">
           Save Changes
         </button>

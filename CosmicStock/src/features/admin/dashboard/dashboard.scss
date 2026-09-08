@@ -1,65 +1,9 @@
-/* Reusing your color variables */
-
-
-/* Base Dashboard Layout using Flexbox */
-.admin-layout {
-  display: flex;
-  min-height: 100vh;
-  background-color: var(--bg-light);
-  font-family: var(--font-stack);
-}
-
-.admin-sidebar {
-  width: 260px;
-  background-color: var(--dark-blue-bg);
-  color: #ffffff;
-  display: flex;
-  flex-direction: column;
-}
-
-.sidebar-header {
-  padding: 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.sidebar-header h2 {
-  margin: 0;
-  color: var(--primary-orange);
-  font-size: 20px;
-}
-
-.sidebar-nav {
-  display: flex;
-  flex-direction: column;
-  padding: 16px 0;
-}
-
-.sidebar-nav a {
-  padding: 16px 24px;
-  color: #cbd5e1;
-  text-decoration: none;
-  font-weight: 500;
-  transition: background-color 0.2s, color 0.2s;
-}
-
-.sidebar-nav a:hover, .sidebar-nav a.active {
-  background-color: rgba(255, 255, 255, 0.05);
-  color: #ffffff;
-  border-left: 4px solid var(--primary-orange);
-}
-
-/* Main Content Area */
-.admin-main {
-  flex: 1;
-  padding: 32px;
-  overflow-y: auto;
-}
-
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 32px;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
 .page-header h1 {
@@ -68,30 +12,63 @@
   font-size: 28px;
 }
 
-.add-btn {
-  background-color: var(--primary-orange);
-  color: white;
+.subtitle {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.secondary-btn,
+.publish-btn {
   border: none;
-  padding: 10px 20px;
   border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s;
+  padding: 10px 16px;
 }
 
-.add-btn:hover {
-  background-color: #e68200;
+.secondary-btn {
+  background: #fff;
+  color: var(--text-dark);
+  border: 1px solid var(--border-light);
 }
 
-/* Product Grid using CSS Grid */
+.publish-btn {
+  background: var(--primary-orange);
+  color: #fff;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.secondary-btn:disabled,
+.publish-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.status-message {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.status-message.error {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
 .product-grid {
   display: grid;
-  /* Automatically fits as many columns as possible, with a minimum width of 280px */
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 24px;
 }
 
-/* Individual Product Card using Flexbox */
 .product-card {
   background-color: #ffffff;
   border: 1px solid var(--border-light);
@@ -100,12 +77,6 @@
   display: flex;
   flex-direction: column;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.product-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 .card-image-wrapper {
@@ -127,7 +98,7 @@
 
 .card-content {
   padding: 20px;
-  flex: 1; /* Pushes the footer to the bottom */
+  flex: 1;
 }
 
 .card-header {
@@ -152,7 +123,7 @@
 }
 
 .product-title {
-  margin: 0 0 12px 0;
+  margin: 0 0 12px;
   color: var(--text-dark);
   font-size: 16px;
   line-height: 1.4;
@@ -163,7 +134,6 @@
   margin: 0;
   font-size: 20px;
   font-weight: 700;
-  color: var(--text-dark);
 }
 
 .card-footer {
@@ -183,46 +153,10 @@
   text-decoration: none;
   font-weight: 600;
   font-size: 14px;
-  transition: all 0.2s;
 }
 
 .action-btn:hover {
   background-color: var(--primary-orange);
   color: white;
   border-color: var(--primary-orange);
-}
-
-/* Responsive adjustment for tablets/mobile */
-@media (max-width: 768px) {
-  .admin-layout {
-    flex-direction: column;
-  }
-  
-  .admin-sidebar {
-    width: 100%;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
-  
-  .sidebar-header {
-    border-bottom: none;
-    padding: 16px;
-  }
-  
-  .sidebar-nav {
-    flex-direction: row;
-    padding: 0 16px;
-  }
-  
-  .sidebar-nav a {
-    padding: 16px;
-    border-left: none;
-    border-bottom: 4px solid transparent;
-  }
-
-  .sidebar-nav a:hover, .sidebar-nav a.active {
-    border-left: none;
-    border-bottom: 4px solid var(--primary-orange);
-  }
 }

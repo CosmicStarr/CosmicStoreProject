@@ -125,3 +125,31 @@
   color: var(--text-dark);
   border: 1px solid var(--border-light);
 }
+
+.address-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.address-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    border-color: var(--primary-orange);
+  }
+
+  span {
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+}

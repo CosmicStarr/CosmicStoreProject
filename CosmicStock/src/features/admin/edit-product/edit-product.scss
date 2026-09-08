@@ -205,16 +205,30 @@
   }
 }
 
+.status-message {
+  margin: 0;
+  padding: 12px 40px;
+  background-color: #ecfdf5;
+  color: #065f46;
+  font-size: 14px;
+  font-weight: 500;
+
+  &.error {
+    background-color: #fef2f2;
+    color: #991b1b;
+  }
+}
+
 /* Primary Button */
 .form-actions {
   margin-top: 30px;
   display: flex;
   justify-content: flex-end;
+  gap: 12px;
 }
 
+.publish-btn,
 .submit-btn {
-  background-color: var(--primary-orange);
-  color: #ffffff;
   border: none;
   border-radius: 6px;
   padding: 14px 32px;
@@ -222,6 +236,21 @@
   font-weight: 700;
   cursor: pointer;
   transition: background-color 0.2s;
+}
+
+.publish-btn {
+  background-color: #ffffff;
+  color: var(--text-dark);
+  border: 1px solid var(--border-light);
+
+  &:hover {
+    background-color: var(--bg-light);
+  }
+}
+
+.submit-btn {
+  background-color: var(--primary-orange);
+  color: #ffffff;
 
   &:hover:not([disabled]) {
     background-color: #e68200;

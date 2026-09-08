@@ -1,0 +1,35 @@
+.settings-card {
+  background: #fff;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  padding: 24px;
+  max-width: 560px;
+}
+
+.settings-card h2 {
+  margin: 0 0 8px;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
+  font-size: 18px;
+}
+
+.example {
+  margin-top: 12px;
+  color: var(--text-muted);
+}
+
+code {
+  background: var(--bg-light);
+  padding: 2px 6px;
+  border-radius: 4px;
+}

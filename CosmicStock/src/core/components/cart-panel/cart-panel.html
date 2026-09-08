@@ -1,0 +1,62 @@
+@if (cartService.panelOpen()) {
+  <div class="cart-backdrop" (click)="cartService.closePanel()" aria-hidden="true"></div>
+
+  <aside
+    id="cart-side-panel"
+    class="cart-panel"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Shopping cart">
+    <header class="cart-panel-header">
+      <h2>Shopping Cart</h2>
+      <button
+        type="button"
+        class="close-btn"
+        (click)="cartService.closePanel()"
+        aria-label="Close shopping cart">
+        &times;
+      </button>
+    </header>
+
+    <div class="cart-panel-body">
+      @if (cartService.cart()?.shoppingCartItems.length) {
+        <ul class="cart-panel-items">
+          @for (item of cartService.cart()!.shoppingCartItems; track item.sku) {
+            <li class="cart-panel-item">
+              <div class="item-details">
+                <span class="item-name">{{ item.name }}</span>
+                <span class="item-meta">Qty {{ item.amount }} · {{ item.price | currency:'USD':'symbol' }} each</span>
+              </div>
+              <div class="item-actions">
+                <span class="item-total">{{ item.price * item.amount | currency:'USD':'symbol' }}</span>
+                <button
+                  type="button"
+                  class="remove-btn"
+                  (click)="removeItem(item.sku)"
+                  [attr.aria-label]="'Remove ' + item.name">
+                  Remove
+                </button>
+              </div>
+            </li>
+          }
+        </ul>
+      } @else {
+        <div class="empty-state">
+          <p>Your cart is empty.</p>
+          <a routerLink="/store" class="browse-btn" (click)="cartService.closePanel()">Browse Products</a>
+        </div>
+      }
+    </div>
+
+    @if (cartService.cart()?.shoppingCartItems.length) {
+      <footer class="cart-panel-footer">
+        <div class="subtotal-row">
+          <span>Subtotal</span>
+          <strong>{{ cartService.subtotal() | currency:'USD':'symbol' }}</strong>
+        </div>
+        <a routerLink="/cart" class="view-cart-btn" (click)="cartService.closePanel()">View Full Cart</a>
+        <a routerLink="/checkout" class="checkout-btn" (click)="cartService.closePanel()">Checkout</a>
+      </footer>
+    }
+  </aside>
+}

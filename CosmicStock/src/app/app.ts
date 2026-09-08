@@ -1,10 +1,12 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { AccountService } from '../core/services/account-service';
+import { CartPanelComponent } from '../core/components/cart-panel/cart-panel';
+
 
 
 @Component({
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, CartPanelComponent, ],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',

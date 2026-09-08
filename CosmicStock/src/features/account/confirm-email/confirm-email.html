@@ -1,0 +1,12 @@
+<div class="account-wrapper">
+  <div class="account-container">
+    <h2>Email Confirmation</h2>
+
+    @if (loading) {
+      <p class="muted">Confirming your email...</p>
+    } @else {
+      <p [class.error-text]="isError" role="status">{{ message }}</p>
+      <a routerLink="/login" class="link-btn">Go to Login</a>
+    }
+  </div>
+</div>

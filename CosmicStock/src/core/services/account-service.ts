@@ -74,4 +74,29 @@ export class AccountService {
       })
     );
   }
+
+  confirmEmail(userId: string, token: string) {
+    return this.http.post<{ message: string }>(`${this.apiUrl}account/confirm-email`, { userId, token });
+  }
+
+  forgotPassword(email: string) {
+    return this.http.post<{ message: string }>(`${this.apiUrl}account/forgot-password`, { email });
+  }
+
+  resetPassword(payload: { email: string; token: string; newPassword: string; confirmPassword: string }) {
+    return this.http.post<{ message: string }>(`${this.apiUrl}account/reset-password`, payload);
+  }
+
+  updateProfile(userName: string) {
+    return this.http.put<IUser>(`${this.apiUrl}account/profile`, { userName }).pipe(
+      tap((user) => {
+        localStorage.setItem('cosmicStockUser', JSON.stringify(user));
+        this.currentUserSource.next(user);
+      })
+    );
+  }
+
+  changePassword(payload: { currentPassword: string; newPassword: string; confirmPassword: string }) {
+    return this.http.post<{ message: string }>(`${this.apiUrl}account/change-password`, payload);
+  }
 }

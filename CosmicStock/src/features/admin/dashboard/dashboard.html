@@ -1,47 +1,42 @@
-<div class="admin-layout">
-  <!-- Sidebar Navigation -->
-  <aside class="admin-sidebar">
-    <div class="sidebar-header">
-      <h2>Cosmic Admin</h2>
-    </div>
-    <nav class="sidebar-nav">
-      <a routerLink="/admin/dashboard" class="active">Products</a>
-      <a routerLink="/admin/orders">Orders</a>
-      <a routerLink="/admin/users">Users</a>
-      <a routerLink="/admin/settings">Settings</a>
-    </nav>
-  </aside>
+<header class="page-header">
+  <div>
+    <h1>CJ Product Catalog</h1>
+    <p class="subtitle">Publish products from CJ staging to your storefront</p>
+  </div>
+  <div class="header-actions">
+    <button type="button" class="secondary-btn" (click)="publishAll()" [disabled]="publishing || !apiData().length">
+      {{ publishing ? 'Publishing...' : 'Publish All on Page' }}
+    </button>
+  </div>
+</header>
 
-  <!-- Main Content Area -->
-  <main class="admin-main">
-    <header class="page-header">
-      <h1>Product Catalog</h1>
-      <button class="add-btn">+ Add Product</button>
-    </header>
+@if (message) {
+  <p class="status-message" [class.error]="isError">{{ message }}</p>
+}
 
-    <!-- Product Grid -->
-    <div class="product-grid">
-      @for (product of apiData(); track product.sku) {
-        <div class="product-card">
-          <div class="card-image-wrapper">
-            <img [src]="product.bigImage" [alt]="product.nameEn" class="product-thumbnail">
-          </div>
-          
-          <div class="card-content">
-            <div class="card-header">
-              <span class="category-badge">{{product.category.categoryName}}</span>
-              <span class="sku">SKU: {{product.sku}}</span>
-            </div>
-            
-            <h3 class="product-title">{{product.nameEn}}</h3>
-            <p class="product-price">${{product.sellPrice}}</p>
-          </div>
+<div class="product-grid">
+  @for (product of apiData(); track product.id) {
+    <div class="product-card">
+      <div class="card-image-wrapper">
+        <img [src]="product.bigImage" [alt]="product.nameEn" class="product-thumbnail">
+      </div>
 
-          <div class="card-footer">
-            <a routerLink="/admin/edit-Product/{{product.id}}" class="action-btn">Edit Details</a>
-          </div>
+      <div class="card-content">
+        <div class="card-header">
+          <span class="category-badge">{{ product.category?.categoryName }}</span>
+          <span class="sku">SKU: {{ product.sku }}</span>
         </div>
-      }
+
+        <h3 class="product-title">{{ product.nameEn }}</h3>
+        <p class="product-price">${{ product.sellPrice }}</p>
+      </div>
+
+      <div class="card-footer">
+        <button type="button" class="publish-btn" (click)="publishOne(product.id)" [disabled]="publishing">
+          Publish to Store
+        </button>
+        <a routerLink="/admin/edit-Product/{{ product.id }}" class="action-btn">Edit Details</a>
+      </div>
     </div>
-  </main>
+  }
 </div>

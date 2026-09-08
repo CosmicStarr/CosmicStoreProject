@@ -3,10 +3,11 @@ import { CurrencyPipe, DatePipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { OrderService } from '../../../core/services/order-service';
 import { IOrder } from '../../models/order';
+import { SiteNavbarComponent } from "../../../core/components/site-navbar/site-navbar";
 
 @Component({
   selector: 'app-order-detail-component',
-  imports: [CurrencyPipe, DatePipe, RouterLink],
+  imports: [CurrencyPipe, DatePipe, RouterLink, SiteNavbarComponent],
   templateUrl: './order-detail-component.html',
   styleUrl: './order-detail-component.scss',
 })

@@ -1,1 +1,18 @@
-<p>admin-layout works!</p>
+<div class="admin-layout">
+  <aside class="admin-sidebar">
+    <div class="sidebar-header">
+      <h2>Cosmic Admin</h2>
+      <a routerLink="/" class="back-link">← Storefront</a>
+    </div>
+    <nav class="sidebar-nav" aria-label="Admin navigation">
+      <a routerLink="/admin/dashboard" routerLinkActive="active">Products</a>
+      <a routerLink="/admin/orders" routerLinkActive="active">Orders</a>
+      <a routerLink="/admin/users" routerLinkActive="active">Users</a>
+      <a routerLink="/admin/settings" routerLinkActive="active">Settings</a>
+    </nav>
+  </aside>
+
+  <main class="admin-main">
+    <router-outlet />
+  </main>
+</div>

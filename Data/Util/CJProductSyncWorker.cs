@@ -54,7 +54,7 @@ public class CJProductSyncWorker : BackgroundService
             {
                 throw new Exception("The Access Token is physically empty in C#!");
             }
-
+            
             httpClient.DefaultRequestHeaders.Clear();
             httpClient.DefaultRequestHeaders.TryAddWithoutValidation("CJ-Access-Token", token);
 

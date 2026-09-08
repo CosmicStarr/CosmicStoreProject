@@ -1,0 +1,118 @@
+<div class="profile-page">
+  <header class="page-header">
+    <h1>My Profile</h1>
+    <p class="muted">Manage your account, password, and saved addresses.</p>
+  </header>
+
+  <section class="card">
+    <h2>Account</h2>
+    <form [formGroup]="profileForm" (ngSubmit)="saveProfile()">
+      <div class="form-group">
+        <label for="userName">Display Name</label>
+        <input id="userName" type="text" formControlName="userName">
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input id="email" type="email" formControlName="email">
+      </div>
+      @if (profileMessage) {
+        <p [class.error-text]="isError">{{ profileMessage }}</p>
+      }
+      <button type="submit" class="submit-btn" [disabled]="profileForm.invalid">Save Profile</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Change Password</h2>
+    <form [formGroup]="passwordForm" (ngSubmit)="changePassword()">
+      <div class="form-group">
+        <label for="currentPassword">Current Password</label>
+        <input id="currentPassword" type="password" formControlName="currentPassword">
+      </div>
+      <div class="form-group">
+        <label for="newPassword">New Password</label>
+        <input id="newPassword" type="password" formControlName="newPassword">
+      </div>
+      <div class="form-group">
+        <label for="confirmPassword">Confirm New Password</label>
+        <input id="confirmPassword" type="password" formControlName="confirmPassword">
+      </div>
+      @if (passwordMessage) {
+        <p [class.error-text]="isError">{{ passwordMessage }}</p>
+      }
+      <button type="submit" class="submit-btn" [disabled]="passwordForm.invalid">Update Password</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Saved Addresses</h2>
+
+    @if (addresses().length) {
+      <ul class="address-list">
+        @for (address of addresses(); track address.id) {
+          <li>
+            <div>
+              <strong>{{ address.label }}</strong>
+              @if (address.isDefault) {
+                <span class="badge">Default</span>
+              }
+              <p>{{ address.fullName }}</p>
+              <p class="muted">{{ address.streetAddress }}, {{ address.city }}, {{ address.provinceOrState }} {{ address.countryCode }}</p>
+            </div>
+            <div class="address-actions">
+              <button type="button" class="secondary-btn" (click)="editAddress(address)">Edit</button>
+              <button type="button" class="danger-btn" (click)="deleteAddress(address.id)">Delete</button>
+            </div>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="muted">No saved addresses yet.</p>
+    }
+
+    <form [formGroup]="addressForm" (ngSubmit)="saveAddress()" class="address-form">
+      <h3>{{ editingAddressId ? 'Edit Address' : 'Add Address' }}</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="label">Label</label>
+          <input id="label" type="text" formControlName="label" placeholder="Home">
+        </div>
+        <div class="form-group">
+          <label for="fullName">Full Name</label>
+          <input id="fullName" type="text" formControlName="fullName">
+        </div>
+        <div class="form-group full-width">
+          <label for="streetAddress">Street Address</label>
+          <input id="streetAddress" type="text" formControlName="streetAddress">
+        </div>
+        <div class="form-group">
+          <label for="city">City</label>
+          <input id="city" type="text" formControlName="city">
+        </div>
+        <div class="form-group">
+          <label for="provinceOrState">State / Province</label>
+          <input id="provinceOrState" type="text" formControlName="provinceOrState">
+        </div>
+        <div class="form-group">
+          <label for="countryCode">Country Code</label>
+          <input id="countryCode" type="text" formControlName="countryCode">
+        </div>
+      </div>
+      <label class="checkbox-row">
+        <input type="checkbox" formControlName="isDefault">
+        Set as default address
+      </label>
+      @if (addressMessage) {
+        <p [class.error-text]="isError">{{ addressMessage }}</p>
+      }
+      <div class="form-actions">
+        @if (editingAddressId) {
+          <button type="button" class="secondary-btn" (click)="resetAddressForm()">Cancel</button>
+        }
+        <button type="submit" class="submit-btn" [disabled]="addressForm.invalid">
+          {{ editingAddressId ? 'Update Address' : 'Save Address' }}
+        </button>
+      </div>
+    </form>
+  </section>
+</div>

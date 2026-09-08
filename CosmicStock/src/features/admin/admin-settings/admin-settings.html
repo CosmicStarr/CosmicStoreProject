@@ -1,0 +1,21 @@
+<header class="page-header">
+  <h1>Store Settings</h1>
+</header>
+
+<section class="settings-card">
+  <h2>Publish Markup</h2>
+  <p class="muted">
+    CJ cost is multiplied by this value when publishing products to the storefront.
+    Configure the server default in <code>StoreSettings:DefaultMarkup</code>.
+  </p>
+
+  @if (settings()) {
+    <div class="setting-row">
+      <span>Current server markup</span>
+      <strong>{{ settings()!.defaultMarkup }}×</strong>
+    </div>
+    <p class="example">
+      Example: a $10 CJ product publishes at {{ 10 * settings()!.defaultMarkup | currency:'USD':'symbol' }}
+    </p>
+  }
+</section>

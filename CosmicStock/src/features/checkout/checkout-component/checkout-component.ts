@@ -1,9 +1,11 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { CartService } from '../../../core/services/cart-service';
 import { OrderService } from '../../../core/services/order-service';
+import { AddressService } from '../../../core/services/address-service';
+import { IUserAddress } from '../../models/UserInfo';
 
 @Component({
   selector: 'app-checkout-component',
@@ -14,10 +16,12 @@ import { OrderService } from '../../../core/services/order-service';
 export class CheckoutComponent implements OnInit {
   protected cartService = inject(CartService);
   private orderService = inject(OrderService);
+  private addressService = inject(AddressService);
   private fb = inject(FormBuilder);
   private router = inject(Router);
 
   checkoutForm!: FormGroup;
+  protected savedAddresses = signal<IUserAddress[]>([]);
   error: string | null = null;
   submitting = false;
 
@@ -30,6 +34,26 @@ export class CheckoutComponent implements OnInit {
       city: ['', Validators.required],
       provinceOrState: ['', Validators.required],
       countryCode: ['US', Validators.required],
+    });
+
+    this.addressService.getAddresses().subscribe({
+      next: (addresses) => {
+        this.savedAddresses.set(addresses);
+        const defaultAddress = addresses.find((address) => address.isDefault) ?? addresses[0];
+        if (defaultAddress) {
+          this.applyAddress(defaultAddress);
+        }
+      },
+    });
+  }
+
+  applyAddress(address: IUserAddress) {
+    this.checkoutForm.patchValue({
+      fullName: address.fullName,
+      streetAddress: address.streetAddress,
+      city: address.city,
+      provinceOrState: address.provinceOrState,
+      countryCode: address.countryCode,
     });
   }
 

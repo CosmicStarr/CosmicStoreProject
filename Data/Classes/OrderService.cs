@@ -107,10 +107,23 @@ public class OrderService : IOrderService
         return orders.Select(MapToDto);
     }
 
-    public async Task<OrderDto?> GetOrderAsync(string orderId, string userId)
+    public async Task<IEnumerable<OrderDto>> GetAllOrdersAsync()
     {
-        var order = await _storeUnitOfWork.Repository<Order>()
-            .GetFirstOrDefault(o => o.OrderId == orderId && o.AppUserId == userId, includeProperties: "Items");
+        var orders = await _storeUnitOfWork.Repository<Order>()
+            .GetAllParams(
+                orderby: q => q.OrderByDescending(o => o.CreatedAt),
+                includeProperties: "Items");
+
+        return orders.Select(MapToDto);
+    }
+
+    public async Task<OrderDto?> GetOrderAsync(string orderId, string? userId = null)
+    {
+        var order = userId is null
+            ? await _storeUnitOfWork.Repository<Order>()
+                .GetFirstOrDefault(o => o.OrderId == orderId, includeProperties: "Items")
+            : await _storeUnitOfWork.Repository<Order>()
+                .GetFirstOrDefault(o => o.OrderId == orderId && o.AppUserId == userId, includeProperties: "Items");
 
         return order is null ? null : MapToDto(order);
     }

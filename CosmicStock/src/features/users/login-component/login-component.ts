@@ -2,6 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AccountService } from '../../../core/services/account-service';
+import { getRoleFromToken } from '../../../core/utils/auth-utils';
 
 @Component({
   imports: [ReactiveFormsModule, RouterLink],
@@ -32,7 +33,7 @@ onSubmit() {
 
     this.accountService.login(this.loginForm.value).subscribe({
       next: (user) => {
-        const role = this.getRoleFromToken(user.token);
+        const role = getRoleFromToken(user.token);
 
         if (role === 'Admin') {
           this.router.navigateByUrl('/admin/dashboard');
@@ -45,18 +46,4 @@ onSubmit() {
       }
     });
   }
-
-  private getRoleFromToken(token: string): string {
-    try {
-      const payloadBase64 = token.split('.')[1];
-      const decodedPayload = JSON.parse(atob(payloadBase64));
-      
-      return decodedPayload['role'] || decodedPayload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || '';
-    } catch (e) {
-      return '';
-    }
-  }
-
-
-  
 }

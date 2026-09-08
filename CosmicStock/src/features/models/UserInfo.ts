@@ -1,7 +1,7 @@
 export interface IUser {
   email: string;
   token: string;
-  displayName: string;
+  userName: string;
 }
 
 export interface ILoginValues {
@@ -10,5 +10,27 @@ export interface ILoginValues {
 }
 
 export interface IRegisterValues extends ILoginValues {
-  displayName: string;
+  userName: string;
+  confirmPassword: string;
+}
+
+export interface IUserAddress {
+  id: number;
+  label: string;
+  fullName: string;
+  streetAddress: string;
+  city: string;
+  provinceOrState: string;
+  countryCode: string;
+  isDefault: boolean;
+}
+
+export interface IWishlistItem {
+  id: number;
+  productId: string;
+  nameEn: string;
+  sku: string;
+  sellPrice: number;
+  bigImage?: string;
+  addedAt: string;
 }

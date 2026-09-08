@@ -29,6 +29,16 @@ public class ApplicationDbStoreContext(DbContextOptions<ApplicationDbStoreContex
             .Property(i => i.PriceAtPurchase)
             .HasColumnType("decimal(18,2)");
 
+        modelBuilder.Entity<WishlistItem>()
+            .HasIndex(w => new { w.AppUserId, w.ProductId })
+            .IsUnique();
+
+        modelBuilder.Entity<WishlistItem>()
+            .HasOne(w => w.Product)
+            .WithMany()
+            .HasForeignKey(w => w.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // Tell EF Core this doesn't have a primary key and isn't a real table
         modelBuilder.Entity<ProductWithPictureDto>().HasNoKey();
     }
@@ -39,4 +49,6 @@ public class ApplicationDbStoreContext(DbContextOptions<ApplicationDbStoreContex
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<ShoppingCartSessionId> ShoppingCartSessions { get; set; }
+    public DbSet<UserAddress> UserAddresses { get; set; }
+    public DbSet<WishlistItem> WishlistItems { get; set; }
 }

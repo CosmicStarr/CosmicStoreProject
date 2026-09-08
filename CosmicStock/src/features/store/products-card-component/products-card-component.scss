@@ -262,10 +262,16 @@ body {
   cursor: pointer;
   padding: 10px;
   transition: color 0.2s;
-}
 
-.slide-arrow:hover {
-  color: var(--primary-orange);
+  &:hover {
+    color: var(--primary-orange);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-orange);
+    outline-offset: 2px;
+    color: var(--primary-orange);
+  }
 }
 
 .left-arrow { left: 5px; }
@@ -286,10 +292,21 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: #ffffff;
+
+  &:hover {
+    border-color: var(--primary-orange);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-orange);
+    outline-offset: 2px;
+  }
 }
 
 .thumb.active {
   border-color: var(--primary-orange);
+  box-shadow: 0 0 0 1px var(--primary-orange);
 }
 
 .thumb img {
@@ -429,6 +446,22 @@ body {
 
 .add-to-cart-orange:hover {
   background-color: var(--dark-orange);
+}
+
+.wishlist-btn {
+  background: #ffffff;
+  color: var(--text-dark);
+  border: 1px solid var(--border-color);
+  padding: 0 18px;
+  height: 40px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.wishlist-btn:hover:not([disabled]) {
+  border-color: var(--primary-orange);
+  color: var(--primary-orange);
 }
 
 /* BOTTOM DESCRIPTION TABS SEGMENTATION */

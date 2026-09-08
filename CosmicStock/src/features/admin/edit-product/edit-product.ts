@@ -19,6 +19,8 @@ export class EditProductComponent implements OnInit {
   urlStrings!: string
   productId!: string;
   protected productForm: FormGroup = new FormGroup({});
+  saveMessage: string | null = null;
+  isError = false;
   
 
 
@@ -91,9 +93,28 @@ addImage(imageString: string): void {
   onSubmit() {
     if (this.productForm.valid) {
       this.productService.updateProduct(this.productId, this.productForm.value).subscribe({
-        next: (data) => console.log(data),
-        error: (err) => console.error('Submit update failed', err)
+        next: () => {
+          this.saveMessage = 'Product saved to storefront.';
+          this.isError = false;
+        },
+        error: () => {
+          this.saveMessage = 'Failed to save product.';
+          this.isError = true;
+        }
       });
     }
+  }
+
+  publishToStore() {
+    this.productService.publishProduct(this.productId).subscribe({
+      next: () => {
+        this.saveMessage = 'Product published to storefront from CJ catalog.';
+        this.isError = false;
+      },
+      error: () => {
+        this.saveMessage = 'Publish failed.';
+        this.isError = true;
+      }
+    });
   }
 }

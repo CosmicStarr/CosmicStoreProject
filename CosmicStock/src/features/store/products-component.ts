@@ -4,10 +4,11 @@ import { sunParams } from '../models/paramOptions';
 import { StoreProductsService } from '../../core/services/store-products';
 import { IProductResponse } from '../models/productResponse';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { SiteNavbarComponent } from "../../core/components/site-navbar/site-navbar";
 
 
 @Component({
-  imports: [RouterLink],
+  imports: [RouterLink, SiteNavbarComponent],
   selector: 'app-products-component',
   styleUrl: './products-component.scss',
   templateUrl: './products-component.html',
