@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Models;
 
 
@@ -24,5 +26,6 @@ public class Products
     public string? Category { get; set; }
     public int StockQuantity { get; set; }
     // If you added these earlier, make sure they are nullable too
+    [JsonIgnore]
     public IList<ProductImage>? ProductImages { get; set; }
 }

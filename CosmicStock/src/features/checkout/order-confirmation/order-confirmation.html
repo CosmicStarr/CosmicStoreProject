@@ -1,0 +1,64 @@
+<app-site-navbar />
+<div class="confirmation-wrapper">
+  <div class="confirmation-container">
+    @if (order(); as placed) {
+      <header class="confirmation-header">
+        <p class="eyebrow">Order confirmed</p>
+        <h1>Thanks for your purchase</h1>
+        <p class="muted">
+          We sent a confirmation with these details to
+          <strong>{{ placed.customerEmail }}</strong>.
+        </p>
+      </header>
+
+      <section class="detail-card">
+        <h2>Order {{ placed.orderId.slice(0, 8) }}</h2>
+        <p class="muted">Placed {{ placed.createdAt | date:'medium' }}</p>
+        <p class="status">{{ placed.status }}</p>
+      </section>
+
+      <section class="detail-card">
+        <h2>Shipping</h2>
+        <p>{{ placed.customerName }}</p>
+        <p>{{ placed.shippingAddress }}</p>
+        <p>{{ placed.city }}, {{ placed.state }} {{ placed.country }}</p>
+        <p class="muted">
+          {{ placed.logisticName }} — {{ placed.shippingCost | currency:'USD':'symbol' }}
+        </p>
+      </section>
+
+      <section class="detail-card">
+        <h2>Items</h2>
+        @for (item of placed.items; track item.sku) {
+          <div class="item-row">
+            <span>{{ item.name || item.sku }} × {{ item.quantity }}</span>
+            <span>{{ item.priceAtPurchase * item.quantity | currency:'USD':'symbol' }}</span>
+          </div>
+        }
+        <div class="item-row">
+          <span>Shipping</span>
+          <span>{{ placed.shippingCost | currency:'USD':'symbol' }}</span>
+        </div>
+        <div class="total-row">
+          <span>Total</span>
+          <strong>{{ placed.total | currency:'USD':'symbol' }}</strong>
+        </div>
+      </section>
+
+      <div class="confirmation-actions">
+        <a routerLink="/store" class="primary-btn">Continue shopping</a>
+      </div>
+    } @else {
+      <header class="confirmation-header">
+        <h1>Check your email</h1>
+        <p class="muted">
+          If you just placed an order, the confirmation and order details were sent to the email you entered at checkout.
+        </p>
+      </header>
+      <div class="confirmation-actions">
+        <a routerLink="/store" class="primary-btn">Continue shopping</a>
+      </div>
+    }
+  </div>
+</div>
+<app-site-footer />

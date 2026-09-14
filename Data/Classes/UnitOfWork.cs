@@ -4,16 +4,21 @@ using Data.Interfaces;
 
 namespace Data.Classes;
 
+/// <summary>
+/// Unit of work for the CJ staging database. Caches <see cref="Repository{T}"/> instances per entity type.
+/// </summary>
 public class UnitOfWork(ApplicationDbContext context) : IUnitOfWork
 {
     private Hashtable? _repo;
     private readonly ApplicationDbContext _context = context;
 
+    /// <summary>Persists staged staging-table changes.</summary>
     public async Task<int> Complete()
     {
         return await _context.SaveChangesAsync();
     }
 
+    /// <summary>Disposes the staging DbContext.</summary>
 #pragma warning disable CA1816 // Dispose methods should call SuppressFinalize
     public void Dispose()
 #pragma warning restore CA1816 // Dispose methods should call SuppressFinalize
@@ -21,6 +26,9 @@ public class UnitOfWork(ApplicationDbContext context) : IUnitOfWork
         _context.Dispose();
     }
 
+    /// <summary>
+    /// Returns a cached <see cref="Repository{T}"/> for this entity type, creating it on first use.
+    /// </summary>
     public IRepository<T> Repository<T>() where T : class
     {
         _repo ??= [];

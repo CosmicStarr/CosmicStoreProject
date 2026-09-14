@@ -1,49 +1,38 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
-import { sunParams } from '../../models/paramOptions';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { CurrencyPipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { StoreProductsService } from '../../../core/services/store-products';
-import { IProductResponse } from '../../models/productResponse';
-import { AdminProductService } from '../../../core/services/admin-product';
-import { ActivatedRoute, RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
-import { environment } from '../../../env/environment';
-import { IFlatProduct } from '../../models/flattenProduct';
-import { SiteNavbarComponent } from "../../../core/components/site-navbar/site-navbar";
+import { ICategorySummary, IProductResponse } from '../../models/productResponse';
+import { SiteNavbarComponent } from '../../../core/components/site-navbar/site-navbar';
+import { SiteFooterComponent } from '../../../core/components/site-footer/site-footer';
 
 @Component({
-  imports: [RouterLink, SiteNavbarComponent],
+  imports: [RouterLink, SiteNavbarComponent, SiteFooterComponent, CurrencyPipe],
   selector: 'app-home-component',
   styleUrl: './home-component.scss',
   templateUrl: './home-component.html',
 })
 export class HomeComponent implements OnInit {
-  private httpClient = inject(HttpClient);
-  protected readonly title = ('CosmicStock');
-  protected readonly description = ('CosmicStock is a web application that allows users to browse and purchase products from the CosmicStoreAPI. The application is built using Angular and TypeScript, and it communicates with the CosmicStoreAPI to retrieve product data. Users can view product details, add products to their cart, and complete purchases through the application.');
-  protected readonly baseUrl = environment.baseUrl;
-  protected readonly apiData = signal<IFlatProduct[]>([]);
-
-  private route = inject(ActivatedRoute);
-  productService = inject(StoreProductsService);
-  adminService = inject(AdminProductService);
-  sunParams = new sunParams();
-  highlightType: string = 'NewArrival';
-
-  productId!: string;
+  private productService = inject(StoreProductsService);
+  highlightType = 'Featured';
   protected readonly products = signal<IProductResponse[]>([]);
+  protected readonly categories = signal<ICategorySummary[]>([]);
+  protected readonly loading = signal(false);
+
+  protected readonly heroProduct = computed(() => this.products()[0] ?? null);
+  protected readonly campaignCategories = computed(() => this.categories().slice(0, 2));
+  protected readonly overflowProducts = computed(() => this.products().slice(2, 6));
 
   ngOnInit(): void {
-    this.productId = this.route.snapshot.paramMap.get('id') || '';
-    this.getAllProducts(this.highlightType);
-    this.getProduct();
-  }
-
-  getProduct() {
-    this.adminService.getProductById(this.productId).subscribe({
-      error: (err) => console.error('Failed to load product metadata', err)
+    this.productService.getCategories().subscribe({
+      next: (categories) => this.categories.set(categories),
     });
+    this.getAllProducts(this.highlightType);
   }
 
   getAllProducts(highlightType: string) {
+    this.highlightType = highlightType;
+    this.loading.set(true);
     this.productService.getHighlightedProducts(highlightType).subscribe({
       next: (response: unknown) => {
         if (Array.isArray(response)) {
@@ -55,10 +44,23 @@ export class HomeComponent implements OnInit {
         } else {
           this.products.set([]);
         }
+        this.loading.set(false);
       },
       error: (err) => {
         console.error('Error fetching products', err);
+        this.products.set([]);
+        this.loading.set(false);
       }
     });
+  }
+
+  highlightLabel(): string {
+    if (this.highlightType === 'Featured') return 'featured';
+    if (this.highlightType === 'TopSelling') return 'top selling';
+    return 'new arrival';
+  }
+
+  scrollToTop(): void {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 }

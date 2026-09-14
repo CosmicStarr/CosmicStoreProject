@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -7,9 +7,10 @@ import { sunParams } from '../models/paramOptions';
 import { StoreProductsService } from '../../core/services/store-products';
 import { ICategorySummary, IProductResponse } from '../models/productResponse';
 import { SiteNavbarComponent } from '../../core/components/site-navbar/site-navbar';
+import { SiteFooterComponent } from '../../core/components/site-footer/site-footer';
 
 @Component({
-  imports: [RouterLink, SiteNavbarComponent, CurrencyPipe, FormsModule],
+  imports: [RouterLink, SiteNavbarComponent, CurrencyPipe, FormsModule, SiteFooterComponent],
   selector: 'app-products-component',
   styleUrl: './products-component.scss',
   templateUrl: './products-component.html',
@@ -24,10 +25,16 @@ export class ProductsComponent implements OnInit {
   minPriceInput: number | null = null;
   maxPriceInput: number | null = null;
   p?: IPagination;
-  loading = false;
+  protected readonly loading = signal(false);
 
   protected readonly products = signal<IProductResponse[]>([]);
   protected readonly categories = signal<ICategorySummary[]>([]);
+  protected readonly heroImages = computed(() =>
+    this.products()
+      .map((product) => product.bigImage?.trim())
+      .filter((url): url is string => !!url)
+      .slice(0, 2),
+  );
 
   ngOnInit(): void {
     this.productService.getCategories().subscribe({
@@ -49,18 +56,25 @@ export class ProductsComponent implements OnInit {
   }
 
   loadProducts() {
-    this.loading = true;
+    this.loading.set(true);
 
     this.productService.getJoinedProducts(this.sunParams).subscribe({
       next: (response) => {
         this.products.set(response?.result ?? []);
         this.p = response?.Pagination;
-        this.loading = false;
+        this.loading.set(false);
       },
       error: (err) => {
         console.error('Error fetching products', err);
-        this.loading = false;
+        this.loading.set(false);
       },
+    });
+  }
+
+  selectCategory(category: string | null) {
+    this.updateQuery({
+      category,
+      page: '1',
     });
   }
 
@@ -73,12 +87,9 @@ export class ProductsComponent implements OnInit {
     });
   }
 
-  onSortChange(sort: string) {
+  onSortSelect(event: Event) {
+    const sort = (event.target as HTMLSelectElement).value;
     this.updateQuery({ sort: sort || null, page: '1' });
-  }
-
-  selectCategory(category: string | null) {
-    this.updateQuery({ category, page: '1' });
   }
 
   goToPage(page: number) {

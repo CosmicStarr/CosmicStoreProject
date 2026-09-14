@@ -13,8 +13,10 @@ namespace Models.AngularDTOs
         public string Email { get; set; } = string.Empty;
 
         [Required]
-        [StringLength(20, MinimumLength = 8,  ErrorMessage = "A minimun of 8 characters are allowed!")]
-        [RegularExpression("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,20}$")]
+        [StringLength(20, MinimumLength = 8, ErrorMessage = "Password must be 8 to 20 characters.")]
+        [RegularExpression(
+            "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,20}$",
+            ErrorMessage = "Password must include upper and lower case letters, a number, and a symbol (@ $ ! % * ? &).")]
         [DataType(DataType.Password)]
         public string Password { get; set; } = string.Empty;
 
@@ -25,6 +27,8 @@ namespace Models.AngularDTOs
         public string ConfirmPassword { get; set; } = string.Empty;
         public ICollection<IdentityError>? RegisterErrors { get; set; }
         public string Token { get; set; } = string.Empty;
+        public bool EmailConfirmed { get; set; }
+        public bool IsGuest { get; set; }
 
     }
 }

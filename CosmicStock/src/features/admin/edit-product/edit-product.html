@@ -1,8 +1,8 @@
 <div class="edit-wrapper">
   <div class="edit-container">
     <header class="edit-header">
-      <h2>Edit Product</h2>
-      <p>Update product details, pricing, and media.</p>
+      <h2>{{ isCreate() ? 'Add Product' : 'Edit Product' }}</h2>
+      <p>{{ isCreate() ? 'Create a storefront product. Enter a CJ pid or SKU to import variants and images.' : 'Update product details, pricing, and media.' }}</p>
     </header>
 
     @if (saveMessage) {
@@ -10,20 +10,49 @@
     }
 
     <form [formGroup]="productForm" (ngSubmit)="onSubmit()" class="cosmic-form">
-      
+      @if (isCreate()) {
+        <section class="form-section">
+          <h3>Import from CJ</h3>
+          <p id="cj-pid-hint" class="section-hint">Enter a CJ product id (pid), product SKU, or variant SKU. Load fills name, price, images, and variant vids.</p>
+          <div class="form-group">
+            <label for="cjProductId">CJ product id or SKU</label>
+            <div class="add-image-bar">
+              <input
+                id="cjProductId"
+                type="text"
+                class="custom-input"
+                formControlName="cjProductId"
+                placeholder="pid or SKU, e.g. CJJJJTJT05843-Black"
+                autocomplete="off"
+                aria-describedby="cj-pid-hint">
+              <button
+                type="button"
+                class="btn-secondary"
+                (click)="loadFromCj()"
+                [disabled]="loadingFromCj() || !productForm.get('cjProductId')?.value">
+                {{ loadingFromCj() ? 'Loading...' : 'Load from CJ' }}
+              </button>
+            </div>
+          </div>
+          @if (cjVariants().length) {
+            <p class="variant-summary" role="status">{{ cjVariants().length }} variants loaded. Images and types are listed in the gallery below.</p>
+          }
+        </section>
+      }
+
       <!-- Section 1: General Info -->
       <section class="form-section">
         <h3>General Information</h3>
         
         <div class="form-grid">
           <div class="form-group">
-            <label>Product Name (EN)</label>
-            <input type="text" formControlName="nameEn" placeholder="e.g. Wireless Mouse">
+            <label for="nameEn">Product Name (EN)</label>
+            <input id="nameEn" type="text" formControlName="nameEn" placeholder="e.g. Wireless Mouse" required>
           </div>
           
           <div class="form-group">
-            <label>SKU</label>
-            <input type="text" formControlName="sku" placeholder="e.g. MS-12345">
+            <label for="sku">SKU</label>
+            <input id="sku" type="text" formControlName="sku" placeholder="e.g. MS-12345" required>
           </div>
           
           <div class="form-group">
@@ -32,19 +61,31 @@
           </div>
           
           <div class="form-group">
-            <label>Sell Price ($)</label>
-            <input type="number" formControlName="sellPrice" placeholder="0.00">
+            <label for="sellPrice">Sell Price ($)</label>
+            <input id="sellPrice" type="number" formControlName="sellPrice" placeholder="0.00" min="0" step="0.01">
+          </div>
+
+          <div class="form-group">
+            <label for="stockQuantity">Stock quantity</label>
+            <input id="stockQuantity" type="number" formControlName="stockQuantity" placeholder="50" min="0">
           </div>
         </div>
 
         <div class="form-group full-width mt-16">
-          <label>Main Image URL</label>
-          <input type="text" formControlName="bigImage" placeholder="https://...">
+          <label for="bigImage">Main Image URL</label>
+          <input id="bigImage" type="text" formControlName="bigImage" placeholder="https://...">
+          @if (productForm.get('bigImage')?.value) {
+            <div class="main-image-preview">
+              <img
+                [src]="productForm.get('bigImage')?.value"
+                [alt]="(productForm.get('nameEn')?.value || 'Product') + ' main image'">
+            </div>
+          }
         </div>
 
         <div class="form-group full-width mt-16">
-          <label>Description</label>
-          <textarea formControlName="descriptionEn" rows="4" placeholder="Enter product description here..."></textarea>
+          <label for="descriptionEn">Description</label>
+          <textarea id="descriptionEn" formControlName="descriptionEn" rows="4" placeholder="Enter product description here..."></textarea>
         </div>
       </section>
 
@@ -86,26 +127,47 @@
 
         <!-- Dynamic FormArray Loop -->
         <div formArrayName="productImages" class="gallery-grid">
+          @if (!productImagesArray.length) {
+            <p class="gallery-empty">No gallery images yet. Add a URL or load variants from CJ.</p>
+          }
           @for (group of productImagesArray.controls; track $index) {
             <div [formGroupName]="$index" class="gallery-card">
+              <input type="hidden" formControlName="productId">
               <div class="card-header">
                 <span class="badge">Image #{{$index + 1}}</span>
+                @if (group.get('type')?.value) {
+                  <span class="type-badge">{{ group.get('type')?.value }}</span>
+                }
               </div>
-              
+
               <div class="card-body">
-                <div class="form-group full-width">
-                  <label>Photo URL</label>
-                  <input formControlName="photoUrl" type="text" placeholder="Image URL">
-                </div>
-                
-                <div class="form-grid compact-grid mt-12">
-                  <div class="form-group">
-                    <label>Product ID</label>
-                    <input type="text" formControlName="productId" placeholder="Link ID">
+                <div class="gallery-preview-row">
+                  <div class="gallery-thumb">
+                    @if (group.get('photoUrl')?.value) {
+                      <img
+                        [src]="group.get('photoUrl')?.value"
+                        [alt]="galleryImageAlt($index)">
+                    } @else {
+                      <div class="gallery-thumb-empty">No image</div>
+                    }
                   </div>
-                  <div class="form-group">
-                    <label>SKU Value</label>
-                    <input formControlName="skuPhoto" type="text" placeholder="e.g. RED-S">
+
+                  <div class="gallery-fields">
+                    <div class="form-group full-width">
+                      <label [attr.for]="'photoUrl-' + $index">Photo URL</label>
+                      <input [id]="'photoUrl-' + $index" formControlName="photoUrl" type="text" placeholder="Image URL">
+                    </div>
+
+                    <div class="form-grid compact-grid mt-12">
+                      <div class="form-group">
+                        <label [attr.for]="'skuPhoto-' + $index">SKU Value</label>
+                        <input [id]="'skuPhoto-' + $index" formControlName="skuPhoto" type="text" placeholder="e.g. RED-S">
+                      </div>
+                      <div class="form-group">
+                        <label [attr.for]="'type-' + $index">Type</label>
+                        <input [id]="'type-' + $index" formControlName="type" type="text" placeholder="Color, size, etc.">
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -116,11 +178,13 @@
 
       <!-- Form Actions -->
       <div class="form-actions">
-        <button type="button" class="publish-btn" (click)="publishToStore()">
-          Publish to Store
-        </button>
-        <button type="submit" class="submit-btn" [disabled]="productForm.invalid">
-          Save Changes
+        @if (!isCreate()) {
+          <button type="button" class="publish-btn" (click)="publishToStore()">
+            Publish to Store
+          </button>
+        }
+        <button type="submit" class="submit-btn" [disabled]="productForm.invalid || saving">
+          {{ saving ? 'Saving...' : (isCreate() ? 'Add Product' : 'Save Changes') }}
         </button>
       </div>
       

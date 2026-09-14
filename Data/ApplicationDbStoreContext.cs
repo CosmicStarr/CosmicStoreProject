@@ -52,6 +52,14 @@ public class ApplicationDbStoreContext(DbContextOptions<ApplicationDbStoreContex
             .HasForeignKey(w => w.ProductId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // ProductId is the real FK. Without this, EF invented a shadow ProductsId column
+        // and the stored procedures (which join on ProductId) never saw gallery rows.
+        modelBuilder.Entity<ProductImage>()
+            .HasOne(image => image.Product)
+            .WithMany(product => product.ProductImages)
+            .HasForeignKey(image => image.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // Tell EF Core this doesn't have a primary key and isn't a real table
         modelBuilder.Entity<ProductWithPictureDto>().HasNoKey();
     }

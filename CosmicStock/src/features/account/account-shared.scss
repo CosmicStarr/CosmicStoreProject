@@ -96,3 +96,44 @@
   font-size: 14px;
   margin-bottom: 16px;
 }
+
+.success-text {
+  color: #166534;
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+
+.field-hint {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.confirmation-panel {
+  text-align: center;
+
+  h2:focus {
+    outline: 3px solid var(--primary-orange);
+    outline-offset: 4px;
+  }
+}
+
+.confirmation-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.link-btn.secondary {
+  background-color: #fff;
+  color: var(--text-dark);
+  border: 1px solid var(--border-light);
+}
+
+.link-btn:focus-visible,
+.submit-btn:focus-visible {
+  outline: 3px solid var(--primary-orange);
+  outline-offset: 2px;
+}

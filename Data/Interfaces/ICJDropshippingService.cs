@@ -23,6 +23,15 @@ public interface ICJDropshippingService
     /// <summary>Lists the CJ variants (vid/sku pairs) belonging to a CJ product.</summary>
     Task<IReadOnlyList<CjVariantDto>> GetProductVariantsAsync(string cjProductId);
 
+    /// <summary>Reads CJ product metadata (name, sku, image) for a pid.</summary>
+    Task<CjProductDetailsDto?> GetProductByPidAsync(string cjProductId);
+
+    /// <summary>Resolves a CJ pid, product SKU, or variant SKU to the parent product and its variants.</summary>
+    Task<CjProductLookup?> LookupProductAsync(string pidOrSku);
+
+    /// <summary>Finds the CJ vid for a variant SKU (or a one-variant product SKU).</summary>
+    Task<string?> ResolveVidBySkuAsync(string sku);
+
     /// <summary>Reads current CJ warehouse stock for the given variant ids.</summary>
     Task<IReadOnlyDictionary<string, int>> GetVariantStockAsync(IEnumerable<string> variantIds);
 }

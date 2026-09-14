@@ -79,8 +79,18 @@
 
 .cart-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   justify-content: flex-end;
+  align-items: center;
+}
+
+.confirm-email-hint {
+  margin: 0;
+  max-width: 28rem;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 .primary-btn, .secondary-btn {
@@ -93,6 +103,12 @@
 .primary-btn {
   background: var(--primary-orange);
   color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+.guest-btn {
+  font: inherit;
 }
 
 .secondary-btn {

@@ -20,7 +20,7 @@
 .edit-container {
   background-color: #ffffff;
   width: 100%;
-  max-width: 800px;
+  max-width: 960px;
   border-radius: 12px;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -166,11 +166,35 @@
     font-weight: 600;
     cursor: pointer;
     transition: background-color 0.2s;
+    white-space: nowrap;
 
-    &:hover {
+    &:hover:not([disabled]) {
       background-color: #1e293b;
     }
+
+    &[disabled] {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   }
+}
+
+.section-hint {
+  margin: -8px 0 16px;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.form-group .add-image-bar {
+  margin-bottom: 0;
+}
+
+.variant-summary {
+  margin: 0;
+  color: #065f46;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .gallery-grid {
@@ -189,10 +213,23 @@
     background-color: var(--bg-light);
     padding: 10px 16px;
     border-bottom: 1px solid var(--border-light);
-    
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+
     .badge {
       background-color: var(--text-muted);
       color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .type-badge {
+      background-color: var(--dark-blue-bg);
+      color: #ffffff;
       padding: 4px 8px;
       border-radius: 4px;
       font-size: 12px;
@@ -203,6 +240,59 @@
   .card-body {
     padding: 16px;
   }
+}
+
+.gallery-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.main-image-preview,
+.gallery-thumb {
+  margin-top: 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background-color: var(--bg-light);
+  overflow: hidden;
+
+  img {
+    display: block;
+    width: 100%;
+    max-height: 220px;
+    object-fit: contain;
+    background-color: #ffffff;
+  }
+}
+
+.gallery-preview-row {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.gallery-thumb {
+  margin-top: 0;
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  img {
+    max-height: 160px;
+  }
+}
+
+.gallery-thumb-empty {
+  padding: 24px 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.gallery-fields {
+  min-width: 0;
 }
 
 .status-message {
@@ -278,5 +368,9 @@
     .btn-secondary {
       padding: 12px;
     }
+  }
+
+  .gallery-preview-row {
+    grid-template-columns: 1fr;
   }
 }

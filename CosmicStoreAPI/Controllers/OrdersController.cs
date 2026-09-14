@@ -1,23 +1,40 @@
 using System.Security.Claims;
+using CosmicStoreAPI.Util;
 using Data.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Models;
 using Models.AngularDTOs;
 
 namespace CosmicStoreAPI.Controllers;
 
-public class OrdersController(IOrderService orderService) : BaseController
+/// <summary>
+/// Signed-in customer orders: place checkout and list/read own orders.
+/// </summary>
+public class OrdersController(IOrderService orderService, UserManager<AppUser> userManager) : BaseController
 {
     private readonly IOrderService _orderService = orderService;
+    private readonly UserManager<AppUser> _userManager = userManager;
 
-    [Authorize]
+    /// <summary>
+    /// Creates an order from the checkout payload, verifies Stripe payment, and maps each line SKU to a CJ vid.
+    /// Guests may check out without an Identity user. CJ fulfillment submit is currently skipped in OrderService.
+    /// </summary>
+    [AllowAnonymous]
     [HttpPost("checkout")]
     public async Task<ActionResult<OrderDto>> Checkout(AngularCheckoutRequest customerOrder)
     {
+        var blocked = await ConfirmedEmailGate.UnconfirmedMessageAsync(_userManager, User);
+        if (blocked is not null) return StatusCode(403, new { message = blocked });
+
         try
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var email = User.FindFirstValue(ClaimTypes.Email);
+            var isGuest = User.Identity?.IsAuthenticated != true || GuestPrincipal.IsGuest(User);
+            var userId = isGuest ? null : User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var email = string.IsNullOrWhiteSpace(customerOrder.Email)
+                ? User.FindFirstValue(ClaimTypes.Email)
+                : customerOrder.Email.Trim();
             var order = await _orderService.CreateOrderAsync(customerOrder, userId, email);
             return Ok(order);
         }
@@ -31,6 +48,9 @@ public class OrdersController(IOrderService orderService) : BaseController
         }
     }
 
+    /// <summary>
+    /// Lists the signed-in user's orders, newest first.
+    /// </summary>
     [Authorize]
     [HttpGet]
     public async Task<ActionResult<IEnumerable<OrderDto>>> GetOrders()
@@ -40,6 +60,9 @@ public class OrdersController(IOrderService orderService) : BaseController
         return Ok(orders);
     }
 
+    /// <summary>
+    /// Returns one order if it belongs to the signed-in user.
+    /// </summary>
     [Authorize]
     [HttpGet("{orderId}")]
     public async Task<ActionResult<OrderDto>> GetOrder(string orderId)

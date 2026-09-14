@@ -5,8 +5,9 @@ namespace Data.Interfaces;
 
 public interface IEditCjProducts
 {
+    Task<Products> CreateManualProductAsync(EditProductInfo product);
     Task<Products> EditCjProductAsync(string id, EditProductInfo product);
-    Task<Products> PublishFlatProductAsync(string flatProductId, decimal markupMultiplier = 1.4m);
+    Task<Products> PublishFlatProductAsync(string flatProductId, decimal markupMultiplier = 1.4m, EditProductInfo? overlay = null);
     Task<IReadOnlyList<Products>> PublishBulkAsync(IEnumerable<string> flatProductIds, decimal markupMultiplier = 1.4m);
     IEnumerable<ProductResponseDto> GroupData(IEnumerable<ProductWithPictureDto> flatData);
 }

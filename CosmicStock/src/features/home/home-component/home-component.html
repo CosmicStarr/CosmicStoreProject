@@ -1,328 +1,184 @@
 <app-site-navbar />
-<!-- Main Interface Body -->
 <main class="page-container">
-  <!-- Hero Promo Banner Section -->
   <section class="hero-banner">
-    <div class="hero-image-side">
-      <img src="https://unsplash.com" alt="Laptop Preview" class="hero-laptop-img">
-    </div>
+    @if (heroProduct()?.bigImage) {
+      <div class="hero-image-side">
+        <img [src]="heroProduct()!.bigImage" [alt]="heroProduct()!.nameEn" class="hero-laptop-img">
+      </div>
+    }
     <div class="hero-text-side">
-      <span class="hero-subtitle">SAVE UP TO A $100</span>
-      <h1>On Selected Desktops & Smartphones</h1>
-      <p class="terms-text">Terms and Condition Apply</p>
+      <span class="hero-subtitle">COSMICSTORE</span>
+      <h1>Shop the latest catalog</h1>
+      <p class="terms-text">Featured picks from the CosmicStore collection.</p>
       <a routerLink="/store" class="shop-now-btn">Shop Now</a>
     </div>
   </section>
 </main>
 
-<!-- 6-Column Value Grid (Add below category menu) -->
 <section class="value-strip">
   <div class="value-box">
     <div class="val-icon">🔄</div>
     <div class="val-text">
       <h4>FREE RETURN</h4>
-      <p>30 days money back guarantee!</p>
+      <p>30 days money back guarantee</p>
     </div>
   </div>
   <div class="value-box">
     <div class="val-icon">✈️</div>
     <div class="val-text">
       <h4>FREE SHIPPING</h4>
-      <p>Free shipping on all order</p>
+      <p>Free shipping on all orders</p>
     </div>
   </div>
   <div class="value-box">
     <div class="val-icon">⚽</div>
     <div class="val-text">
       <h4>SUPPORT 24/7</h4>
-      <p>We support online 24 hrs a day</p>
+      <p>We support online 24 hours a day</p>
     </div>
   </div>
   <div class="value-box">
     <div class="val-icon">💳</div>
     <div class="val-text">
-      <h4>RECEIVE GIFT CARD</h4>
-      <p>Recieve gift all over oder $50</p>
+      <h4>SECURE CHECKOUT</h4>
+      <p>Pay safely with Stripe</p>
     </div>
   </div>
   <div class="value-box">
     <div class="val-icon">🔒</div>
     <div class="val-text">
       <h4>SECURE PAYMENT</h4>
-      <p>We Value Your Security</p>
+      <p>We value your security</p>
     </div>
   </div>
   <div class="value-box">
     <div class="val-icon">📶</div>
     <div class="val-text">
       <h4>ONLINE SERVICE</h4>
-      <p>Free return products in 30 days</p>
-    </div>
-  </div>
-</section>
-<!--Search by category-->
-
-<!--Search by category end-->
-<!-- Dual Promo Campaign Split Banners -->
-<section class="campaign-split">
-  <!-- Left Promo Banner -->
-  <div class="promo-card">
-    <div class="promo-info">
-      <span class="sub-tag">Find The Best Camera for You!</span>
-      <h3>Smart Camera</h3>
-      <div class="discount-pill">40% Off</div>
-    </div>
-    <div class="promo-media">
-      <img src="https://unsplash.com" alt="Polaroid Camera" class="promo-img">
-    </div>
-  </div>
-
-  <!-- Right Promo Banner -->
-  <div class="promo-card">
-    <div class="promo-info">
-      <span class="sub-tag">Find The Best Whatches for You!</span>
-      <h3>Smart Whatch</h3>
-      <div class="discount-pill">20% Off</div>
-    </div>
-    <div class="promo-media">
-      <img src="https://unsplash.com" alt="Smart Watch" class="promo-img">
+      <p>Free returns within 30 days</p>
     </div>
   </div>
 </section>
 
-<!-- Product Grid Catalog Interface -->
+@if (campaignCategories().length) {
+  <section class="campaign-split">
+    @for (category of campaignCategories(); track category.name) {
+      <a
+        class="promo-card promo-card-link"
+        [routerLink]="['/store']"
+        [queryParams]="{ category: category.name, page: 1 }">
+        <div class="promo-info">
+          <span class="sub-tag">Shop by category</span>
+          <h3>{{ category.name }}</h3>
+          <div class="discount-pill">{{ category.count }} products</div>
+        </div>
+      </a>
+    }
+  </section>
+}
+
 <section class="catalog-section">
-    <!-- Catalog Tabbed Controls -->
-    <div class="catalog-header">
-        <h2>Our Products</h2>
-    <!-- your.component.html -->
-    <div class=" tab-controls filter-menu">
-      <button class="tab-btn"
-        (click)="getAllProducts('NewArrival')" 
+  <div class="catalog-header">
+    <h2>Our Products</h2>
+    <div class="tab-controls filter-menu">
+      <button
+        type="button"
+        class="tab-btn"
+        (click)="getAllProducts('NewArrival')"
         [class.active]="highlightType === 'NewArrival'">
         New Arrivals
       </button>
-      <button class="tab-btn"
-        (click)="getAllProducts('TopSelling')" 
+      <button
+        type="button"
+        class="tab-btn"
+        (click)="getAllProducts('TopSelling')"
         [class.active]="highlightType === 'TopSelling'">
         Top Selling
       </button>
-      <button class="tab-btn "
-        (click)="getAllProducts('Featured')" 
+      <button
+        type="button"
+        class="tab-btn"
+        (click)="getAllProducts('Featured')"
         [class.active]="highlightType === 'Featured'">
         Featured
       </button>
     </div>
   </div>
-  <!-- Product Item Grid Wrapper -->
   <div class="catalog-grid">
-    <!-- Card 1 -->
-     @for (product of products() || []; track product.sku){
-    <a class="item-card" [routerLink]="['/store', product.id]">
-      <div class="img-container">
-        <span class="ribbon status-new">New</span>
-        <img [src]="product.bigImage" alt="{{ product.nameEn }}">
-      </div>
-    </a>
+    @if (loading()) {
+      <p class="catalog-empty">Loading products...</p>
+    } @else if (!products().length) {
+      <p class="catalog-empty">No {{ highlightLabel() }} products yet. Mark items in the admin editor to show them here.</p>
+    } @else {
+      @for (product of products(); track product.id) {
+        <a class="item-card" [routerLink]="['/store', product.id]">
+          <div class="img-container">
+            @if (product.isNewArrival) {
+              <span class="ribbon status-new">New</span>
+            }
+            <img [src]="product.bigImage" [alt]="product.nameEn">
+          </div>
+          <h3 class="item-name">{{ product.nameEn }}</h3>
+          <p class="item-price">{{ product.sellPrice | currency:'USD':'symbol' }}</p>
+        </a>
+      }
     }
-</div>
-</section>
-
-<!-- Overflow Product Grid Section -->
-<section class="overflow-products">
-  <div class="overflow-grid">
-    
-    <!-- Card 1 -->
-    <div class="overflow-card">
-      <div class="card-media">
-        <img src="https://unsplash.com" alt="Smartphone" class="overflow-img">
-      </div>
-      <div class="card-info">
-        <span class="category-lbl">SmartPhone</span>
-        <h3 class="item-name">Apple iPad Mini G2356</h3>
-        <div class="price-line">
-          <span class="old-price">$1,250.00</span>
-          <span class="sale-price">$1,050.00</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Card 2 -->
-    <div class="overflow-card">
-      <div class="card-media">
-        <img src="https://unsplash.com" alt="Smartphone" class="overflow-img">
-      </div>
-      <div class="card-info">
-        <span class="category-lbl">SmartPhone</span>
-        <h3 class="item-name">Apple iPad Mini G2356</h3>
-        <div class="price-line">
-          <span class="old-price">$1,250.00</span>
-          <span class="sale-price">$1,050.00</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Card 3 -->
-    <div class="overflow-card">
-      <div class="card-media">
-        <img src="https://unsplash.com" alt="Smartphone" class="overflow-img">
-      </div>
-      <div class="card-info">
-        <span class="category-lbl">SmartPhone</span>
-        <h3 class="item-name">Apple iPad Mini G2356</h3>
-        <div class="price-line">
-          <span class="old-price">$1,250.00</span>
-          <span class="sale-price">$1,050.00</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Card 4 -->
-    <div class="overflow-card">
-      <div class="card-media">
-        <img src="https://unsplash.com" alt="Smartphone" class="overflow-img">
-      </div>
-      <div class="card-info">
-        <span class="category-lbl">SmartPhone</span>
-        <h3 class="item-name">Apple iPad Mini G2356</h3>
-        <div class="price-line">
-          <span class="old-price">$1,250.00</span>
-          <span class="sale-price">$1,050.00</span>
-        </div>
-      </div>
-    </div>
-
   </div>
 </section>
 
-<!-- Large Campaign Split Section -->
-<section class="large-campaigns">
-  
-  <!-- Left Side: EOS Rebel Banner -->
-  <div class="large-promo-banner camera-promo">
-    <div class="large-promo-content">
-      <h2 class="promo-heading">EOS Rebel T7i Kit</h2>
-      <p class="promo-price">$899.99</p>
-      <a routerLink="#" class="round-shop-btn">Shop Now</a>
+@if (overflowProducts().length) {
+  <section class="overflow-products">
+    <div class="overflow-grid">
+      @for (product of overflowProducts(); track product.id) {
+        <a class="overflow-card overflow-card-link" [routerLink]="['/store', product.id]">
+          <div class="card-media">
+            <img [src]="product.bigImage" [alt]="product.nameEn" class="overflow-img">
+          </div>
+          <div class="card-info">
+            <span class="category-lbl">{{ product.category }}</span>
+            <h3 class="item-name">{{ product.nameEn }}</h3>
+            <div class="price-line">
+              <span class="sale-price">{{ product.sellPrice | currency:'USD':'symbol' }}</span>
+            </div>
+          </div>
+        </a>
+      }
     </div>
-    <div class="large-promo-image">
-      <img src="https://unsplash.com" alt="DSLR Camera" class="camera-img-asset">
-    </div>
-  </div>
+  </section>
+}
 
-  <!-- Right Side: Sale Headphone Banner -->
-  <div class="large-promo-banner audio-promo">
-    <div class="large-promo-content center-aligned">
-      <span class="red-alert-tag">SALE</span>
-      <h2 class="promo-heading white-text">Get UP To 50% Off</h2>
-      <a routerLink="/store" class="round-shop-btn white-btn">Shop Now</a>
-    </div>
-    <div class="large-promo-image back-bg-image">
-      <img src="https://unsplash.com" alt="Headphones" class="headphone-img-asset">
-    </div>
-  </div>
-
-</section>
-
-<footer class="site-footer">
-  <!-- Top Contact Cards Row -->
-  <div class="footer-contact-strip">
-    <div class="contact-card">
-      <div class="icon-circle">📍</div>
-      <div class="card-text">
-        <h3>Address</h3>
-        <p>123 Street New York, USA</p>
+@if (products().length) {
+  <section class="large-campaigns">
+    <div class="large-promo-banner camera-promo">
+      <div class="large-promo-content">
+        <h2 class="promo-heading">{{ products()[0].nameEn }}</h2>
+        <p class="promo-price">{{ products()[0].sellPrice | currency:'USD':'symbol' }}</p>
+        <a [routerLink]="['/store', products()[0].id]" class="round-shop-btn">Shop Now</a>
       </div>
+      @if (products()[0].bigImage) {
+        <div class="large-promo-image">
+          <img [src]="products()[0].bigImage" [alt]="products()[0].nameEn" class="camera-img-asset">
+        </div>
+      }
     </div>
-    
-    <div class="contact-card">
-      <div class="icon-circle">✉️</div>
-      <div class="card-text">
-        <h3>Mail Us</h3>
-        <p>info@example.com</p>
+
+    @if (products().length > 1) {
+      <div class="large-promo-banner audio-promo">
+        <div class="large-promo-content center-aligned">
+          <span class="red-alert-tag">FEATURED</span>
+          <h2 class="promo-heading white-text">{{ products()[1].nameEn }}</h2>
+          <a [routerLink]="['/store', products()[1].id]" class="round-shop-btn white-btn">Shop Now</a>
+        </div>
+        @if (products()[1].bigImage) {
+          <div class="large-promo-image back-bg-image">
+            <img [src]="products()[1].bigImage" [alt]="products()[1].nameEn" class="headphone-img-asset">
+          </div>
+        }
       </div>
-    </div>
-    
-    <div class="contact-card">
-      <div class="icon-circle">📞</div>
-      <div class="card-text">
-        <h3>Telephone</h3>
-        <p>(+012) 3456 7890</p>
-      </div>
-    </div>
-    
-    <div class="contact-card">
-      <div class="icon-circle">🌐</div>
-      <div class="card-text">
-        <h3>Yoursite@ex.com</h3>
-        <p>(+012) 3456 7890</p>
-      </div>
-    </div>
-  </div>
+    }
+  </section>
+}
 
-  <!-- Main Links & Newsletter Directory -->
-  <div class="footer-directory">
-    
-    <!-- Newsletter Column -->
-    <div class="directory-column">
-      <h2>Newsletter</h2>
-      <p class="newsletter-desc">Dolor amet sit justo amet elitr clita ipsum elitr est. Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
-      <div class="footer-signup-form">
-        <input type="email" placeholder="Enter your email" class="signup-input">
-        <button class="signup-btn">SignUp</button>
-      </div>
-    </div>
+<app-site-footer />
 
-    <!-- Customer Service Column -->
-    <div class="directory-column">
-      <h2>Customer Service</h2>
-      <ul class="footer-links-list">
-        <li><a routerLink="/store">Shop</a></li>
-        <li><a routerLink="/cart">Cart</a></li>
-        <li><a routerLink="/orders">Order History</a></li>
-        <li><a routerLink="/">Home</a></li>
-        <li><a routerLink="/account/profile">My Account</a></li>
-        <li><a routerLink="/account/wishlist">Wishlist</a></li>
-      </ul>
-    </div>
-
-    <!-- Information Column -->
-    <div class="directory-column">
-      <h2>Information</h2>
-      <ul class="footer-links-list">
-        <li><a routerLink="/store">Shop All</a></li>
-        <li><a routerLink="/checkout">Checkout</a></li>
-        <li><a routerLink="/login">Sign In</a></li>
-        <li><a routerLink="/register">Create Account</a></li>
-        <li><a routerLink="/account/profile">Saved Addresses</a></li>
-      </ul>
-    </div>
-
-    <!-- Extras Column -->
-    <div class="directory-column">
-      <h2>Extras</h2>
-      <ul class="footer-links-list">
-        <li><a routerLink="/store">Browse Products</a></li>
-        <li><a routerLink="/account/wishlist">Wishlist</a></li>
-        <li><a routerLink="/orders">Track Your Order</a></li>
-        <li><a routerLink="/admin/dashboard">Admin</a></li>
-      </ul>
-    </div>
-
-  </div>
-
-  <!-- Copyright Bottom Ribbon -->
-  <div class="footer-copyright-bar">
-    <div class="copyright-left">
-      © <a routerLink="/">CosmicStore</a>, All rights reserved.
-    </div>
-    <div class="copyright-right">
-      Designed By <a routerlink="#">HTML Codex</a>
-    </div>
-  </div>
-</footer>
-
-
-<!-- Back to Top Button -->
-<button class="back-to-top">↑</button>
-
+<button type="button" class="back-to-top" (click)="scrollToTop()" aria-label="Back to top">↑</button>

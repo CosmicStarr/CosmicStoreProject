@@ -6,4 +6,5 @@ namespace Data.Interfaces;
 public interface ITokenService
 {
     Task<string> CreateToken(AppUser appUser);
+    string CreateGuestToken(string guestId);
 }

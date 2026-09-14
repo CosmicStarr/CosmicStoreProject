@@ -4,16 +4,21 @@ using Data.Interfaces;
 
 namespace Data.Classes;
 
+/// <summary>
+/// Unit of work for the storefront database. Caches <see cref="StoreRepo{T}"/> instances per entity type.
+/// </summary>
 public class StoreUnitOfWork(ApplicationDbStoreContext context) : IStoreUnitOfWork
 {
     private Hashtable? _repo;
     private readonly ApplicationDbStoreContext _context = context;
 
+    /// <summary>Persists staged store-schema changes.</summary>
     public async Task<int> Complete()
     {
         return await _context.SaveChangesAsync();
     }
 
+    /// <summary>Disposes the storefront DbContext.</summary>
 #pragma warning disable CA1816 // Dispose methods should call SuppressFinalize
     public void Dispose()
 #pragma warning restore CA1816 // Dispose methods should call SuppressFinalize
@@ -21,6 +26,9 @@ public class StoreUnitOfWork(ApplicationDbStoreContext context) : IStoreUnitOfWo
         _context.Dispose();
     }
 
+    /// <summary>
+    /// Returns a cached <see cref="StoreRepo{T}"/> for this entity type, creating it on first use.
+    /// </summary>
     public IStoreRepo<T> Repository<T>() where T : class
     {
         _repo ??= [];

@@ -9,6 +9,16 @@ export const guestGuard: CanActivateFn = () => {
     return true;
   }
 
+  try {
+    const parsed = JSON.parse(user) as { isGuest?: boolean };
+    if (parsed.isGuest) {
+      localStorage.removeItem('cosmicStockUser');
+      return true;
+    }
+  } catch {
+    return true;
+  }
+
   router.navigate(['/store']);
   return false;
 };

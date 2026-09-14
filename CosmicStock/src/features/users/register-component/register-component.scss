@@ -41,6 +41,11 @@
   margin: 0 0 8px 0;
 }
 
+.register-header h2:focus {
+  outline: 3px solid var(--primary-orange);
+  outline-offset: 4px;
+}
+
 .register-header p {
   color: var(--text-muted);
   font-size: 15px;
@@ -81,6 +86,13 @@
 
 .form-group input::placeholder {
   color: #94a3b8;
+}
+
+.field-hint {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 8px 0 0;
 }
 
 /* Error styling for IdentityErrors */
@@ -125,6 +137,40 @@
   background-color: #fdba74; /* Lighter orange for disabled state */
   cursor: not-allowed;
   opacity: 0.7;
+}
+
+.submit-btn:focus-visible {
+  outline: 3px solid var(--primary-orange);
+  outline-offset: 2px;
+}
+
+.success-hint {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0 0 24px;
+  text-align: center;
+}
+
+.continue-link {
+  display: block;
+  width: 100%;
+  text-align: center;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.confirmation-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.link-btn.secondary {
+  display: block;
+  text-align: center;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-weight: 600;
 }
 
 .form-footer {

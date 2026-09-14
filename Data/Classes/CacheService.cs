@@ -4,6 +4,9 @@ using StackExchange.Redis;
 
 namespace Data.Classes
 {
+    /// <summary>
+    /// Redis JSON cache used for the storefront product list and related keys.
+    /// </summary>
     public class CacheService : ICacheService
     {
         private readonly IDatabase _database;
@@ -11,6 +14,8 @@ namespace Data.Classes
         {
             _database = redis.GetDatabase();
         }
+
+        /// <summary>Reads and deserializes a cached object, or returns default if the key is missing.</summary>
         public async Task<T?> GetCachedObject<T>(string key)
         {
             var data = await _database.StringGetAsync(key);
@@ -25,6 +30,7 @@ namespace Data.Classes
             return JsonSerializer.Deserialize<T>(data.ToString(), options);
         }
 
+        /// <summary>Serializes an object to camelCase JSON and stores it in Redis with a TTL.</summary>
         public async Task ObjectToCache(string key, object itemToCache, TimeSpan timetolive)
         {
             if(itemToCache is null) return;
@@ -36,6 +42,7 @@ namespace Data.Classes
             await _database.StringSetAsync(key,serializedObject,timetolive);
         }
 
+        /// <summary>Deletes one Redis key (used after publish/create/edit so the catalog refreshes).</summary>
         public async Task RemoveData(string key)
         {
             // Deletes the specific key from Redis

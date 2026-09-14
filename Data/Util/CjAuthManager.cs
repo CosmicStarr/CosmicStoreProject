@@ -11,9 +11,10 @@ public class CjAuthManager
     private readonly HttpClient _httpClient;
     private readonly IDistributedCache _cache;
     private readonly CjAuthRequest _authRequest;  
-    // Cache keys
-    private const string AccessTokenKey = "API@CJ5607474@CJ:eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiI0MjU1MiIsInR5cGUiOiJBQ0NFU1NfVE9LRU4iLCJzdWIiOiJicUxvYnFRMGxtTm55UXB4UFdMWnlqSnUrckYyc2FpOEVtL3VvdXlSSWNXaDUwQjF1eGZ5dzB4TjVWYlJJeXczN1pQUEJ6Y1RYWFhEZzNyOHdqYWxvdzRXNHdkcXIyWTFNK0dUcDFjWUVqRnU4VTU4Tkw4dXRCaEZSd25iM1pqRkxPTHhvUGtwVVhIZnR1cWNkTEdrS2p6T1NFMVFBVFhqVXNFOVNISExHenFPbFJYeGZGTzhiVUJMalVheUdQMEcxaS94VXFydFovTmhvUkkzTnZuTWdsQW5pMFVySEZ5Uno0TG1UVVR1UncrUU5GZE1HWHNVY1BlTFV6RkJxS0ZNeFFVekxkMkdKT1BGOEE1N3Y4NFprY3ZLUTlBUVlKTEJyZlMwMnR6a3EyUT0iLCJpYXQiOjE3ODc1NDMxMTJ9.68j-JWflOvm1RGLHcg7KuRn8HNpJLF0Rh3ZKZ7P_D-A";
-    private const string RefreshTokenKey = "Cj_Refresh_Token";
+    // Cache keys. These name where the tokens are stored; they must never contain a
+    // token themselves. The tokens are fetched at runtime from the CJ API key.
+    private const string AccessTokenKey = "cj:access-token";
+    private const string RefreshTokenKey = "cj:refresh-token";
 
     public CjAuthManager(HttpClient httpClient, IDistributedCache cache, IOptions<CjAuthRequest> options)
     {

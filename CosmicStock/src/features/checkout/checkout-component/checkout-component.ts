@@ -19,6 +19,7 @@ import { OrderService } from '../../../core/services/order-service';
 import { AddressService } from '../../../core/services/address-service';
 import { ShippingService } from '../../../core/services/shipping-service';
 import { PaymentService } from '../../../core/services/payment-service';
+import { AccountService } from '../../../core/services/account-service';
 import { IUserAddress } from '../../models/UserInfo';
 import { IShippingOption } from '../../models/order';
 
@@ -34,6 +35,7 @@ export class CheckoutComponent implements OnInit, AfterViewInit, OnDestroy {
   private addressService = inject(AddressService);
   private shippingService = inject(ShippingService);
   private paymentService = inject(PaymentService);
+  private accountService = inject(AccountService);
   private fb = inject(FormBuilder);
   private router = inject(Router);
 
@@ -56,8 +58,10 @@ export class CheckoutComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit(): void {
     this.cartService.loadCart();
+    this.accountService.ensureGuestCheckoutIfNeeded();
 
     this.checkoutForm = this.fb.group({
+      email: [this.accountService.currentUserValue?.email ?? '', [Validators.required, Validators.email]],
       fullName: ['', Validators.required],
       streetAddress: ['', Validators.required],
       city: ['', Validators.required],
@@ -65,17 +69,22 @@ export class CheckoutComponent implements OnInit, AfterViewInit, OnDestroy {
       countryCode: ['US', Validators.required],
     });
 
-    this.addressService.getAddresses().subscribe({
-      next: (addresses) => {
-        this.savedAddresses.set(addresses);
-        const defaultAddress = addresses.find((address) => address.isDefault) ?? addresses[0];
-        if (defaultAddress) {
-          this.applyAddress(defaultAddress);
-        }
-        this.loadShippingOptions();
-      },
-      error: () => this.loadShippingOptions(),
-    });
+    const useSavedAddresses = !!this.accountService.currentUserValue && !this.accountService.isGuestCheckout();
+    if (!useSavedAddresses) {
+      this.loadShippingOptions();
+    } else {
+      this.addressService.getAddresses().subscribe({
+        next: (addresses) => {
+          this.savedAddresses.set(addresses);
+          const defaultAddress = addresses.find((address) => address.isDefault) ?? addresses[0];
+          if (defaultAddress) {
+            this.applyAddress(defaultAddress);
+          }
+          this.loadShippingOptions();
+        },
+        error: () => this.loadShippingOptions(),
+      });
+    }
 
     // Re-quote whenever the destination changes, since CJ prices freight per country.
     this.checkoutForm.valueChanges.pipe(debounceTime(600)).subscribe(() => this.loadShippingOptions());
@@ -144,6 +153,8 @@ export class CheckoutComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async onSubmit() {
+    this.accountService.ensureGuestCheckoutIfNeeded();
+
     if (this.checkoutForm.invalid || !this.card) return;
 
     const cart = this.cartService.cart();
@@ -205,7 +216,10 @@ export class CheckoutComponent implements OnInit, AfterViewInit, OnDestroy {
         .toPromise();
 
       this.cartService.clearCart();
-      this.router.navigate(['/orders', order!.orderId]);
+      if (this.accountService.isGuestCheckout()) {
+        this.accountService.endGuestCheckout();
+      }
+      this.router.navigate(['/checkout/confirmation'], { state: { order } });
     } catch (err: unknown) {
       const httpError = err as { error?: { message?: string } };
       this.error = httpError.error?.message || 'Checkout failed. Please try again.';

@@ -4,6 +4,7 @@ import { map, Observable } from 'rxjs';
 import { environment } from '../../env/environment';
 import { IFlatProduct } from '../../features/models/flattenProduct';
 import { IEditProduct } from '../../features/models/editProduct';
+import { IProductResponse } from '../../features/models/productResponse';
 import { sunParams } from '../../features/models/paramOptions';
 import { PaginatedResults} from '../../features/models/pagination';
 
@@ -25,8 +26,8 @@ export class AdminProductService {
   private apiUrl = environment.baseUrl;
   PaginatedResult?:PaginatedResults<IFlatProduct[]> = new PaginatedResults<IFlatProduct[]>()
   // 1. Fetch a single product for the Edit View
-  getProductById(id: string): Observable<IFlatProduct> {
-    return this.http.get<IFlatProduct>(`${this.apiUrl}EditProducts/${id}`)
+  getProductById(id: string): Observable<IProductResponse> {
+    return this.http.get<IProductResponse>(`${this.apiUrl}EditProducts/${id}`)
   }
 
 getAllProducts(sun: sunParams): Observable<PaginatedResults<IFlatProduct[]>> {
@@ -69,6 +70,17 @@ getAllProducts(sun: sunParams): Observable<PaginatedResults<IFlatProduct[]>> {
     );     
 }
 
+  createProduct(productData: IEditProduct): Observable<IProductResponse> {
+    if (!productData.productImages || !Array.isArray(productData.productImages)) {
+      productData.productImages = [];
+    }
+    return this.http.post<IProductResponse>(
+      `${this.apiUrl}EditProducts/Create`,
+      productData,
+      this.httpOptions
+    );
+  }
+
   // 2. Send form updates matching your controller's HttpPut("[HttpPut("UpdateProduct/{id}")]")
   updateProduct(id: string, productData: IEditProduct): Observable<any> {
     if (!productData.productImages || !Array.isArray(productData.productImages)) {
@@ -81,12 +93,16 @@ getAllProducts(sun: sunParams): Observable<PaginatedResults<IFlatProduct[]>> {
     );
   }
 
-  publishProduct(id: string, markup?: number): Observable<unknown> {
+  publishProduct(id: string, productData?: IEditProduct, markup?: number): Observable<unknown> {
     let params = new HttpParams();
     if (markup !== undefined) {
       params = params.set('markup', markup.toString());
     }
-    return this.http.post(`${this.apiUrl}EditProducts/Publish/${id}`, {}, { ...this.httpOptions, params });
+    return this.http.post(
+      `${this.apiUrl}EditProducts/Publish/${id}`,
+      productData ?? { id },
+      { ...this.httpOptions, params }
+    );
   }
 
   publishBulk(productIds: string[], markup?: number): Observable<unknown[]> {
@@ -98,5 +114,9 @@ getAllProducts(sun: sunParams): Observable<PaginatedResults<IFlatProduct[]>> {
 
   getSettings(): Observable<{ defaultMarkup: number }> {
     return this.http.get<{ defaultMarkup: number }>(`${this.apiUrl}EditProducts/settings`);
+  }
+
+  getCategories(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.apiUrl}EditProducts/categories`);
   }
 }

@@ -15,6 +15,21 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.Identity.UI.Services;
 
+if (args.Any(a => string.Equals(a, "graph-auth", StringComparison.OrdinalIgnoreCase)))
+{
+    var setupBuilder = WebApplication.CreateBuilder(args);
+    using var loggerFactory = LoggerFactory.Create(logging =>
+    {
+        logging.AddSimpleConsole(options => options.SingleLine = true);
+        logging.SetMinimumLevel(LogLevel.Information);
+    });
+
+    await GraphMailAuth.ConnectInteractiveAsync(
+        setupBuilder.Configuration,
+        loggerFactory.CreateLogger("GraphMailAuth"));
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ==========================================
@@ -95,8 +110,8 @@ builder.Services.Configure<CjAuthRequest>(builder.Configuration.GetSection("CJDr
 
 builder.Services.AddHttpClient<CjAuthManager>();
 builder.Services.AddHttpClient<ICJDropshippingService, CJDropshippingService>();
-builder.Services.AddHostedService<CJProductSyncWorker>();
-builder.Services.AddHostedService<CjOrderStatusWorker>();
+//builder.Services.AddHostedService<CJProductSyncWorker>();
+//builder.Services.AddHostedService<CjOrderStatusWorker>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IStoreUnitOfWork, StoreUnitOfWork>();
@@ -105,14 +120,20 @@ builder.Services.AddScoped<IShoppingCartService, ShoppingCartService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<ICjCatalogSyncService, CjCatalogSyncService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
-builder.Services.AddTransient<IEmailSender, EmailSender>();
+builder.Services.AddSingleton<IEmailSender, EmailSender>();
 builder.Services.AddTransient<ExceptionMiddleware>();
 builder.Services.AddHttpClient(); // Generic client for the worker
 
 // ==========================================
 // 5. CONTROLLERS & API BEHAVIOR
 // ==========================================
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Product <-> ProductImages is a valid EF graph. Without this, save/publish
+        // (and any endpoint that returns a tracked product) throws a JSON cycle error.
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    });
 builder.Services.AddCors();
 
 builder.Services.Configure<ApiBehaviorOptions>(o =>
@@ -135,6 +156,22 @@ builder.Services.Configure<ApiBehaviorOptions>(o =>
 
 var app = builder.Build();
 
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var storeDb = scope.ServiceProvider.GetRequiredService<ApplicationDbStoreContext>();
+    await storeDb.Database.MigrateAsync();
+
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+    var leftoverGuests = await userManager.Users
+        .Where(user => user.Email != null && user.Email.EndsWith("@guest.cosmicstore.local"))
+        .ToListAsync();
+    foreach (var leftover in leftoverGuests)
+    {
+        await userManager.DeleteAsync(leftover);
+    }
+}
+
 // ==========================================
 // 6. HTTP REQUEST PIPELINE (Order is Strict!)
 // ==========================================
@@ -155,7 +192,7 @@ app.UseCors(opt =>
 {
     opt.AllowAnyHeader()
        .AllowAnyMethod()
-       .WithOrigins("http://localhost:4200", "https://localhost:4200");
+       .WithOrigins("http://localhost:4200", "https://localhost:4200", "http://127.0.0.1:4200");
 });
 
 app.UseAuthentication(); // Uncommented so JWTs are processed

@@ -174,6 +174,13 @@ body {
   display: flex;
   gap: 15px;
   align-items: center;
+  text-decoration: none;
+  color: inherit;
+}
+
+.mini-empty {
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 .mini-product-card img {
@@ -243,12 +250,36 @@ body {
   align-items: center;
   justify-content: center;
   position: relative;
+  overflow: hidden;
 }
 
-.main-slider img {
+.zoom-stage {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: zoom-in;
+}
+
+.zoom-stage img {
   max-height: 85%;
   max-width: 85%;
   object-fit: contain;
+  transition: transform 0.12s ease-out;
+}
+
+.zoom-stage.is-zooming img,
+.zoom-stage:hover img {
+  transform: scale(2.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zoom-stage.is-zooming img,
+  .zoom-stage:hover img {
+    transform: none;
+  }
 }
 
 .slide-arrow {
@@ -261,6 +292,7 @@ body {
   font-size: 20px;
   cursor: pointer;
   padding: 10px;
+  z-index: 2;
   transition: color 0.2s;
 
   &:hover {
@@ -481,8 +513,26 @@ body {
   transition: background-color 0.2s;
 }
 
-.add-to-cart-orange:hover {
+.add-to-cart-orange:hover:not([disabled]) {
   background-color: var(--dark-orange);
+}
+
+.add-to-cart-orange[disabled],
+.counter-btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .wishlist-btn {
@@ -589,6 +639,24 @@ body {
   .main-slider {
     height: 380px;
   }
+}
+
+.product-missing {
+  padding: 3rem 1rem 4rem;
+  text-align: center;
+}
+
+.product-missing h1 {
+  margin-bottom: 0.75rem;
+}
+
+.product-missing p {
+  margin-bottom: 1.5rem;
+  color: var(--text-muted);
+}
+
+.status-message {
+  padding: 2rem 1rem;
 }
 
 @media (max-width: 576px) {

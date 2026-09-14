@@ -1,0 +1,14 @@
+:host {
+  display: block;
+}
+
+.footer-contact-strip a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.footer-contact-strip a:hover,
+.footer-contact-strip a:focus-visible {
+  color: var(--primary-orange);
+  text-decoration: underline;
+}

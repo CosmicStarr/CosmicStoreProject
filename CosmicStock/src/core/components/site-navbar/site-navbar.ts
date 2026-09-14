@@ -1,10 +1,12 @@
 import { AsyncPipe } from '@angular/common';
-import { Component, HostListener, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { filter } from 'rxjs';
 import { AccountService } from '../../services/account-service';
 import { CartService } from '../../services/cart-service';
+import { StoreProductsService } from '../../services/store-products';
+import { ICategorySummary } from '../../../features/models/productResponse';
 import { isAdminUser } from '../../utils/auth-utils';
 
 @Component({
@@ -12,15 +14,20 @@ import { isAdminUser } from '../../utils/auth-utils';
   imports: [RouterLink, RouterLinkActive, AsyncPipe, FormsModule],
   templateUrl: './site-navbar.html',
   styleUrl: './site-navbar.scss',
+  host: {
+    '(document:click)': 'onDocumentClick($event)',
+  },
 })
 export class SiteNavbarComponent implements OnInit {
   protected userService = inject(AccountService);
   protected cartService = inject(CartService);
   private accountService = inject(AccountService);
+  private storeProducts = inject(StoreProductsService);
   private router = inject(Router);
 
   protected visible = signal(true);
   protected isAdmin = signal(false);
+  protected readonly categories = signal<ICategorySummary[]>([]);
   activeDropdown: string | null = null;
   isMobileMenuOpen = false;
 
@@ -30,6 +37,9 @@ export class SiteNavbarComponent implements OnInit {
     this.cartService.loadCart();
     this.isAdmin.set(isAdminUser());
     this.updateVisibility(this.router.url);
+    this.storeProducts.getCategories().subscribe({
+      next: (categories) => this.categories.set(categories),
+    });
 
     this.accountService.currentUser$.subscribe(() => {
       this.isAdmin.set(isAdminUser());
@@ -43,7 +53,6 @@ export class SiteNavbarComponent implements OnInit {
       });
   }
 
-  @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
     const targetElement = event.target as HTMLElement;
 

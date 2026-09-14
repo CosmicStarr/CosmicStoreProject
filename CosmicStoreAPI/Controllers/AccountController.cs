@@ -1,17 +1,23 @@
 namespace CosmicStoreAPI.Controllers;
 
 using System.Security.Claims;
-using System.Web;
+using System.Text;
+using CosmicStoreAPI.Error;
+using CosmicStoreAPI.Util;
 using Data.Interfaces;
 using Data.Util;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
 using Models;
 using Models.AngularDTOs;
 
 
+/// <summary>
+/// Identity: register, login, current-user JWT, email confirm, password reset, and profile.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class AccountController : ControllerBase
@@ -42,6 +48,9 @@ public class AccountController : ControllerBase
         _roleManager = roleManager;
     }
 
+    /// <summary>
+    /// Creates an Identity user, emails a confirmation link, and returns a JWT. A hardcoded admin email is granted the Admin role.
+    /// </summary>
     [HttpPost("register")]
     public async Task<ActionResult<RegisterDto>> Register(RegisterDto registerDto)
     {
@@ -74,12 +83,11 @@ public class AccountController : ControllerBase
                 user = await _userManager.FindByEmailAsync(user.Email);
                 var tokenToGenerate = await _userManager.GenerateEmailConfirmationTokenAsync(user!);
                 
-                var confirmEmailUrl = new UriBuilder(_configuration["ReturnPath:confirmEmail"]!);
-                var uriQuery = HttpUtility.ParseQueryString(confirmEmailUrl.Query);
-                uriQuery["token"] = tokenToGenerate;
-                uriQuery["userId"] = user!.Id;
-                confirmEmailUrl.Query = uriQuery.ToString();
-                var urlMessage = confirmEmailUrl.ToString();
+                var urlMessage = BuildReturnUrl(
+                    "ReturnPath:confirmEmail",
+                    tokenToGenerate,
+                    user!.Id,
+                    user.Email!);
 
              // ==========================================
              // LOAD HTML TEMPLATE FROM WWWROOT
@@ -101,22 +109,18 @@ public class AccountController : ControllerBase
                 // Replace placeholders in your HTML file
                 string text = htmlTemplate.Replace("{{URL}}", urlMessage);
 
-                await _emailSender.SendEmailAsync(user.Email!, "Confirm your email!", text);
+                try
+                {
+                    await _emailSender.SendEmailAsync(user.Email!, "Confirm your email!", text);
+                }
+                catch (Exception)
+                {
+                    // The account already exists; do not fail signup because confirmation mail could not send.
+                }
             }
             else
             {
-                    var registerDTOErrorList = new RegisterDto();
-                    var badInfo = registerDTOErrorList.RegisterErrors = new List<IdentityError>();
-                    foreach(var item in result.Errors)
-                    {
-                        var errors = new IdentityError
-                        {
-                            Code = item.Code,
-                            Description = item.Description
-                        };
-                        badInfo.Add(errors);
-                    }
-                    return registerDTOErrorList;
+                return BadRequest(new ApiValidationResponse(result.Errors.Select(error => error.Description)));
             }
 
         // 4. Return the token and user details
@@ -125,11 +129,16 @@ public class AccountController : ControllerBase
             {
                 Email = user.Email,
                 Token = await _tokenService.CreateToken(user),
-                UserName = registerDto.UserName ?? "User" // Fallback if userName isn't provided
+                UserName = registerDto.UserName ?? "User",
+                EmailConfirmed = user.EmailConfirmed,
+                IsGuest = false
             };
 #pragma warning restore CS8601 // Possible null reference assignment.
     }
 
+    /// <summary>
+    /// Validates email/password and returns a JWT for the Angular client.
+    /// </summary>
     [HttpPost("login")]
     public async Task<ActionResult<UserDto>> Login(LoginDto loginDto)
     {
@@ -144,31 +153,48 @@ public class AccountController : ControllerBase
 
             if (!result.Succeeded) return Unauthorized(new { message = "Invalid email or password" });
 
-            return new UserDto
-            {
-                Email = user.Email!,
-                Token = await _tokenService.CreateToken(user),
-                UserName = user.UserName ?? "User" // Fallback if UserName isn't a direct property on IdentityUser
-            };
+            return await ToUserDto(user);
     }
 
+    /// <summary>
+    /// Issues a guest checkout JWT. No Identity user is created or stored.
+    /// </summary>
+    [HttpPost("guest")]
+    public ActionResult<UserDto> ContinueAsGuest()
+    {
+        var guestId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!GuestPrincipal.IsGuest(User) || string.IsNullOrWhiteSpace(guestId))
+        {
+            guestId = Guid.NewGuid().ToString();
+        }
+
+        return GuestUserDto(guestId);
+    }
+
+    /// <summary>
+    /// Returns the signed-in user and a fresh JWT (used on app load / token refresh).
+    /// </summary>
     [Authorize]
     [HttpGet]
     public async Task<ActionResult<UserDto>> GetCurrentUser()
     {
+        if (GuestPrincipal.IsGuest(User))
+        {
+            var guestId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? Guid.NewGuid().ToString();
+            return GuestUserDto(guestId);
+        }
+
         var email = User.FindFirstValue(ClaimTypes.Email);
         var user = await _userManager.FindByEmailAsync(email!);
 
         if (user == null) return Unauthorized();
 
-        return new UserDto
-        {
-            Email = user.Email!,
-            Token = await _tokenService.CreateToken(user),
-            UserName = user.UserName ?? "User"
-        };
+        return await ToUserDto(user);
     }
 
+    /// <summary>
+    /// Confirms the registration email using the token from the confirmation link.
+    /// </summary>
     [HttpPost("confirm-email")]
     public async Task<IActionResult> ConfirmEmail(ConfirmEmailDto dto)
     {
@@ -178,8 +204,18 @@ public class AccountController : ControllerBase
             return BadRequest(new { message = "Invalid confirmation link." });
         }
 
-        var result = await _userManager.ConfirmEmailAsync(user, dto.Token);
-        if (!result.Succeeded)
+        var confirmed = false;
+        foreach (var candidate in IdentityTokenCandidates(dto.Token))
+        {
+            var result = await _userManager.ConfirmEmailAsync(user, candidate);
+            if (result.Succeeded)
+            {
+                confirmed = true;
+                break;
+            }
+        }
+
+        if (!confirmed)
         {
             return BadRequest(new { message = "Email confirmation failed. The link may have expired." });
         }
@@ -187,21 +223,55 @@ public class AccountController : ControllerBase
         return Ok(new { message = "Email confirmed successfully. You can now sign in." });
     }
 
+    /// <summary>
+    /// Sends a password-reset email if the address exists. Always returns the same message to avoid leaking accounts.
+    /// </summary>
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
     {
+        string? resetUrl = null;
         var user = await _userManager.FindByEmailAsync(dto.Email);
         if (user != null)
         {
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-            var resetUrl = BuildReturnUrl("ReturnPath:resetPassword", token, user.Id, user.Email!);
+            resetUrl = BuildReturnUrl("ReturnPath:resetPassword", token, user.Id, user.Email!);
             var html = await LoadEmailTemplateAsync("ResetPassword.html", resetUrl);
-            await _emailSender.SendEmailAsync(user.Email!, "Reset your CosmicStore password", html);
+            try
+            {
+                await _emailSender.SendEmailAsync(user.Email!, "Reset your CosmicStore password", html);
+            }
+            catch (Exception)
+            {
+                // Same generic response whether mail sent or not.
+            }
         }
 
         return Ok(new { message = "If that email exists, a reset link was sent." });
     }
 
+    /// <summary>
+    /// Checks that a password-reset link is still valid before the user chooses a new password.
+    /// </summary>
+    [HttpPost("verify-reset-password")]
+    public async Task<IActionResult> VerifyResetPassword(VerifyResetPasswordDto dto)
+    {
+        var user = await _userManager.FindByEmailAsync(dto.Email);
+        if (user == null)
+        {
+            return BadRequest(new { message = "This reset link is invalid or has expired." });
+        }
+
+        if (await ResolvePasswordResetTokenAsync(user, dto.Token) is null)
+        {
+            return BadRequest(new { message = "This reset link is invalid or has expired." });
+        }
+
+        return Ok(new { message = "Reset link verified. Choose a new password." });
+    }
+
+    /// <summary>
+    /// Sets a new password from the reset-link token.
+    /// </summary>
     [HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword(ResetPasswordDto dto)
     {
@@ -211,7 +281,13 @@ public class AccountController : ControllerBase
             return BadRequest(new { message = "Invalid reset request." });
         }
 
-        var result = await _userManager.ResetPasswordAsync(user, dto.Token, dto.NewPassword);
+        var token = await ResolvePasswordResetTokenAsync(user, dto.Token);
+        if (token is null)
+        {
+            return BadRequest(new { message = "This reset link is invalid or has expired." });
+        }
+
+        var result = await _userManager.ResetPasswordAsync(user, token, dto.NewPassword);
         if (!result.Succeeded)
         {
             return BadRequest(new
@@ -224,10 +300,18 @@ public class AccountController : ControllerBase
         return Ok(new { message = "Password updated successfully. You can now sign in." });
     }
 
+    /// <summary>
+    /// Updates the signed-in user's display name and returns a new JWT.
+    /// </summary>
     [Authorize]
     [HttpPut("profile")]
     public async Task<ActionResult<UserDto>> UpdateProfile(UpdateProfileDto dto)
     {
+        if (GuestPrincipal.IsGuest(User))
+        {
+            return StatusCode(403, new { message = "Guest checkout does not include a profile." });
+        }
+
         var email = User.FindFirstValue(ClaimTypes.Email);
         var user = await _userManager.FindByEmailAsync(email!);
         if (user == null) return Unauthorized();
@@ -243,18 +327,21 @@ public class AccountController : ControllerBase
             });
         }
 
-        return new UserDto
-        {
-            Email = user.Email!,
-            Token = await _tokenService.CreateToken(user),
-            UserName = user.UserName ?? "User"
-        };
+        return await ToUserDto(user);
     }
 
+    /// <summary>
+    /// Changes the signed-in user's password after verifying the current one.
+    /// </summary>
     [Authorize]
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword(ChangePasswordDto dto)
     {
+        if (GuestPrincipal.IsGuest(User))
+        {
+            return StatusCode(403, new { message = "Guest checkout does not include a profile." });
+        }
+
         var email = User.FindFirstValue(ClaimTypes.Email);
         var user = await _userManager.FindByEmailAsync(email!);
         if (user == null) return Unauthorized();
@@ -272,17 +359,65 @@ public class AccountController : ControllerBase
         return Ok(new { message = "Password changed successfully." });
     }
 
+    /// <summary>Builds an Angular return URL with a URL-safe Identity token plus userId and email.</summary>
     private string BuildReturnUrl(string configKey, string token, string userId, string email)
     {
-        var urlBuilder = new UriBuilder(_configuration[configKey]!);
-        var query = HttpUtility.ParseQueryString(urlBuilder.Query);
-        query["token"] = token;
-        query["userId"] = userId;
-        query["email"] = email;
-        urlBuilder.Query = query.ToString();
-        return urlBuilder.ToString();
+        var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+        return QueryHelpers.AddQueryString(_configuration[configKey]!, new Dictionary<string, string?>
+        {
+            ["email"] = email,
+            ["userId"] = userId,
+            ["token"] = encodedToken
+        });
     }
 
+    /// <summary>
+    /// Accepts the URL-safe encoded token from the email link, or a raw Identity token.
+    /// </summary>
+    private async Task<string?> ResolvePasswordResetTokenAsync(AppUser user, string token)
+    {
+        foreach (var candidate in IdentityTokenCandidates(token))
+        {
+            var valid = await _userManager.VerifyUserTokenAsync(
+                user,
+                _userManager.Options.Tokens.PasswordResetTokenProvider,
+                UserManager<AppUser>.ResetPasswordTokenPurpose,
+                candidate);
+
+            if (valid)
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<string> IdentityTokenCandidates(string token)
+    {
+        var normalized = token.Replace(' ', '+');
+        var decoded = DecodeIdentityToken(normalized);
+        yield return decoded;
+
+        if (!string.Equals(normalized, decoded, StringComparison.Ordinal))
+        {
+            yield return normalized;
+        }
+    }
+
+    private static string DecodeIdentityToken(string token)
+    {
+        try
+        {
+            return Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token));
+        }
+        catch (FormatException)
+        {
+            return token;
+        }
+    }
+
+    /// <summary>Loads an HTML email template from wwwroot/templates and injects the action URL.</summary>
     private async Task<string> LoadEmailTemplateAsync(string fileName, string url)
     {
         var filePath = Path.Combine(_env.WebRootPath, "templates", fileName);
@@ -291,5 +426,29 @@ public class AccountController : ControllerBase
             : "<div><a href='{{URL}}'>Continue</a></div>";
 
         return htmlTemplate.Replace("{{URL}}", url);
+    }
+
+    private UserDto GuestUserDto(string guestId)
+    {
+        return new UserDto
+        {
+            Email = string.Empty,
+            Token = _tokenService.CreateGuestToken(guestId),
+            UserName = "Guest",
+            EmailConfirmed = true,
+            IsGuest = true
+        };
+    }
+
+    private async Task<UserDto> ToUserDto(AppUser user)
+    {
+        return new UserDto
+        {
+            Email = user.Email!,
+            Token = await _tokenService.CreateToken(user),
+            UserName = user.UserName ?? "User",
+            EmailConfirmed = user.EmailConfirmed,
+            IsGuest = false
+        };
     }
 }

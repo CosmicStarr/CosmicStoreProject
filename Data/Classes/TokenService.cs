@@ -10,6 +10,9 @@ using Models;
 namespace Data.Interfaces;
 
 
+/// <summary>
+/// Builds the JWT Angular stores after register, login, and profile updates.
+/// </summary>
 public class TokenService : ITokenService
 {
     private readonly IOptions<TokenSettings> _config;
@@ -21,41 +24,58 @@ public class TokenService : ITokenService
         _userManager = userManager;
     }
 
+    /// <summary>
+    /// Issues a signed JWT with user id, email, Identity claims, and role claims.
+    /// </summary>
     public async Task<string> CreateToken(AppUser appUser)
     {
-        // 1. Standardize claims
         var claimsList = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, appUser.Id), // Standard for User ID
-            new Claim(ClaimTypes.Email, appUser.Email ?? string.Empty), // Standard for Email
+            new Claim(ClaimTypes.NameIdentifier, appUser.Id),
+            new Claim(ClaimTypes.Email, appUser.Email ?? string.Empty),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
-        // 2. Fetch and append User Claims safely
         var userClaims = await _userManager.GetClaimsAsync(appUser);
         claimsList.AddRange(userClaims);
 
-        // 3. Fetch Roles and append using a clean string literal
         var roles = await _userManager.GetRolesAsync(appUser);
         claimsList.AddRange(roles.Select(role => new Claim("role", role)));
 
-        // 4. Create credentials
-        var authKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config.Value.SecretKey));
-        var creds = new SigningCredentials(authKey, SecurityAlgorithms.HmacSha512Signature);
+        return WriteToken(claimsList);
+    }
 
-        // 5. Build the token using UTC time
+    /// <summary>
+    /// Issues a checkout JWT that is not backed by an Identity user.
+    /// </summary>
+    public string CreateGuestToken(string guestId)
+    {
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, guestId),
+            new Claim(ClaimTypes.Name, "Guest"),
+            new Claim(ClaimTypes.Role, StaticInfo.GuestRole),
+            new Claim("role", StaticInfo.GuestRole),
+            new Claim("guest", "true"),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
+
+        return WriteToken(claims);
+    }
+
+    private string WriteToken(IEnumerable<Claim> claims)
+    {
+        var authKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config.Value.SecretKey));
         var tokenDescriptor = new SecurityTokenDescriptor
         {
-            Subject = new ClaimsIdentity(claimsList),
+            Subject = new ClaimsIdentity(claims),
             Expires = DateTime.UtcNow.AddDays(10),
             Issuer = _config.Value.ValidIssuer,
             Audience = _config.Value.ValidAudience,
-            SigningCredentials = creds
+            SigningCredentials = new SigningCredentials(authKey, SecurityAlgorithms.HmacSha512Signature)
         };
 
         var tokenHandler = new JwtSecurityTokenHandler();
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-
-        return tokenHandler.WriteToken(token);
+        return tokenHandler.WriteToken(tokenHandler.CreateToken(tokenDescriptor));
     }
 }

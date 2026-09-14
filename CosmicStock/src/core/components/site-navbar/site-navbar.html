@@ -1,11 +1,13 @@
 @if (visible()) {
   <div class="top-bar">
     <div class="top-bar-left">
-      <a routerLink="/">Help</a>
+      <a routerLink="/orders">Help</a>
       <span class="separator">|</span>
       <a routerLink="/store">Shop</a>
-      <span class="separator">|</span>
-      <a routerLink="/account/profile">Contact</a>
+      @if (!(userService.currentUserValue?.isGuest)) {
+        <span class="separator">|</span>
+        <a routerLink="/account/profile">Account</a>
+      }
     </div>
 
     @if (userService.currentUser$ | async; as user) {
@@ -19,7 +21,9 @@
             </div>
             <a routerLink="/orders" (click)="closeDropdowns($event)">My Orders</a>
             <a routerLink="/account/wishlist" (click)="closeDropdowns($event)">Wishlist</a>
-            <a routerLink="/account/profile" (click)="closeDropdowns($event)">Profile</a>
+            @if (!user.isGuest) {
+              <a routerLink="/account/profile" (click)="closeDropdowns($event)">Profile</a>
+            }
             @if (isAdmin()) {
               <a routerLink="/admin/dashboard" (click)="closeDropdowns($event)">Admin</a>
             }
@@ -39,7 +43,7 @@
   <header class="main-header">
     <a routerLink="/" class="logo" aria-label="CosmicStore home">
       <span class="logo-icon" aria-hidden="true">🛍️</span>
-      <span class="logo-text">Electro</span>
+      <span class="logo-text">CosmicStore</span>
     </a>
 
     <form class="search-container" (ngSubmit)="submitSearch($event)">
@@ -47,7 +51,7 @@
       <input
         id="global-search"
         type="search"
-        placeholder="Search Looking For?"
+        placeholder="Search products"
         class="search-input"
         [(ngModel)]="searchTerm"
         name="globalSearch">
@@ -79,8 +83,50 @@
   </header>
 
   <nav class="category-nav" aria-label="Categories">
-    <a routerLink="/store" class="all-categories-btn">
-      <span class="hamburger" aria-hidden="true">☰</span> All Categories
+    <a routerLink="/store" class="all-categories-link">
+      <span class="hamburger" aria-hidden="true">☰</span>
+      All Categories
     </a>
+
+    <div class="category-picker dropdown-container">
+      <button
+        type="button"
+        class="all-categories-btn"
+        (click)="toggleDropdown('categories')"
+        [attr.aria-expanded]="activeDropdown === 'categories'"
+        aria-haspopup="true"
+        aria-controls="category-menu">
+        <span class="hamburger" aria-hidden="true">☰</span>
+        All Categories
+      </button>
+      <div
+        id="category-menu"
+        class="category-menu"
+        [class.show]="activeDropdown === 'categories'"
+        role="menu">
+        <a routerLink="/store" role="menuitem" (click)="closeDropdowns($event)">
+          All Products
+        </a>
+        @for (category of categories(); track category.name) {
+          <a
+            role="menuitem"
+            [routerLink]="['/store']"
+            [queryParams]="{ category: category.name, page: 1 }"
+            (click)="closeDropdowns($event)">
+            {{ category.name }}
+            <span class="count">({{ category.count }})</span>
+          </a>
+        }
+      </div>
+    </div>
+
+    @for (category of categories(); track category.name) {
+      <a
+        class="category-nav-link"
+        [routerLink]="['/store']"
+        [queryParams]="{ category: category.name, page: 1 }">
+        {{ category.name }}
+      </a>
+    }
   </nav>
 }
