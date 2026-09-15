@@ -73,7 +73,7 @@ public class SwapiClientTests
         Assert.Equal(1600, ships[1].Length);
         Assert.Empty(ships[1].PilotNames);
         Assert.DoesNotContain(ships, s => s.Name is "Tiny Fighter" or "Mystery Barge");
-        Assert.False(handler.RequestedUrls.Contains("https://swapi.dev/api/people/4/"));
+        Assert.DoesNotContain("https://swapi.dev/api/people/4/", handler.RequestedUrls);
     }
 
     private sealed class ScriptedHandler : HttpMessageHandler
