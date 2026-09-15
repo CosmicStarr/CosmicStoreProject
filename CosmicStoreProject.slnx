@@ -2,4 +2,8 @@
   <Project Path="CosmicStoreAPI/CosmicStoreAPI.csproj" />
   <Project Path="Data/Data.csproj" />
   <Project Path="Models/Models.csproj" />
+  <Project Path="StarWarsApi.Core/StarWarsApi.Core.csproj" />
+  <Project Path="StarWarsApi/StarWarsApi.csproj" />
+  <Project Path="StarWarsApi.Cli/StarWarsApi.Cli.csproj" />
+  <Project Path="StarWarsApi.Tests/StarWarsApi.Tests.csproj" />
 </Solution>
