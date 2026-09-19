@@ -95,7 +95,7 @@ builder.Services.Configure<CjAuthRequest>(builder.Configuration.GetSection("CJDr
 
 builder.Services.AddHttpClient<CjAuthManager>();
 builder.Services.AddHttpClient<ICJDropshippingService, CJDropshippingService>();
-builder.Services.AddHostedService<CJProductSyncWorker>();
+//builder.Services.AddHostedService<CJProductSyncWorker>();
 builder.Services.AddHostedService<CjOrderStatusWorker>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
