@@ -3,6 +3,7 @@ namespace Data.Util
     public static class StaticInfo
     {
         public const string AdminRole = "Admin";
+        public const string GuestRole = "Guest";
         public const string Job = "CEO";
         public const string Pending = "Pending";
         public const string Received = "Order Received";

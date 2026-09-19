@@ -5,7 +5,11 @@ import { AccountService } from '../services/account-service';
 
 export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
   const accountService = inject(AccountService);
-  const token = accountService.currentUserValue?.token; // Pull token from your auth state
+  if (accountService.isGuestCheckout()) {
+    return next(req);
+  }
+
+  const token = accountService.currentUserValue?.token;
 
   if (token) {
     req = req.clone({

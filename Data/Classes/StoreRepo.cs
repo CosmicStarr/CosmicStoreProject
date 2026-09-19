@@ -10,32 +10,40 @@ namespace Data.Classes;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 
+/// <summary>
+/// EF Core repository for the storefront context (<see cref="ApplicationDbStoreContext"/>).
+/// </summary>
 public class StoreRepo<T>(ApplicationDbStoreContext context) : IStoreRepo<T> where T : class
 {
     private readonly ApplicationDbStoreContext _context = context;
     internal DbSet<T> dbSet = context.Set<T>();
 
+    /// <summary>Stages a new storefront row (product, order, variant, etc.).</summary>
     public void Add(T entity)
     {
         dbSet.Add(entity);
     }
 
+    /// <summary>Stages many new storefront rows in one call.</summary>
     public void AddRange(IEnumerable<T> entities)
     {
         dbSet.AddRange(entities);
     }
     
-    // NEW METHOD: Execute raw SQL and return a list
+    /// <summary>
+    /// Executes a stored procedure or raw SQL and maps rows to <typeparamref name="T"/> without tracking.
+    /// </summary>
     public async Task<IEnumerable<T>> GetFromSqlAsync(string sql, params object[] parameters)
     {
         // AsNoTracking is recommended for read-only stored procedure results
         return await dbSet.FromSqlRaw(sql, parameters).AsNoTracking().ToListAsync();
     }
 
+    /// <summary>Paged storefront query. Ignores auto-includes so lists stay cheap unless Include is requested.</summary>
     public async Task<PagerList<T>> GetAllParams(PageParams? pageParams = null, Expression<Func<T, bool>>? filter = null, Func<IQueryable<T>, IOrderedQueryable<T>>? orderby = null, string? includeProperties = null)
     {
         pageParams ??= new PageParams();
-        IQueryable<T> query = dbSet.AsNoTracking();
+        IQueryable<T> query = dbSet.AsNoTracking().IgnoreAutoIncludes();
         if(filter != null)
         {
             query = query.Where(filter);
@@ -54,9 +62,10 @@ public class StoreRepo<T>(ApplicationDbStoreContext context) : IStoreRepo<T> whe
         return await PagerList<T>.CreateAsync(query,pageParams.PageNumber,pageParams.PageSize);
     }
 
+    /// <summary>First matching storefront row, or null.</summary>
     public async Task<T> GetFirstOrDefault(Expression<Func<T, bool>>? filter = null, string? includeProperties = null)
     {
-        IQueryable<T> query = dbSet.AsNoTracking();
+        IQueryable<T> query = dbSet.AsNoTracking().IgnoreAutoIncludes();
         if(filter != null)
         {
             query = query.Where(filter);
@@ -73,11 +82,13 @@ public class StoreRepo<T>(ApplicationDbStoreContext context) : IStoreRepo<T> whe
 #pragma warning restore CS8603 // Possible null reference return.
     }
 
+    /// <summary>Stages deletion of one entity instance.</summary>
     public void Remove(T entity)
     {
         dbSet.Remove(entity);
     }
 
+    /// <summary>Looks up a string-key row and stages its deletion if it exists.</summary>
     public void Remove(string Id)
     {
         var info = dbSet.Find(Id);
@@ -87,11 +98,13 @@ public class StoreRepo<T>(ApplicationDbStoreContext context) : IStoreRepo<T> whe
         }
     }
 
+    /// <summary>Stages deletion of many rows.</summary>
     public void RemoveRange(IEnumerable<T> entities)
     {
         dbSet.RemoveRange(entities);
     }
 
+    /// <summary>Marks a storefront row as modified.</summary>
     public void Update(T entity)
     {
         dbSet.Update(entity);

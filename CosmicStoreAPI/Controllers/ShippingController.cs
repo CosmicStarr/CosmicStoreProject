@@ -5,6 +5,9 @@ using Models.AngularDTOs;
 
 namespace CosmicStoreAPI.Controllers;
 
+/// <summary>
+/// Checkout shipping quotes from CJ freight, using each cart SKU's mapped vid.
+/// </summary>
 public class ShippingController(
     ICJDropshippingService cjService,
     IStoreUnitOfWork storeUnitOfWork,
@@ -14,6 +17,9 @@ public class ShippingController(
     private readonly IStoreUnitOfWork _storeUnitOfWork = storeUnitOfWork;
     private readonly IConfiguration _configuration = configuration;
 
+    /// <summary>
+    /// Quotes CJ logistics options for a destination and basket. Falls back to a flat rate if CJ has no mapping.
+    /// </summary>
     [HttpPost("quote")]
     public async Task<ActionResult<IEnumerable<ShippingOptionDto>>> GetQuote(ShippingQuoteRequest request)
     {
@@ -49,6 +55,9 @@ public class ShippingController(
         return Ok(options.Count > 0 ? options : FallbackOptions());
     }
 
+    /// <summary>
+    /// Resolves a cart-line SKU to a CJ vid: local ProductVariant, then CJ by SKU, then product/image fallbacks.
+    /// </summary>
     private async Task<string?> ResolveVariantIdAsync(string sku)
     {
         var variant = await _storeUnitOfWork.Repository<ProductVariant>()
@@ -59,10 +68,70 @@ public class ShippingController(
             return variant.CjVariantId;
         }
 
+        var remoteVid = await _cjService.ResolveVidBySkuAsync(sku);
+        if (!string.IsNullOrWhiteSpace(remoteVid))
+        {
+            await RememberVariantMappingAsync(sku, remoteVid, variant);
+            return remoteVid;
+        }
+
         var product = await _storeUnitOfWork.Repository<Products>()
             .GetFirstOrDefault(p => p.Sku == sku);
+        if (product is not null)
+        {
+            return product.CjVariantId ?? product.Id;
+        }
 
-        return product?.CjVariantId ?? product?.Id;
+        var image = await _storeUnitOfWork.Repository<ProductImage>()
+            .GetFirstOrDefault(img => img.SkuPhoto == sku);
+        if (image is not null)
+        {
+            product = await _storeUnitOfWork.Repository<Products>()
+                .GetFirstOrDefault(p => p.Id == image.ProductId);
+            return product?.CjVariantId ?? product?.Id;
+        }
+
+        return null;
+    }
+
+    /// <summary>Stores a CJ vid found by SKU so later freight quotes stay local.</summary>
+    private async Task RememberVariantMappingAsync(string sku, string vid, ProductVariant? existing)
+    {
+        if (existing is not null)
+        {
+            existing.CjVariantId = vid;
+            existing.LastSyncedAt = DateTime.UtcNow;
+            _storeUnitOfWork.Repository<ProductVariant>().Update(existing);
+            await _storeUnitOfWork.Complete();
+            return;
+        }
+
+        var product = await _storeUnitOfWork.Repository<Products>()
+            .GetFirstOrDefault(p => p.Sku == sku);
+        if (product is null)
+        {
+            var image = await _storeUnitOfWork.Repository<ProductImage>()
+                .GetFirstOrDefault(img => img.SkuPhoto == sku);
+            if (image is not null)
+            {
+                product = await _storeUnitOfWork.Repository<Products>()
+                    .GetFirstOrDefault(p => p.Id == image.ProductId);
+            }
+        }
+
+        if (product is null)
+        {
+            return;
+        }
+
+        _storeUnitOfWork.Repository<ProductVariant>().Add(new ProductVariant
+        {
+            ProductId = product.Id,
+            CjVariantId = vid,
+            Sku = sku,
+            LastSyncedAt = DateTime.UtcNow
+        });
+        await _storeUnitOfWork.Complete();
     }
 
     /// <summary>Keeps checkout usable when CJ is unreachable or the variants are not mapped yet.</summary>

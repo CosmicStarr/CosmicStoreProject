@@ -1,46 +1,63 @@
-using Data.Util;
+using Data.Classes;
 using Data.Interfaces;
+using Data.Util;
 using Microsoft.AspNetCore.Mvc;
+using Models;
 using Models.AngularDTOs;
-using Microsoft.Data.SqlClient;
 
 namespace CosmicStoreAPI.Controllers;
 
-
-
-public class HomeController(IStoreUnitOfWork storeUnitOfWork,IEditCjProducts editCjProducts):BaseController
+/// <summary>
+/// Home-page storefront reads: highlighted product strips and a single product card.
+/// </summary>
+public class HomeController(IStoreUnitOfWork storeUnitOfWork) : BaseController
 {
     private readonly IStoreUnitOfWork _storeUnitOfWork = storeUnitOfWork;
-    private readonly IEditCjProducts _editCjProducts = editCjProducts;
-    
 
+    /// <summary>
+    /// Returns featured, new-arrival, or top-selling storefront products for the home sections.
+    /// Featured falls back to the full catalog when nothing is flagged yet.
+    /// </summary>
     [HttpGet("highlighted/{highlightType}")]
-    public async Task<ActionResult<IEnumerable<ProductWithPictureDto>>> GetHighlightedProducts(string highlightType)
+    public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetHighlightedProducts(string highlightType)
     {
-        //highlightType can be "Featured", "NewArrival", "ALL" ,or "TopSelling"
-        var highlightTypeParam = new SqlParameter("@HighlightType", highlightType);
-        var parameters = new object[] { highlightTypeParam };
-        var rawData = await _storeUnitOfWork.Repository<ProductWithPictureDto>()
-                .GetFromSqlAsync(SqlConstants.StoredProcedures.GetHighlightedProducts, parameters);
-        var groupedInfo = _editCjProducts.GroupData(rawData).ToList();
-        Console.WriteLine($"Grouped Info Count: {groupedInfo.Count}");
-        return Ok(groupedInfo);
+        System.Linq.Expressions.Expression<Func<Products, bool>>? filter = highlightType.ToLowerInvariant() switch
+        {
+            "featured" => product => product.IsFeatured,
+            "newarrival" => product => product.IsNewArrival,
+            "topselling" => product => product.IsTopSelling,
+            _ => null
+        };
+
+        var pageParams = new PageParams { PageNumber = 1, PageSize = 48 };
+        var products = await _storeUnitOfWork.Repository<Products>()
+            .GetAllParams(pageParams, filter, query => query.OrderBy(product => product.NameEn), "ProductImages");
+
+        // A brand-new storefront often has published products that were never flagged.
+        // Featured is the home catalog, so show those rather than an empty section.
+        if (products.Count == 0 && string.Equals(highlightType, "Featured", StringComparison.OrdinalIgnoreCase))
+        {
+            products = await _storeUnitOfWork.Repository<Products>()
+                .GetAllParams(pageParams, null, query => query.OrderBy(product => product.NameEn), "ProductImages");
+        }
+
+        return Ok(products.Select(EditCjProducts.ToResponse));
     }
 
+    /// <summary>
+    /// Loads one published storefront product (with gallery images) by id.
+    /// </summary>
     [HttpGet("{id}")]
-    public async Task<ActionResult<ProductWithPictureDto>>GetSingleProduct(string id)
+    public async Task<ActionResult<ProductResponseDto>> GetSingleProduct(string id)
     {
-        var productIdParam = new SqlParameter("@ProductId", id);
-        var parameters = new object[] { productIdParam };
-        var rawData = await _storeUnitOfWork.Repository<ProductWithPictureDto>()
-                .GetFromSqlAsync(SqlConstants.StoredProcedures.GetSingleProductWithPictures,parameters);
-        var groupedInfo = _editCjProducts.GroupData(rawData);        
-        var info = groupedInfo.FirstOrDefault();
-        if(info == null)
+        var product = await _storeUnitOfWork.Repository<Products>()
+            .GetFirstOrDefault(item => item.Id == id, "ProductImages");
+
+        if (product is null)
         {
             return NotFound();
         }
 
-        return Ok(info);
+        return Ok(EditCjProducts.ToResponse(product));
     }
 }

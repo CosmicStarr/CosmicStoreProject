@@ -3,11 +3,16 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../env/environment';
 import { ICjBalance, IOrder } from '../../features/models/order';
+import { ICjProductImport } from '../../features/models/editProduct';
 
 @Injectable({ providedIn: 'root' })
 export class AdminCjService {
   private http = inject(HttpClient);
   private apiUrl = `${environment.baseUrl}AdminCj`;
+
+  previewProduct(pidOrSku: string): Observable<ICjProductImport> {
+    return this.http.post<ICjProductImport>(`${this.apiUrl}/preview-product`, { pid: pidOrSku, sku: pidOrSku });
+  }
 
   getBalance(): Observable<ICjBalance> {
     return this.http.get<ICjBalance>(`${this.apiUrl}/balance`);

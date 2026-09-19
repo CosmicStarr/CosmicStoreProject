@@ -2,6 +2,8 @@ export interface IUser {
   email: string;
   token: string;
   userName: string;
+  emailConfirmed: boolean;
+  isGuest?: boolean;
 }
 
 export interface ILoginValues {

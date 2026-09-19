@@ -4,14 +4,67 @@
     <p class="subtitle">Publish products from CJ staging to your storefront</p>
   </div>
   <div class="header-actions">
+    <a routerLink="/admin/add-product" class="primary-btn">Add Product</a>
     <button type="button" class="secondary-btn" (click)="publishAll()" [disabled]="publishing || !apiData().length">
       {{ publishing ? 'Publishing...' : 'Publish All on Page' }}
     </button>
   </div>
 </header>
 
+<section class="filter-bar">
+  <div class="filter-field grow">
+    <label for="productSearch">Search</label>
+    <input
+      id="productSearch"
+      type="search"
+      placeholder="Name or SKU"
+      (input)="onSearch($any($event.target).value)">
+  </div>
+
+  <div class="filter-field">
+    <label for="categoryFilter">Category</label>
+    <select id="categoryFilter" (change)="onCategoryChange($any($event.target).value)">
+      <option value="">All categories</option>
+      @for (category of categories(); track category) {
+        <option [value]="category">{{ category }}</option>
+      }
+    </select>
+  </div>
+
+  <div class="filter-field">
+    <label for="sortFilter">Sort by</label>
+    <select id="sortFilter" (change)="onSortChange($any($event.target).value)">
+      <option value="">Name (A-Z)</option>
+      <option value="nameDesc">Name (Z-A)</option>
+      <option value="priceAsc">Price (low to high)</option>
+      <option value="priceDesc">Price (high to low)</option>
+    </select>
+  </div>
+
+  <div class="filter-field">
+    <label for="pageSize">Per page</label>
+    <select id="pageSize" (change)="onPageSizeChange($any($event.target).value)">
+      @for (size of pageSizeOptions; track size) {
+        <option [value]="size" [selected]="size === sunParams.pageSize">{{ size }}</option>
+      }
+    </select>
+  </div>
+</section>
+
 @if (message) {
   <p class="status-message" [class.error]="isError">{{ message }}</p>
+}
+
+@if (loadError()) {
+  <p class="status-message error" role="alert">{{ loadError() }}</p>
+}
+
+<p class="results-summary" aria-live="polite">
+  {{ loading() ? 'Loading products...' : rangeLabel() }}
+</p>
+
+@if (!loading() && !loadError() && !apiData().length) {
+  <p class="empty-state">No products match those filters.</p>
 }
 
 <div class="product-grid">
@@ -40,3 +93,31 @@
     </div>
   }
 </div>
+
+@if (totalPages() > 1) {
+  <nav class="pagination" aria-label="Product catalog pagination">
+    <button
+      type="button"
+      (click)="goToPage(1)"
+      [disabled]="sunParams.pageNumber <= 1"
+      aria-label="First page">« First</button>
+
+    <button
+      type="button"
+      (click)="goToPage(sunParams.pageNumber - 1)"
+      [disabled]="sunParams.pageNumber <= 1">Previous</button>
+
+    <span class="page-indicator">Page {{ sunParams.pageNumber }} of {{ totalPages() }}</span>
+
+    <button
+      type="button"
+      (click)="goToPage(sunParams.pageNumber + 1)"
+      [disabled]="sunParams.pageNumber >= totalPages()">Next</button>
+
+    <button
+      type="button"
+      (click)="goToPage(totalPages())"
+      [disabled]="sunParams.pageNumber >= totalPages()"
+      aria-label="Last page">Last »</button>
+  </nav>
+}

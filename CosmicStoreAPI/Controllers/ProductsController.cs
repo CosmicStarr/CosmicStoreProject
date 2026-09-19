@@ -1,5 +1,5 @@
 using CosmicStoreAPI.Error;
-using Data;
+using Data.Classes;
 using Data.Util;
 using Data.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -9,12 +9,19 @@ using Microsoft.Data.SqlClient;
 
 namespace CosmicStoreAPI.Controllers;
 
+/// <summary>
+/// Customer-facing catalog: cached product lists, categories, product detail, and related items.
+/// </summary>
 public class ProductsController(IStoreUnitOfWork storeUnitOfWork, IEditCjProducts editCjProducts, ICacheService cacheService) : BaseController
 {
     private readonly IStoreUnitOfWork _storeUnitOfWork = storeUnitOfWork;
     private readonly IEditCjProducts _editCjProducts = editCjProducts;
     private readonly ICacheService _cacheService = cacheService;
 
+    /// <summary>
+    /// Returns the paginated storefront catalog. Stored-procedure rows are grouped into
+    /// one <see cref="ProductResponseDto"/> per product (with a Pictures array).
+    /// </summary>
     [HttpGet("joined-products")]
     public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetJoinedProducts([FromQuery] PageParams pageParams)
     {
@@ -32,6 +39,9 @@ public class ProductsController(IStoreUnitOfWork storeUnitOfWork, IEditCjProduct
         return Ok(paginatedData);
     }
 
+    /// <summary>
+    /// Builds the storefront category filter from published products (name + product count).
+    /// </summary>
     [HttpGet("categories")]
     public async Task<ActionResult<IEnumerable<CategorySummaryDto>>> GetCategories([FromQuery] bool clearCache = false)
     {
@@ -47,24 +57,30 @@ public class ProductsController(IStoreUnitOfWork storeUnitOfWork, IEditCjProduct
         return Ok(categories);
     }
 
+    /// <summary>
+    /// Returns one published product and its gallery for the product detail page.
+    /// </summary>
     [HttpGet("{id}")]
     public async Task<ActionResult<ProductResponseDto>> GetSingleProduct(string id)
     {
-        var productIdParam = new SqlParameter("@ProductId", id);
-        var parameters = new object[] { productIdParam };
-        var rawData = await _storeUnitOfWork.Repository<ProductWithPictureDto>()
-            .GetFromSqlAsync(SqlConstants.StoredProcedures.GetSingleProductWithPictures, parameters);
-        var groupedInfo = _editCjProducts.GroupData(rawData);
-        var info = groupedInfo.FirstOrDefault();
+        var product = await _storeUnitOfWork.Repository<Products>()
+            .GetFirstOrDefault(item => item.Id == id, "ProductImages");
 
-        if (info is null)
+        if (product is null)
         {
             return NotFound();
         }
 
-        return Ok(info);
+        var response = EditCjProducts.ToResponse(product);
+        var variants = await _storeUnitOfWork.Repository<ProductVariant>()
+            .GetAllParams(new PageParams { PageNumber = 1, PageSize = 50 }, variant => variant.ProductId == id);
+        EditCjProducts.MergeVariantPictures(response, variants);
+        return Ok(response);
     }
 
+    /// <summary>
+    /// Returns other products in the same category for the "related" strip on product detail.
+    /// </summary>
     [HttpGet("{id}/related")]
     public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetRelatedProducts(string id, [FromQuery] int limit = 4)
     {
@@ -88,6 +104,9 @@ public class ProductsController(IStoreUnitOfWork storeUnitOfWork, IEditCjProduct
         return Ok(related);
     }
 
+    /// <summary>
+    /// Loads published products from Redis, or from the pictures stored procedure if the cache is empty.
+    /// </summary>
     private async Task<List<ProductResponseDto>> LoadProductsAsync(string? category, bool clearCache)
     {
         var cacheKey = string.IsNullOrEmpty(category)
@@ -120,6 +139,9 @@ public class ProductsController(IStoreUnitOfWork storeUnitOfWork, IEditCjProduct
         return groupedInfo;
     }
 
+    /// <summary>
+    /// Applies search, price range, and sort to an in-memory catalog page.
+    /// </summary>
     private static List<ProductResponseDto> ApplyFilters(List<ProductResponseDto> products, PageParams pageParams)
     {
         IEnumerable<ProductResponseDto> filtered = products;

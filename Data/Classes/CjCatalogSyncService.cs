@@ -5,6 +5,9 @@ using Models;
 
 namespace Data.Classes;
 
+/// <summary>
+/// Pulls CJ variants and warehouse stock onto store.ProductVariant (expects Products.Id to be a CJ pid).
+/// </summary>
 public class CjCatalogSyncService : ICjCatalogSyncService
 {
     private const int BatchSize = 500;
@@ -26,6 +29,7 @@ public class CjCatalogSyncService : ICjCatalogSyncService
         _logger = logger;
     }
 
+    /// <summary>Fetches CJ variants for one storefront product and upserts ProductVariant rows.</summary>
     public async Task<int> SyncVariantsForProductAsync(string productId)
     {
         var product = await _storeUnitOfWork.Repository<Products>()
@@ -39,6 +43,7 @@ public class CjCatalogSyncService : ICjCatalogSyncService
         return written;
     }
 
+    /// <summary>Walks published products and upserts their CJ variants. Paced to stay under CJ rate limits.</summary>
     public async Task<int> SyncAllVariantsAsync(CancellationToken cancellationToken = default)
     {
         var products = await _storeUnitOfWork.Repository<Products>()
@@ -64,6 +69,7 @@ public class CjCatalogSyncService : ICjCatalogSyncService
         return written;
     }
 
+    /// <summary>Refreshes stock on each ProductVariant and rolls the sum onto Products.StockQuantity.</summary>
     public async Task<int> SyncStockAsync(CancellationToken cancellationToken = default)
     {
         var variants = (await _storeUnitOfWork.Repository<ProductVariant>()
@@ -110,6 +116,9 @@ public class CjCatalogSyncService : ICjCatalogSyncService
         return updated;
     }
 
+    /// <summary>
+    /// Calls CJ variant/query with product.Id as the pid, then inserts or updates store.ProductVariant rows.
+    /// </summary>
     private async Task<int> UpsertVariantsAsync(Products product)
     {
         var remoteVariants = await _cjService.GetProductVariantsAsync(product.Id);

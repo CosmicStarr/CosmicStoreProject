@@ -7,6 +7,9 @@ using Stripe;
 
 namespace Data.Classes;
 
+/// <summary>
+/// Stripe PaymentIntents: prices cart lines from the database, then creates or updates the intent.
+/// </summary>
 public class PaymentService : IPaymentService
 {
     private const string Usd = "usd";
@@ -29,6 +32,9 @@ public class PaymentService : IPaymentService
             ?? throw new InvalidOperationException("Stripe:SecretKey is not configured.");
     }
 
+    /// <summary>
+    /// Re-prices the cart, applies shipping, and creates or updates a Stripe PaymentIntent for that total.
+    /// </summary>
     public async Task<PaymentIntentDto?> CreateOrUpdatePaymentAsync(string cartId, string? userId, PaymentIntentRequest request)
     {
         var cart = await _shoppingCartService.GetShoppingCartAsync(cartId, userId);
@@ -37,8 +43,7 @@ public class PaymentService : IPaymentService
         // Re-price every line against the database so a tampered client price can never reach Stripe.
         foreach (var item in cart.ShoppingCartItems)
         {
-            var product = await _storeUnitOfWork.Repository<Products>()
-                .GetFirstOrDefault(p => p.Sku == item.Sku);
+            var product = await FindProductByLineSkuAsync(item.Sku);
 
             if (product is null)
             {
@@ -107,6 +112,7 @@ public class PaymentService : IPaymentService
             or "requires_action";
     }
 
+    /// <summary>Fetches a PaymentIntent from Stripe, or null if Stripe does not recognize the id.</summary>
     public async Task<PaymentIntent?> GetPaymentIntentAsync(string paymentIntentId)
     {
         try
@@ -120,12 +126,15 @@ public class PaymentService : IPaymentService
         }
     }
 
+    /// <summary>Webhook helper: marks the matching order as payment received.</summary>
     public Task<Order?> MarkPaymentSucceededAsync(string paymentIntentId) =>
         UpdatePaymentStatusAsync(paymentIntentId, nameof(Status.PaymentRecevied));
 
+    /// <summary>Webhook helper: marks the matching order as payment failed.</summary>
     public Task<Order?> MarkPaymentFailedAsync(string paymentIntentId) =>
         UpdatePaymentStatusAsync(paymentIntentId, nameof(Status.PaymentFailed));
 
+    /// <summary>Updates Order.PaymentStatus (and Status when the charge failed) for a Stripe intent id.</summary>
     private async Task<Order?> UpdatePaymentStatusAsync(string paymentIntentId, string paymentStatus)
     {
         var order = await _storeUnitOfWork.Repository<Order>()
@@ -155,4 +164,30 @@ public class PaymentService : IPaymentService
     /// <summary>Stripe charges in the smallest currency unit, so dollars become integer cents.</summary>
     internal static long ToMinorUnits(decimal amount) =>
         (long)Math.Round(amount * 100m, MidpointRounding.AwayFromZero);
+
+    /// <summary>Finds a storefront product by parent SKU, picture skuPhoto, or ProductVariant SKU.</summary>
+    private async Task<Products?> FindProductByLineSkuAsync(string sku)
+    {
+        var product = await _storeUnitOfWork.Repository<Products>()
+            .GetFirstOrDefault(p => p.Sku == sku);
+        if (product is not null) return product;
+
+        var image = await _storeUnitOfWork.Repository<ProductImage>()
+            .GetFirstOrDefault(img => img.SkuPhoto == sku);
+        if (image is not null)
+        {
+            return await _storeUnitOfWork.Repository<Products>()
+                .GetFirstOrDefault(p => p.Id == image.ProductId);
+        }
+
+        var variant = await _storeUnitOfWork.Repository<ProductVariant>()
+            .GetFirstOrDefault(v => v.Sku == sku);
+        if (variant is not null)
+        {
+            return await _storeUnitOfWork.Repository<Products>()
+                .GetFirstOrDefault(p => p.Id == variant.ProductId);
+        }
+
+        return null;
+    }
 }

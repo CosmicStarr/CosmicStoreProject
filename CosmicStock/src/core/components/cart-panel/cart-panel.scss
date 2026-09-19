@@ -189,6 +189,17 @@
 .checkout-btn {
   background: var(--cart-orange);
   color: #fff;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  width: 100%;
+}
+
+.confirm-email-hint {
+  margin: 0;
+  color: var(--cart-muted);
+  font-size: 0.875rem;
+  line-height: 1.45;
 }
 
 .browse-btn:focus-visible,

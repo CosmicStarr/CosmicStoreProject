@@ -1,9 +1,9 @@
 import { HttpClient } from '@angular/common/http';
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, signal } from '@angular/core';
 import { environment } from '../../env/environment';
 import { IUser, ILoginValues, IRegisterValues } from '../../features/models/UserInfo';
 import { Router } from '@angular/router';
-import { BehaviorSubject, map, of, switchMap, tap } from 'rxjs';
+import { BehaviorSubject, catchError, map, of, switchMap, tap } from 'rxjs';
 import { CartService } from './cart-service';
 
 @Injectable({
@@ -16,50 +16,108 @@ export class AccountService {
   private apiUrl = environment.baseUrl;
   User: IUser | null = null;
 
+  private guestCheckout = signal(false);
   private currentUserSource = new BehaviorSubject<IUser | null>(this.getStoredUser());
   currentUser$ = this.currentUserSource.asObservable();
 
   private getStoredUser(): IUser | null {
     const storedUser = localStorage.getItem('cosmicStockUser');
-    return storedUser ? JSON.parse(storedUser) : null;
+    if (!storedUser) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(storedUser) as IUser;
+      if (parsed.isGuest) {
+        localStorage.removeItem('cosmicStockUser');
+        return null;
+      }
+      return parsed;
+    } catch {
+      localStorage.removeItem('cosmicStockUser');
+      return null;
+    }
   }
 
   get currentUserValue(): IUser | null {
     return this.currentUserSource.value;
   }
 
+  isGuestCheckout(): boolean {
+    return this.guestCheckout();
+  }
+
+  beginGuestCheckout() {
+    this.guestCheckout.set(true);
+  }
+
+  endGuestCheckout() {
+    this.guestCheckout.set(false);
+  }
+
+  ensureGuestCheckoutIfNeeded() {
+    const user = this.currentUserValue;
+    if (!user || user.emailConfirmed !== true) {
+      this.beginGuestCheckout();
+    }
+  }
+
+  canPurchase(user: IUser | null = this.currentUserValue): boolean {
+    if (this.guestCheckout() || !user) {
+      return true;
+    }
+    return user.emailConfirmed === true;
+  }
+
+  private discardGuestSession() {
+    this.endGuestCheckout();
+    this.cartService.clearLocalCart();
+    localStorage.clear();
+    this.currentUserSource.next(null);
+  }
+
   private mergeCartIfNeeded() {
     const guestCartId = this.cartService.getCartId();
-    if (guestCartId) {
-      return this.cartService.mergeGuestCart(guestCartId);
+    if (!guestCartId) {
+      this.cartService.loadCart();
+      return of(null);
     }
-    return null;
+
+    return this.cartService.mergeGuestCart(guestCartId).pipe(
+      catchError(() => {
+        this.cartService.loadCart();
+        return of(null);
+      })
+    );
   }
 
   register(values: IRegisterValues) {
     return this.http.post<IUser>(`${this.apiUrl}account/register`, values).pipe(
       switchMap((user) => {
+        this.endGuestCheckout();
         localStorage.setItem('cosmicStockUser', JSON.stringify(user));
         this.currentUserSource.next(user);
-        const merge = this.mergeCartIfNeeded();
-        return merge ? merge.pipe(map(() => user)) : of(user);
+        return this.mergeCartIfNeeded().pipe(map(() => user));
       })
     );
   }
 
   login(credentials: ILoginValues) {
+    this.discardGuestSession();
+
     return this.http.post<IUser>(`${this.apiUrl}account/login`, credentials).pipe(
-      switchMap((user) => {
+      tap((user) => {
         localStorage.setItem('cosmicStockUser', JSON.stringify(user));
         this.currentUserSource.next(user);
-        const merge = this.mergeCartIfNeeded();
-        return merge ? merge.pipe(map(() => user)) : of(user);
+        this.cartService.loadCart();
       })
     );
   }
 
   logout() {
-    localStorage.removeItem('cosmicStockUser');
+    localStorage.clear();
+    this.endGuestCheckout();
+    this.cartService.clearLocalCart();
     this.currentUserSource.next(null);
     this.router.navigate(['/login']);
   }
@@ -68,6 +126,11 @@ export class AccountService {
     return this.http.get<IUser>(`${this.apiUrl}account`).pipe(
       tap((user) => {
         if (user) {
+          if (user.isGuest) {
+            localStorage.removeItem('cosmicStockUser');
+            this.currentUserSource.next(null);
+            return;
+          }
           localStorage.setItem('cosmicStockUser', JSON.stringify(user));
           this.currentUserSource.next(user);
         }
@@ -81,6 +144,10 @@ export class AccountService {
 
   forgotPassword(email: string) {
     return this.http.post<{ message: string }>(`${this.apiUrl}account/forgot-password`, { email });
+  }
+
+  verifyResetPassword(email: string, token: string) {
+    return this.http.post<{ message: string }>(`${this.apiUrl}account/verify-reset-password`, { email, token });
   }
 
   resetPassword(payload: { email: string; token: string; newPassword: string; confirmPassword: string }) {

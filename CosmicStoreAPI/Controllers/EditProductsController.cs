@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+using Data.Classes;
 using Data.Interfaces;
 using Data.Util;
 using Microsoft.AspNetCore.Authorization;
@@ -7,51 +9,167 @@ using Models.AngularDTOs;
 
 namespace CosmicStoreAPI.Controllers;
 
+/// <summary>
+/// Admin catalog: browse CJ staging (FlatProducts), publish to the storefront, and create/edit store products.
+/// </summary>
 [Authorize(Roles = "Admin")]
 public class EditProductsController(
     IUnitOfWork unitOfWork,
+    IStoreUnitOfWork storeUnitOfWork,
     IEditCjProducts editCjProducts,
     ICacheService cacheService,
     IConfiguration configuration) : BaseController
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IStoreUnitOfWork _storeUnitOfWork = storeUnitOfWork;
     private readonly IEditCjProducts _editCjProducts = editCjProducts;
     private readonly ICacheService _cacheService = cacheService;
     private readonly IConfiguration _configuration = configuration;
 
+    /// <summary>
+    /// Paged CJ staging catalog (dbo.FlatProducts) for the admin dashboard grid.
+    /// </summary>
     [HttpGet]
     public async Task<ActionResult<FlatProduct>> GetAllProducts([FromQuery] PageParams pageParams)
     {
-        var product = await _unitOfWork.Repository<FlatProduct>().GetAllParams(pageParams, null, null, "Category");
+        var search = pageParams.Search?.Trim();
+        var category = pageParams.Category?.Trim();
+
+        Expression<Func<FlatProduct, bool>>? filter = null;
+
+        if (!string.IsNullOrWhiteSpace(search) && !string.IsNullOrWhiteSpace(category))
+        {
+            filter = p => (p.NameEn.Contains(search) || p.Sku.Contains(search))
+                          && p.Category != null && p.Category.CategoryName == category;
+        }
+        else if (!string.IsNullOrWhiteSpace(search))
+        {
+            filter = p => p.NameEn.Contains(search) || p.Sku.Contains(search);
+        }
+        else if (!string.IsNullOrWhiteSpace(category))
+        {
+            filter = p => p.Category != null && p.Category.CategoryName == category;
+        }
+
+        // Paging without an ORDER BY lets SQL Server return rows in any order, which
+        // makes products repeat or vanish as you page. Always sort by something stable.
+        Func<IQueryable<FlatProduct>, IOrderedQueryable<FlatProduct>> orderBy = pageParams.Sort switch
+        {
+            "priceAsc" => q => q.OrderBy(p => p.SellPrice).ThenBy(p => p.Id),
+            "priceDesc" => q => q.OrderByDescending(p => p.SellPrice).ThenBy(p => p.Id),
+            "nameDesc" => q => q.OrderByDescending(p => p.NameEn).ThenBy(p => p.Id),
+            _ => q => q.OrderBy(p => p.NameEn).ThenBy(p => p.Id)
+        };
+
+        var product = await _unitOfWork.Repository<FlatProduct>()
+            .GetAllParams(pageParams, filter, orderBy, "Category");
+
         Response.AddPaginationHeader(product.CurrentPage, product.PageSize, product.TotalCount, product.TotalPages);
         return Ok(product);
     }
 
-    [HttpGet("{id}")]
-    public async Task<ActionResult<FlatProduct>> GetProduct(string id)
+    /// <summary>
+    /// Distinct category names from the CJ staging catalog, for the admin filter.
+    /// </summary>
+    [HttpGet("categories")]
+    public async Task<ActionResult<IEnumerable<string>>> GetCategories()
     {
-        var info = await _unitOfWork.Repository<FlatProduct>().GetFirstOrDefault(x => x.Id == id, "Category");
-        if (info is null) return NotFound();
-        return Ok(info);
+        var categories = await _unitOfWork.Repository<FlatCategory>()
+            .GetAll(orderby: q => q.OrderBy(c => c.CategoryName));
+
+        return Ok(categories
+            .Select(c => c.CategoryName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct());
     }
 
+    /// <summary>
+    /// Loads one product for the edit form: storefront row plus <c>store.Pictures</c> when published,
+    /// otherwise the CJ staging row (main image only).
+    /// </summary>
+    [HttpGet("{id}")]
+    public async Task<ActionResult<ProductResponseDto>> GetProduct(string id)
+    {
+        var storeProduct = await _storeUnitOfWork.Repository<Products>()
+            .GetFirstOrDefault(item => item.Id == id, "ProductImages");
+
+        if (storeProduct is not null)
+        {
+            var response = EditCjProducts.ToResponse(storeProduct);
+            var variants = await _storeUnitOfWork.Repository<ProductVariant>()
+                .GetAllParams(new PageParams { PageNumber = 1, PageSize = 50 }, variant => variant.ProductId == id);
+            EditCjProducts.MergeVariantPictures(response, variants);
+            return Ok(response);
+        }
+
+        var staging = await _unitOfWork.Repository<FlatProduct>().GetFirstOrDefault(x => x.Id == id, "Category");
+        if (staging is null) return NotFound();
+
+        return Ok(new ProductResponseDto
+        {
+            Id = staging.Id,
+            NameEn = staging.NameEn,
+            Sku = staging.Sku,
+            SellPrice = staging.SellPrice,
+            BigImage = staging.BigImage,
+            Category = staging.Category?.CategoryName,
+            Pictures = string.IsNullOrWhiteSpace(staging.BigImage)
+                ? []
+                : [
+                    new PictureDto
+                    {
+                        ProductId = staging.Id,
+                        PhotoUrl = staging.BigImage,
+                        SkuPhoto = staging.Sku
+                    }
+                ]
+        });
+    }
+
+    /// <summary>
+    /// Creates a storefront product that is not in the CJ staging grid. Optional pid imports variants (vids).
+    /// </summary>
+    [HttpPost("Create")]
+    public async Task<ActionResult<Products>> CreateProduct([FromBody] EditProductInfo product)
+    {
+        try
+        {
+            var data = await _editCjProducts.CreateManualProductAsync(product);
+            await InvalidateProductCacheAsync();
+            return Ok(EditCjProducts.ToResponse(data));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Updates a published storefront product (name, price, flags, gallery).
+    /// </summary>
     [HttpPost("UpdateProduct/{id}")]
     public async Task<ActionResult<Products>> EditProduct(string id, [FromBody] EditProductInfo product)
     {
         var data = await _editCjProducts.EditCjProductAsync(id, product);
         await InvalidateProductCacheAsync();
-        return Ok(data);
+        return Ok(EditCjProducts.ToResponse(data));
     }
 
+    /// <summary>
+    /// Copies one FlatProduct into store.Products with markup, optionally overlaying editor fields.
+    /// </summary>
     [HttpPost("Publish/{id}")]
-    public async Task<ActionResult<Products>> PublishProduct(string id, [FromQuery] decimal? markup)
+    public async Task<ActionResult<Products>> PublishProduct(string id, [FromQuery] decimal? markup, [FromBody] EditProductInfo? overlay)
     {
         var multiplier = markup ?? _configuration.GetValue("StoreSettings:DefaultMarkup", 1.4m);
-        var data = await _editCjProducts.PublishFlatProductAsync(id, multiplier);
+        var data = await _editCjProducts.PublishFlatProductAsync(id, multiplier, overlay);
         await InvalidateProductCacheAsync();
-        return Ok(data);
+        return Ok(EditCjProducts.ToResponse(data));
     }
 
+    /// <summary>
+    /// Publishes many staging products to the storefront in one request.
+    /// </summary>
     [HttpPost("PublishBulk")]
     public async Task<ActionResult<IReadOnlyList<Products>>> PublishBulk([FromBody] PublishBulkRequest request)
     {
@@ -61,9 +179,12 @@ public class EditProductsController(
 
         var data = await _editCjProducts.PublishBulkAsync(request.ProductIds, multiplier);
         await InvalidateProductCacheAsync();
-        return Ok(data);
+        return Ok(data.Select(EditCjProducts.ToResponse).ToList());
     }
 
+    /// <summary>
+    /// Returns the configured default markup used when publishing from the CJ catalog.
+    /// </summary>
     [HttpGet("settings")]
     public ActionResult<StoreSettingsDto> GetSettings()
     {
@@ -73,6 +194,7 @@ public class EditProductsController(
         });
     }
 
+    /// <summary>Drops the cached storefront product list so publish/create/edit show up immediately.</summary>
     private async Task InvalidateProductCacheAsync()
     {
         await _cacheService.RemoveData("products_all");

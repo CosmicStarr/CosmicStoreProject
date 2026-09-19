@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using CosmicStoreAPI.Util;
 using Data.Interfaces;
 using Data.Util;
 using Microsoft.AspNetCore.Authorization;
@@ -8,14 +9,25 @@ using Models.AngularDTOs;
 
 namespace CosmicStoreAPI.Controllers;
 
+/// <summary>
+/// Saved checkout addresses for the signed-in user.
+/// </summary>
 [Authorize]
 public class UserAddressesController(IStoreUnitOfWork storeUnitOfWork) : BaseController
 {
     private readonly IStoreUnitOfWork _storeUnitOfWork = storeUnitOfWork;
 
+    /// <summary>
+    /// Lists the current user's addresses, default first.
+    /// </summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<UserAddressDto>>> GetAddresses()
     {
+        if (GuestPrincipal.IsGuest(User))
+        {
+            return Ok(Array.Empty<UserAddressDto>());
+        }
+
         var userId = GetUserId();
         var addresses = await _storeUnitOfWork.Repository<UserAddress>()
             .GetAllParams(new PageParams { PageNumber = 1, PageSize = 50 }, a => a.AppUserId == userId);
@@ -23,9 +35,17 @@ public class UserAddressesController(IStoreUnitOfWork storeUnitOfWork) : BaseCon
         return Ok(addresses.OrderByDescending(a => a.IsDefault).ThenBy(a => a.Label).Select(MapToDto));
     }
 
+    /// <summary>
+    /// Creates an address. If marked default, clears the previous default.
+    /// </summary>
     [HttpPost]
     public async Task<ActionResult<UserAddressDto>> CreateAddress(UserAddressDto dto)
     {
+        if (GuestPrincipal.IsGuest(User))
+        {
+            return StatusCode(403, new { message = "Guest checkout does not include saved addresses." });
+        }
+
         var userId = GetUserId();
         var repo = _storeUnitOfWork.Repository<UserAddress>();
 
@@ -52,9 +72,17 @@ public class UserAddressesController(IStoreUnitOfWork storeUnitOfWork) : BaseCon
         return Ok(MapToDto(address));
     }
 
+    /// <summary>
+    /// Updates one of the current user's addresses.
+    /// </summary>
     [HttpPut("{id:int}")]
     public async Task<ActionResult<UserAddressDto>> UpdateAddress(int id, UserAddressDto dto)
     {
+        if (GuestPrincipal.IsGuest(User))
+        {
+            return StatusCode(403, new { message = "Guest checkout does not include saved addresses." });
+        }
+
         var userId = GetUserId();
         var repo = _storeUnitOfWork.Repository<UserAddress>();
         var address = await repo.GetFirstOrDefault(a => a.Id == id && a.AppUserId == userId);
@@ -80,9 +108,17 @@ public class UserAddressesController(IStoreUnitOfWork storeUnitOfWork) : BaseCon
         return Ok(MapToDto(address));
     }
 
+    /// <summary>
+    /// Deletes one of the current user's addresses.
+    /// </summary>
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteAddress(int id)
     {
+        if (GuestPrincipal.IsGuest(User))
+        {
+            return StatusCode(403, new { message = "Guest checkout does not include saved addresses." });
+        }
+
         var userId = GetUserId();
         var repo = _storeUnitOfWork.Repository<UserAddress>();
         var address = await repo.GetFirstOrDefault(a => a.Id == id && a.AppUserId == userId);
@@ -95,12 +131,14 @@ public class UserAddressesController(IStoreUnitOfWork storeUnitOfWork) : BaseCon
         return NoContent();
     }
 
+    /// <summary>Reads the signed-in user's id from the JWT; throws if missing.</summary>
     private string GetUserId()
     {
         return User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? throw new UnauthorizedAccessException();
     }
 
+    /// <summary>Unsets IsDefault on every other address for this user.</summary>
     private async Task ClearDefaultAsync(string userId)
     {
         var repo = _storeUnitOfWork.Repository<UserAddress>();
@@ -115,6 +153,7 @@ public class UserAddressesController(IStoreUnitOfWork storeUnitOfWork) : BaseCon
         }
     }
 
+    /// <summary>Maps an address entity to the API payload.</summary>
     private static UserAddressDto MapToDto(UserAddress address) => new()
     {
         Id = address.Id,

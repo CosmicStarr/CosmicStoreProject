@@ -25,7 +25,7 @@
             <li class="cart-panel-item">
               <div class="item-details">
                 <span class="item-name">{{ item.name }}</span>
-                <span class="item-meta">Qty {{ item.amount }} · {{ item.price | currency:'USD':'symbol' }} each</span>
+                <span class="item-meta">SKU: {{ item.sku }} · Qty {{ item.amount }} · {{ item.price | currency:'USD':'symbol' }} each</span>
               </div>
               <div class="item-actions">
                 <span class="item-total">{{ item.price * item.amount | currency:'USD':'symbol' }}</span>

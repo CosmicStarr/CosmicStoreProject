@@ -15,6 +15,7 @@ export interface IShoppingCart {
 
 export interface IAddCartItem {
   productId: string;
+  sku?: string;
   quantity: number;
   cartId?: string;
 }

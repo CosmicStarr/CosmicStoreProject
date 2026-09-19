@@ -5,11 +5,17 @@ using Models;
 
 namespace CosmicStoreAPI.Controllers;
 
+/// <summary>
+/// Admin listing of Identity users.
+/// </summary>
 [Authorize(Roles = "Admin")]
 public class AdminUsersController(UserManager<AppUser> userManager) : BaseController
 {
     private readonly UserManager<AppUser> _userManager = userManager;
 
+    /// <summary>
+    /// Returns id, email, and user name for every account.
+    /// </summary>
     [HttpGet]
     public ActionResult<IEnumerable<object>> GetUsers()
     {

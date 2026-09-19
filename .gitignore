@@ -31,6 +31,9 @@ dist/
 npm-debug.log*
 yarn-error.log*
 
+# Local database exports taken before destructive maintenance
+db-backups/
+
 # Test and coverage output
 [Tt]est[Rr]esult*/
 coverage/

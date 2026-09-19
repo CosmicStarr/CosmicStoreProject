@@ -1,4 +1,4 @@
-import { Component, HostListener, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { CartService } from '../../services/cart-service';
@@ -8,6 +8,9 @@ import { CartService } from '../../services/cart-service';
   imports: [CurrencyPipe, RouterLink],
   templateUrl: './cart-panel.html',
   styleUrl: './cart-panel.scss',
+  host: {
+    '(document:keydown.escape)': 'onEscape()',
+  },
 })
 export class CartPanelComponent implements OnInit {
   protected cartService = inject(CartService);
@@ -16,7 +19,6 @@ export class CartPanelComponent implements OnInit {
     this.cartService.loadCart();
   }
 
-  @HostListener('document:keydown.escape')
   onEscape() {
     if (this.cartService.panelOpen()) {
       this.cartService.closePanel();

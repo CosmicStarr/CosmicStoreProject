@@ -40,6 +40,7 @@ export interface IOrder {
 }
 
 export interface ICheckoutRequest {
+  email: string;
   fullName: string;
   streetAddress: string;
   city: string;

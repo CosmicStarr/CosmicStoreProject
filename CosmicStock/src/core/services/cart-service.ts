@@ -17,11 +17,11 @@ export class CartService {
   readonly panelOpen = this.panelOpenState.asReadonly();
 
   readonly itemCount = computed(() =>
-    this.cart()?.shoppingCartItems.reduce((sum, i) => sum + i.amount, 0) ?? 0
+    this.cart()?.shoppingCartItems?.reduce((sum, i) => sum + i.amount, 0) ?? 0
   );
 
   readonly subtotal = computed(() =>
-    this.cart()?.shoppingCartItems.reduce((sum, i) => sum + i.price * i.amount, 0) ?? 0
+    this.cart()?.shoppingCartItems?.reduce((sum, i) => sum + i.price * i.amount, 0) ?? 0
   );
 
   getCartId(): string | null {
@@ -30,18 +30,18 @@ export class CartService {
 
   loadCart() {
     const cartId = this.getCartId();
-    if (!cartId) return;
+    const options = cartId ? { params: { cartId } } : {};
 
-    this.http.get<IShoppingCart>(`${this.apiUrl}Cart`, { params: { cartId } }).subscribe({
-      next: (cart) => this.setCart(cart),
-      error: () => this.clearLocalCart(),
+    this.http.get<IShoppingCart>(`${this.apiUrl}Cart`, options).subscribe({
+      next: (cart) => this.applyCart(cart),
     });
   }
 
-  addItem(productId: string, quantity = 1) {
+  addItem(productId: string, quantity = 1, sku?: string) {
     const payload: IAddCartItem = {
       productId,
       quantity,
+      sku,
       cartId: this.getCartId() ?? undefined,
     };
 
@@ -54,7 +54,7 @@ export class CartService {
     const cartId = this.getCartId();
     if (!cartId) return;
 
-    this.http.delete<IShoppingCart>(`${this.apiUrl}Cart/items/${sku}`, { params: { cartId } }).subscribe({
+    this.http.delete<IShoppingCart>(`${this.apiUrl}Cart/items/${encodeURIComponent(sku)}`, { params: { cartId } }).subscribe({
       next: (cart) => this.setCart(cart),
     });
   }
@@ -91,21 +91,37 @@ export class CartService {
     }
   }
 
+  private applyCart(cart: IShoppingCart | null) {
+    if (!cart?.id) {
+      return;
+    }
+
+    const current = this.cartState();
+    const incomingCount = cart.shoppingCartItems?.length ?? 0;
+    const currentCount = current?.shoppingCartItems?.length ?? 0;
+    if (currentCount > 0 && incomingCount === 0 && current?.id !== cart.id) {
+      return;
+    }
+
+    this.setCart(cart);
+  }
+
   private setCart(cart: IShoppingCart) {
     localStorage.setItem(CART_ID_KEY, cart.id);
     this.cartState.set(normalizeCart(cart));
   }
 
-  private clearLocalCart() {
+  clearLocalCart() {
     localStorage.removeItem(CART_ID_KEY);
     this.cartState.set(null);
+    this.panelOpenState.set(false);
   }
 }
 
 function normalizeCart(cart: IShoppingCart): IShoppingCart {
   return {
     ...cart,
-    shoppingCartItems: cart.shoppingCartItems.map((item) => ({
+    shoppingCartItems: (cart.shoppingCartItems ?? []).map((item) => ({
       ...item,
       price: item.price,
       amount: item.amount,

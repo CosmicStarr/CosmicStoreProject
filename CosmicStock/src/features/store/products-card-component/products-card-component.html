@@ -4,69 +4,30 @@
     <!-- LEFT SIDEBAR -->
     <aside class="sidebar">
       
-      <!-- Keywords Mini Search -->
-      <div class="sidebar-search">
-        <input type="text" placeholder="keywords">
-        <button class="sidebar-search-btn"><i class="fa-solid fa-magnifying-glass"></i></button>
-      </div>
+      <form class="sidebar-search" (ngSubmit)="searchStore()">
+        <label class="visually-hidden" for="detail-search">Search products</label>
+        <input id="detail-search" type="search" placeholder="Search products" [(ngModel)]="sidebarSearch" name="detailSearch">
+        <button type="submit" class="sidebar-search-btn" aria-label="Search products">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        </button>
+      </form>
 
-      <!-- Products Categories -->
-      <div class="filter-group">
-        <h2 class="filter-title">Products Categories</h2>
-        <ul class="filter-list">
-          <li><span class="bullet red"></span><a href="#">Accessories</a> <span class="count">(3)</span></li>
-          <li><span class="bullet red"></span><a href="#">Electronics & Computer</a> <span class="count">(5)</span></li>
-          <li><span class="bullet red"></span><a href="#">Laptops & Desktops</a> <span class="count">(2)</span></li>
-          <li><span class="bullet red"></span><a href="#">Mobiles & Tablets</a> <span class="count">(8)</span></li>
-          <li><span class="bullet red"></span><a href="#">SmartPhone & Smart TV</a> <span class="count">(5)</span></li>
-        </ul>
-      </div>
-
-      <!-- Select By Color -->
-      <div class="filter-group">
-        <h2 class="filter-title">Select By Color</h2>
-        <ul class="filter-list check-list">
-          <li><input type="radio" name="color" id="gold"> <label for="gold">Gold</label></li>
-          <li><input type="radio" name="color" id="green"> <label for="green">Green</label></li>
-          <li><input type="radio" name="color" id="white"> <label for="white">White</label></li>
-        </ul>
-      </div>
-
-      <!-- Featured Products Widget Column -->
       <div class="filter-group">
         <h2 class="filter-title">Featured products</h2>
         <div class="featured-column">
-          
-          <!-- Mini Product 1 -->
-          <div class="mini-product-card">
-            <img src="https://unsplash.com" alt="Smartphone mini">
-            <div class="mini-info">
-              <h4>SmartPhone</h4>
-              <div class="stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
-              <p class="mini-price">2.99 $ <span class="old-price">4.11 $</span></p>
-            </div>
-          </div>
-
-          <!-- Mini Product 2 -->
-          <div class="mini-product-card">
-            <img src="https://unsplash.com" alt="Camera mini">
-            <div class="mini-info">
-              <h4>Smart Camera</h4>
-              <div class="stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
-              <p class="mini-price">2.99 $ <span class="old-price">4.11 $</span></p>
-            </div>
-          </div>
-
-          <!-- Mini Product 3 -->
-          <div class="mini-product-card">
-            <img src="https://unsplash.com" alt="Watch mini">
-            <div class="mini-info">
-              <h4>Smart Camera</h4>
-              <div class="stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
-              <p class="mini-price">2.99 $ <span class="old-price">4.11 $</span></p>
-            </div>
-          </div>
-
+          @if (!featuredProducts().length) {
+            <p class="mini-empty">No featured products yet.</p>
+          } @else {
+            @for (item of featuredProducts(); track item.id) {
+              <a class="mini-product-card" [routerLink]="['/store', item.id]">
+                <img [src]="item.bigImage" [alt]="item.nameEn">
+                <div class="mini-info">
+                  <h4>{{ item.nameEn }}</h4>
+                  <p class="mini-price">{{ item.sellPrice | currency:'USD':'symbol' }}</p>
+                </div>
+              </a>
+            }
+          }
         </div>
       </div>
     </aside>
@@ -92,10 +53,18 @@
                 <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
               </button>
             }
-            <img
-              [src]="selectedImageUrl()"
-              [alt]="product()?.nameEn + ' product photo ' + (selectedImageIndex() + 1)"
-            >
+            <div
+              class="zoom-stage"
+              [class.is-zooming]="isZooming()"
+              (mouseenter)="startZoom()"
+              (mouseleave)="endZoom()"
+              (mousemove)="moveZoom($event)">
+              <img
+                [src]="selectedImageUrl() || product()?.bigImage"
+                [alt]="product()?.nameEn + ' product photo ' + (selectedImageIndex() + 1)"
+                [style.transform-origin]="zoomOrigin()"
+              >
+            </div>
             @if (galleryImages().length > 1) {
               <button
                 type="button"
@@ -109,7 +78,7 @@
           </div>
           @if (galleryImages().length > 1) {
             <div class="thumbnails-grid" role="listbox" aria-label="Product photos">
-              @for (imageUrl of galleryImages(); track imageUrl; let i = $index) {
+              @for (image of galleryImages(); track image.url; let i = $index) {
                 <button
                   type="button"
                   class="thumb"
@@ -119,7 +88,7 @@
                   [attr.aria-label]="'View photo ' + (i + 1) + ' of ' + galleryImages().length"
                   (click)="selectImage(i)"
                 >
-                  <img [src]="imageUrl" alt="" />
+                  <img [src]="image.url" alt="" />
                 </button>
               }
             </div>
@@ -132,23 +101,14 @@
           <p class="category-meta">Category: <span>{{ product()?.category }}</span></p>
           
           <div class="main-price">{{product()?.sellPrice|currency:'USD':'symbol'}}</div>
-          
-          <div class="rating-row">
-            <div class="stars red-stars">
-              <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
-            </div>
-          </div>
-
-          <!-- Social Share Buttons Grid -->
-          <div class="share-row">
-            <button class="share-btn fb-share"><i class="fa-brands fa-facebook-f"></i> Share</button>
-            <button class="share-btn tw-share"><i class="fa-brands fa-twitter"></i> Share</button>
-          </div>
 
           <div class="stock-status">
-            <p>Product SKU: <span>{{ product()?.sku }}</span></p>
+            <p>Product SKU: <span>{{ selectedSku() }}</span></p>
+            @if (selectedType()) {
+              <p>Type: <span>{{ selectedType() }}</span></p>
+            }
             <p>Available:
-              @if ((product()?.stockQuantity ?? 0) > 0) {
+              @if (inStock()) {
                 <span class="in-stock">{{ product()?.stockQuantity }} items in stock</span>
               } @else {
                 <span class="out-of-stock">Out of stock</span>
@@ -156,22 +116,21 @@
             </p>
           </div>
 
-          <p class="short-description">
-            The generated Lorem Ipsum is therefore always free from repetition injected humour, or non-characteristic words etc.
-          </p>
-          <p class="short-description">
-            Susp endisse ultricies nisi vel quam suscipit. Sabertooth peacock flounder; chain pickerel hatchetfish, pencilfish snailfish
-          </p>
+          <p class="short-description">{{ shortDescription() }}</p>
 
-          <!-- Counter and Action Button Block -->
           <div class="cart-actions-row">
             <div class="quantity-counter">
-              <button type="button" class="counter-btn" (click)="decrementQty()">-</button>
+              <button type="button" class="counter-btn" (click)="decrementQty()" [disabled]="!inStock()">-</button>
               <input type="text" [value]="quantity()" readonly aria-label="Quantity">
-              <button type="button" class="counter-btn" (click)="incrementQty()">+</button>
+              <button type="button" class="counter-btn" (click)="incrementQty()" [disabled]="!inStock()">+</button>
             </div>
-            <button type="button" class="add-to-cart-orange" (click)="addToCart()" [disabled]="addingToCart">
-              <i class="fa-solid fa-basket-shopping"></i> {{ addingToCart ? 'Adding...' : 'Add to cart' }}
+            <button
+              type="button"
+              class="add-to-cart-orange"
+              (click)="addToCart()"
+              [disabled]="addingToCart || !inStock()">
+              <i class="fa-solid fa-basket-shopping"></i>
+              {{ !inStock() ? 'Out of stock' : (addingToCart ? 'Adding...' : 'Add to cart') }}
             </button>
             <button type="button" class="wishlist-btn" (click)="toggleWishlist()" [disabled]="wishlistLoading">
               {{ inWishlist() ? '♥ Saved' : '♡ Add to Wishlist' }}
@@ -205,29 +164,57 @@
 
       <!-- BOTTOM PORTION: PRODUCT TABS (Description & Reviews) -->
       <div class="tabs-component">
-        <div class="tabs-nav">
-          <button class="tab-link active">Description</button>
-          <button class="tab-link">Reviews</button>
+        <div class="tabs-nav" role="tablist" aria-label="Product details">
+          <button
+            type="button"
+            class="tab-link"
+            role="tab"
+            [class.active]="activeTab() === 'description'"
+            [attr.aria-selected]="activeTab() === 'description'"
+            (click)="activeTab.set('description')">
+            Description
+          </button>
+          <button
+            type="button"
+            class="tab-link"
+            role="tab"
+            [class.active]="activeTab() === 'reviews'"
+            [attr.aria-selected]="activeTab() === 'reviews'"
+            (click)="activeTab.set('reviews')">
+            Reviews
+          </button>
         </div>
         <div class="tab-content">
-          <p class="tab-p">
-            Our new <strong>HPB12 / A12 battery</strong> is rated at 2000mAh and designed to power up Black and Decker / FireStorm line of 12V tools allowing users to run multiple devices off the same battery pack. The HPB12 is compatible with the following Black and Decker power tool models:
-          </p>
-          <h4 class="tab-sub-title">Black & Decker Drills and Drivers:</h4>
-          <p class="serial-numbers-dump">
-            {{product()?.descriptionEn}}
-          </p>
+          @if (activeTab() === 'description') {
+            <p class="tab-p">{{ product()?.descriptionEn?.trim() || 'No description is available for this product yet.' }}</p>
+          } @else {
+            <p class="tab-p">Reviews are not available yet.</p>
+          }
         </div>
       </div>
 
     </section>
 
-  }   
+  } @else if (loadFailed()) {
+    <section class="main-content">
+      <div class="product-missing">
+        <h1>Product not found</h1>
+        <p>This item is no longer available or the link is incorrect.</p>
+        <a routerLink="/store" class="shop-now-btn">Back to shop</a>
+      </div>
+    </section>
+  } @else {
+    <section class="main-content">
+      <p class="status-message">Loading product...</p>
+    </section>
+  }
 
   </main>
 
+<app-site-footer></app-site-footer>
+
   <!-- Sticky Bottom Scroll To Top Button -->
- <button class="back-to-top">↑</button>
+ <button type="button" class="back-to-top" (click)="scrollToTop()" aria-label="Back to top">↑</button>
 
 
 

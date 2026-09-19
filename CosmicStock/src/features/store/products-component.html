@@ -1,6 +1,13 @@
 <app-site-navbar />
 
 <section class="hero-banner">
+  @if (heroImages().length) {
+    <div class="hero-wash" aria-hidden="true">
+      @for (image of heroImages(); track image) {
+        <img [src]="image" alt="">
+      }
+    </div>
+  }
   <div class="hero-overlay">
     <h1>Shop</h1>
     <div class="breadcrumb"><a routerLink="/">Home</a> / Shop</div>
@@ -9,11 +16,15 @@
 
 <main class="catalog-layout container">
   <aside class="sidebar">
-    <div class="filter-group">
+    <div class="filter-group category-filter">
       <h2 class="filter-title">Categories</h2>
       <ul class="filter-list">
         <li>
-          <button type="button" class="filter-link" [class.active]="!sunParams.category" (click)="selectCategory(null)">
+          <button
+            type="button"
+            class="filter-link"
+            [class.active]="!sunParams.category"
+            (click)="selectCategory(null)">
             All Products
           </button>
         </li>
@@ -32,7 +43,7 @@
       </ul>
     </div>
 
-    <!-- <div class="filter-group">
+    <div class="filter-group price-filter">
       <h2 class="filter-title">Price Range</h2>
       <div class="price-inputs">
         <label>
@@ -45,7 +56,7 @@
         </label>
       </div>
       <button type="button" class="apply-filter-btn" (click)="applyFilters()">Apply Price Filter</button>
-    </div> -->
+    </div>
   </aside>
 
   <section class="main-content">
@@ -59,7 +70,7 @@
       <div class="toolbar-actions">
         <label class="sort-wrapper">
           <span>Sort By</span>
-          <select class="sort-select" [value]="sunParams.sort" (change)="onSortChange($any($event.target).value)">
+          <select class="sort-select" [value]="sunParams.sort" (change)="onSortSelect($event)">
             <option value="">Name (A-Z)</option>
             <option value="nameDesc">Name (Z-A)</option>
             <option value="priceAsc">Price: Low to High</option>
@@ -70,7 +81,7 @@
       </div>
     </div>
 
-    @if (loading) {
+    @if (loading()) {
       <p class="status-message">Loading products...</p>
     } @else if (!products().length) {
       <p class="status-message">No products match your filters.</p>
@@ -118,3 +129,4 @@
     }
   </section>
 </main>
+<app-site-footer></app-site-footer>

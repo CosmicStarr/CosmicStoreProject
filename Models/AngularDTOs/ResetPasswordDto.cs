@@ -12,7 +12,10 @@ public class ResetPasswordDto
     public string Token { get; set; } = string.Empty;
 
     [Required]
-    [StringLength(20, MinimumLength = 8)]
+    [StringLength(20, MinimumLength = 8, ErrorMessage = "Password must be 8 to 20 characters.")]
+    [RegularExpression(
+        "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,20}$",
+        ErrorMessage = "Password must include upper and lower case letters, a number, and a symbol (@ $ ! % * ? &).")]
     public string NewPassword { get; set; } = string.Empty;
 
     [Required]

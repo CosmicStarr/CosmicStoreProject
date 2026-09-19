@@ -200,6 +200,9 @@ namespace Data.Migrations
                     b.Property<int>("StockQuantity")
                         .HasColumnType("int");
 
+                    b.Property<string>("Type")
+                        .HasColumnType("nvarchar(max)");
+
                     b.ToTable("ProductWithPictureDto", "store");
                 });
 
@@ -383,19 +386,19 @@ namespace Data.Migrations
 
                     b.Property<string>("ProductId")
                         .IsRequired()
-                        .HasMaxLength(2083)
-                        .HasColumnType("nvarchar(2083)");
-
-                    b.Property<string>("ProductsId")
+                        .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("SkuPhoto")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Type")
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("ProductsId");
+                    b.HasIndex("ProductId");
 
                     b.ToTable("Pictures", "store");
                 });
@@ -651,9 +654,13 @@ namespace Data.Migrations
 
             modelBuilder.Entity("Models.ProductImage", b =>
                 {
-                    b.HasOne("Models.Products", null)
+                    b.HasOne("Models.Products", "Product")
                         .WithMany("ProductImages")
-                        .HasForeignKey("ProductsId");
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
                 });
 
             modelBuilder.Entity("Models.ProductVariant", b =>

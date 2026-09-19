@@ -170,22 +170,52 @@
 
 /* 4. Full Hero Section Graphic Display */
 .hero-banner {
-  background-image: url('https://unsplash.com');
+  background: linear-gradient(135deg, #0f172a, #1e293b);
   background-size: cover;
   background-position: center;
   height: 220px;
   position: relative;
+  overflow: hidden;
+}
+
+.hero-wash {
+  position: absolute;
+  inset: 0 0 0 28%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  pointer-events: none;
+}
+
+.hero-wash img {
+  height: 150%;
+  width: auto;
+  max-width: 70%;
+  object-fit: contain;
+  opacity: 0.38;
+  filter: saturate(0.8);
+}
+
+.hero-wash img + img {
+  margin-left: -12%;
+  opacity: 0.22;
 }
 
 .hero-overlay {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background-color: rgba(0, 0, 0, 0.4);
+  background: linear-gradient(
+    90deg,
+    rgba(15, 23, 42, 0.72) 0%,
+    rgba(15, 23, 42, 0.4) 55%,
+    rgba(15, 23, 42, 0.18) 100%
+  );
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   color: #ffffff;
+  z-index: 1;
 }
 
 .hero-overlay h1 {
@@ -757,13 +787,20 @@
   }
 }
 
+.price-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .price-inputs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
-  margin-bottom: 12px;
 
   label {
+    flex: 1 1 50%;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -771,9 +808,12 @@
   }
 
   input {
+    width: 50%;
+    box-sizing: border-box;
     border: 1px solid var(--border-color);
     border-radius: 4px;
     padding: 8px;
+    background-color: #f1f5f9;
   }
 }
 
@@ -785,6 +825,10 @@
   border-radius: 4px;
   padding: 8px 14px;
   cursor: pointer;
+}
+
+.price-filter .apply-filter-btn {
+  width: 50%;
 }
 
 .pagination {
@@ -844,6 +888,12 @@
 
   a {
     color: #fff;
+  }
+}
+
+@media (max-width: 768px) {
+  .category-filter {
+    display: none;
   }
 }
 

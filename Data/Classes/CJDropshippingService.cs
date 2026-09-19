@@ -9,6 +9,9 @@ using Models.AngularDTOs;
 
 namespace Data.Classes;
 
+/// <summary>
+/// HTTP client for the CJ Dropshipping API (orders, freight, wallet, variants, stock).
+/// </summary>
 public class CJDropshippingService : ICJDropshippingService
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
@@ -33,6 +36,7 @@ public class CJDropshippingService : ICJDropshippingService
         _baseUrl = (options.Value.BaseUrl ?? "https://developers.cjdropshipping.com/api2.0").TrimEnd('/');
     }
 
+    /// <summary>Submits a supplier order and returns the CJ shipment order id. Not called while fulfillment is disabled.</summary>
     public async Task<string> CreateOrderV3Async(CjCreateOrderV3Request requestPayload)
     {
         var jsonResponse = await PostAsync("/v1/shopping/order/createOrderV3", requestPayload);
@@ -46,6 +50,7 @@ public class CJDropshippingService : ICJDropshippingService
         throw new Exception($"Failed to create order. CJ Response: {jsonResponse}");
     }
 
+    /// <summary>Pays a CJ shipment from the wallet. Not called while fulfillment is disabled.</summary>
     public async Task<bool> PayBalanceV2Async(string shipmentOrderId)
     {
         var jsonResponse = await PostAsync("/v1/shopping/pay/payBalanceV2", new { shipmentOrderId });
@@ -54,6 +59,7 @@ public class CJDropshippingService : ICJDropshippingService
         return document.RootElement.TryGetProperty("result", out var result) && result.GetBoolean();
     }
 
+    /// <summary>Quotes CJ logistics options for a destination and a basket of vids.</summary>
     public async Task<IReadOnlyList<ShippingOptionDto>> GetFreightOptionsAsync(CjFreightRequest request)
     {
         try
@@ -86,6 +92,7 @@ public class CJDropshippingService : ICJDropshippingService
         }
     }
 
+    /// <summary>Reads the CJ wallet balance and flags it when it is below the configured threshold.</summary>
     public async Task<CjBalanceDto?> GetWalletBalanceAsync()
     {
         try
@@ -115,6 +122,7 @@ public class CJDropshippingService : ICJDropshippingService
         }
     }
 
+    /// <summary>Reads fulfillment status and tracking for a CJ shipment order.</summary>
     public async Task<CjOrderStatusDto?> GetOrderStatusAsync(string shipmentOrderId)
     {
         try
@@ -142,6 +150,7 @@ public class CJDropshippingService : ICJDropshippingService
         }
     }
 
+    /// <summary>Asks CJ to cancel an unshipped shipment order.</summary>
     public async Task<bool> CancelOrderAsync(string shipmentOrderId)
     {
         try
@@ -157,6 +166,7 @@ public class CJDropshippingService : ICJDropshippingService
         }
     }
 
+    /// <summary>Lists variants (vid, SKU, price, image) for a CJ pid.</summary>
     public async Task<IReadOnlyList<CjVariantDto>> GetProductVariantsAsync(string cjProductId)
     {
         try
@@ -188,6 +198,85 @@ public class CJDropshippingService : ICJDropshippingService
         }
     }
 
+    /// <summary>Reads CJ product name, SKU, image, and description for Add Product preview.</summary>
+    public async Task<CjProductDetailsDto?> GetProductByPidAsync(string cjProductId)
+    {
+        var queried = await QueryProductAsync("pid", cjProductId);
+        return queried?.Details;
+    }
+
+    /// <summary>
+    /// Tries pid, then variantSku, then productSku. Loads all variants for the parent product.
+    /// </summary>
+    public async Task<CjProductLookup?> LookupProductAsync(string pidOrSku)
+    {
+        var key = pidOrSku?.Trim();
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return null;
+        }
+
+        foreach (var field in new[] { "pid", "variantSku", "productSku" })
+        {
+            var queried = await QueryProductAsync(field, key);
+            if (queried is null)
+            {
+                continue;
+            }
+
+            var details = queried.Value.Details;
+            var variants = queried.Value.Variants;
+            var pid = details.Pid?.Trim();
+
+            if (variants.Count == 0 && !string.IsNullOrWhiteSpace(pid))
+            {
+                variants = (await GetProductVariantsAsync(pid)).ToList();
+            }
+
+            if (string.IsNullOrWhiteSpace(pid) && variants.Count == 0)
+            {
+                continue;
+            }
+
+            return new CjProductLookup
+            {
+                Pid = pid ?? string.Empty,
+                LookupKind = field,
+                Details = details,
+                Variants = variants
+            };
+        }
+
+        return null;
+    }
+
+    /// <summary>Matches a SKU to a variant vid after looking the product up on CJ.</summary>
+    public async Task<string?> ResolveVidBySkuAsync(string sku)
+    {
+        var key = sku?.Trim();
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return null;
+        }
+
+        var lookup = await LookupProductAsync(key);
+        if (lookup is null)
+        {
+            return null;
+        }
+
+        var match = lookup.Variants.FirstOrDefault(variant =>
+            string.Equals(variant.Sku, key, StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrWhiteSpace(match?.Vid))
+        {
+            return match.Vid;
+        }
+
+        return lookup.Variants.Count == 1 ? lookup.Variants[0].Vid : null;
+    }
+
+    /// <summary>Reads warehouse stock for each vid (paced to stay under CJ rate limits).</summary>
     public async Task<IReadOnlyDictionary<string, int>> GetVariantStockAsync(IEnumerable<string> variantIds)
     {
         var stock = new Dictionary<string, int>();
@@ -216,6 +305,102 @@ public class CJDropshippingService : ICJDropshippingService
         return stock;
     }
 
+    /// <summary>Queries CJ product/query by one of pid, variantSku, or productSku.</summary>
+    private async Task<(CjProductDetailsDto Details, List<CjVariantDto> Variants)?> QueryProductAsync(string field, string value)
+    {
+        try
+        {
+            var jsonResponse = await GetAsync($"/v1/product/query?{field}={Uri.EscapeDataString(value)}");
+            using var document = JsonDocument.Parse(jsonResponse);
+            var root = document.RootElement;
+
+            if (!root.TryGetProperty("result", out var result) || result.ValueKind != JsonValueKind.True)
+            {
+                return null;
+            }
+
+            if (!root.TryGetProperty("data", out var data)
+                || data.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            {
+                return null;
+            }
+
+            var obj = data.ValueKind == JsonValueKind.Array
+                ? data.EnumerateArray().FirstOrDefault()
+                : data;
+
+            if (obj.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            var details = new CjProductDetailsDto
+            {
+                Pid = ReadString(obj, "pid"),
+                ProductNameEn = ReadString(obj, "productNameEn") ?? ReadString(obj, "productName"),
+                ProductSku = ReadString(obj, "productSku"),
+                ProductImage = ReadString(obj, "productImage") ?? ReadString(obj, "bigImage"),
+                Description = ReadString(obj, "description") ?? ReadString(obj, "descriptionEn"),
+                CategoryName = ReadString(obj, "categoryName")
+            };
+
+            return (details, ReadVariants(obj));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to query CJ product by {Field} {Value}.", field, value);
+            return null;
+        }
+    }
+
+    /// <summary>Reads the variants array from a CJ product/query payload, if present.</summary>
+    private static List<CjVariantDto> ReadVariants(JsonElement product)
+    {
+        if (!product.TryGetProperty("variants", out var variants)
+            || variants.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        var list = new List<CjVariantDto>();
+        foreach (var variant in variants.EnumerateArray())
+        {
+            var vid = ReadString(variant, "vid");
+            if (string.IsNullOrWhiteSpace(vid))
+            {
+                continue;
+            }
+
+            list.Add(new CjVariantDto
+            {
+                Vid = vid,
+                Sku = ReadString(variant, "variantSku") ?? vid,
+                VariantName = ReadString(variant, "variantNameEn") ?? ReadString(variant, "variantKey"),
+                SellPrice = ReadDecimal(variant, "variantSellPrice"),
+                ImageUrl = ReadString(variant, "variantImage")
+            });
+        }
+
+        return list;
+    }
+
+    /// <summary>Reads a JSON number or numeric string as a decimal.</summary>
+    private static decimal ReadDecimal(JsonElement obj, string name)
+    {
+        if (!obj.TryGetProperty(name, out var property))
+        {
+            return 0m;
+        }
+
+        return property.ValueKind switch
+        {
+            JsonValueKind.Number when property.TryGetDecimal(out var value) => value,
+            JsonValueKind.String when decimal.TryParse(property.GetString(), out var parsed) => parsed,
+            _ => 0m
+        };
+    }
+
+    /// <summary>Authenticated GET against the CJ API.</summary>
     private async Task<string> GetAsync(string relativeUrl)
     {
         await ApplyAuthHeaderAsync();
@@ -223,6 +408,7 @@ public class CJDropshippingService : ICJDropshippingService
         return await response.Content.ReadAsStringAsync();
     }
 
+    /// <summary>Authenticated POST against the CJ API.</summary>
     private async Task<string> PostAsync(string relativeUrl, object payload)
     {
         await ApplyAuthHeaderAsync();
@@ -231,6 +417,7 @@ public class CJDropshippingService : ICJDropshippingService
         return await response.Content.ReadAsStringAsync();
     }
 
+    /// <summary>Attaches a fresh CJ-Access-Token from CjAuthManager.</summary>
     private async Task ApplyAuthHeaderAsync()
     {
         var token = await _authManager.GetValidAccessTokenAsync();
@@ -240,11 +427,26 @@ public class CJDropshippingService : ICJDropshippingService
         _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("CJ-Access-Token", token);
     }
 
+    /// <summary>Parses the first number from a CJ price string that may be a range (e.g. "1.2-3.4").</summary>
     private static decimal ParsePrice(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return 0m;
 
         var firstPart = value.Split(['-', '~'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
         return decimal.TryParse(firstPart?.Trim(), out var price) ? price : 0m;
+    }
+
+    /// <summary>Reads a JSON property as a string regardless of whether CJ sent a string or number.</summary>
+    private static string? ReadString(JsonElement obj, string name)
+    {
+        if (!obj.TryGetProperty(name, out var property))
+            return null;
+
+        return property.ValueKind switch
+        {
+            JsonValueKind.String => property.GetString(),
+            JsonValueKind.Null or JsonValueKind.Undefined => null,
+            _ => property.ToString()
+        };
     }
 }

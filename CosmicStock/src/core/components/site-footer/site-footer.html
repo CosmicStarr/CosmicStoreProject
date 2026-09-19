@@ -1,0 +1,68 @@
+<footer class="site-footer">
+  <div class="footer-contact-strip">
+    <div class="contact-card">
+      <div class="icon-circle">✉️</div>
+      <div class="card-text">
+        <h3>Need help?</h3>
+        <p><a routerLink="/orders">Track an order</a></p>
+      </div>
+    </div>
+
+    <div class="contact-card">
+      <div class="icon-circle">🛍️</div>
+      <div class="card-text">
+        <h3>Shop</h3>
+        <p><a routerLink="/store">Browse all products</a></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-directory">
+    <div class="directory-column">
+      <h2>Stay in the loop</h2>
+      <p class="newsletter-desc">Browse the latest catalog and featured picks from CosmicStore.</p>
+      <a routerLink="/store" class="shop-now-btn">Shop the catalog</a>
+    </div>
+
+    <div class="directory-column">
+      <h2>Customer Service</h2>
+      <ul class="footer-links-list">
+        <li><a routerLink="/store">Shop</a></li>
+        <li><a routerLink="/cart">Cart</a></li>
+        <li><a routerLink="/orders">Order History</a></li>
+        @if ((accountService.currentUser$ | async)?.isGuest !== true) {
+          <li><a routerLink="/account/profile">My Account</a></li>
+        }
+        <li><a routerLink="/account/wishlist">Wishlist</a></li>
+      </ul>
+    </div>
+
+    <div class="directory-column">
+      <h2>Information</h2>
+      <ul class="footer-links-list">
+        <li><a routerLink="/store">Shop All</a></li>
+        <li><a routerLink="/checkout">Checkout</a></li>
+        <li><a routerLink="/login">Sign In</a></li>
+        <li><a routerLink="/register">Create Account</a></li>
+        @if ((accountService.currentUser$ | async)?.isGuest !== true) {
+          <li><a routerLink="/account/profile">Saved Addresses</a></li>
+        }
+      </ul>
+    </div>
+
+    <div class="directory-column">
+      <h2>Extras</h2>
+      <ul class="footer-links-list">
+        <li><a routerLink="/store">Browse Products</a></li>
+        <li><a routerLink="/orders">Track Your Order</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer-copyright-bar">
+    <div class="copyright-left">
+      © <a routerLink="/">CosmicStore</a>, All rights reserved.
+    </div>
+    <div class="copyright-right"></div>
+  </div>
+</footer>

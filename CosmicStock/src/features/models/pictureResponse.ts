@@ -1,5 +1,6 @@
 export interface IPicture {
-  pictureId: string;
+  productId?: string;
   photoUrl: string;
-  productId: string; // Foreign key to the product
+  skuPhoto?: string;
+  type?: string;
 }

@@ -20,9 +20,19 @@ export class App implements OnInit {
 loadUser() {
     const storedUser = localStorage.getItem('cosmicStockUser');
     if (storedUser) {
-      // Validates token against the backend [HttpGet("account")] endpoint
+      try {
+        const parsed = JSON.parse(storedUser) as { isGuest?: boolean };
+        if (parsed.isGuest) {
+          localStorage.removeItem('cosmicStockUser');
+          return;
+        }
+      } catch {
+        localStorage.removeItem('cosmicStockUser');
+        return;
+      }
+
       this.accountService.loadCurrentUser().subscribe({
-        error: () => localStorage.removeItem('cosmicStockUser') // Clears storage if token expired
+        error: () => localStorage.removeItem('cosmicStockUser')
       });
     }
   }

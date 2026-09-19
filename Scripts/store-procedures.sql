@@ -1,6 +1,15 @@
 -- Store schema stored procedures for CosmicStore storefront API
 -- Run against CosmicStoreProject database
 
+IF COL_LENGTH('store.Pictures', 'Type') IS NULL
+    ALTER TABLE [store].[Pictures] ADD [Type] NVARCHAR(MAX) NULL;
+GO
+
+IF OBJECT_ID('store.ProductWithPictureDto', 'U') IS NOT NULL
+   AND COL_LENGTH('store.ProductWithPictureDto', 'Type') IS NULL
+    ALTER TABLE [store].[ProductWithPictureDto] ADD [Type] NVARCHAR(MAX) NULL;
+GO
+
 IF OBJECT_ID('[store].[GetAllProductsWithPictures]', 'P') IS NOT NULL
     DROP PROCEDURE [store].[GetAllProductsWithPictures];
 GO
@@ -25,7 +34,8 @@ BEGIN
         p.StockQuantity,
         CAST(pi.Id AS NVARCHAR(50)) AS PictureId,
         pi.PhotoUrl,
-        pi.SkuPhoto
+        pi.SkuPhoto,
+        pi.Type
     FROM [store].[GetProducts] p
     LEFT JOIN [store].[Pictures] pi ON p.Id = pi.ProductId
     WHERE (@Category IS NULL OR @Category = '' OR p.Category = @Category);
@@ -56,7 +66,8 @@ BEGIN
         p.StockQuantity,
         CAST(pi.Id AS NVARCHAR(50)) AS PictureId,
         pi.PhotoUrl,
-        pi.SkuPhoto
+        pi.SkuPhoto,
+        pi.Type
     FROM [store].[GetProducts] p
     LEFT JOIN [store].[Pictures] pi ON p.Id = pi.ProductId
     WHERE p.Id = @ProductId;
@@ -87,7 +98,8 @@ BEGIN
         p.StockQuantity,
         CAST(pi.Id AS NVARCHAR(50)) AS PictureId,
         pi.PhotoUrl,
-        pi.SkuPhoto
+        pi.SkuPhoto,
+        pi.Type
     FROM [store].[GetProducts] p
     LEFT JOIN [store].[Pictures] pi ON p.Id = pi.ProductId
     WHERE
