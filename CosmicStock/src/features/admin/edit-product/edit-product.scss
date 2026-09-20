@@ -96,6 +96,7 @@
 
   input[type="text"],
   input[type="number"],
+  select,
   textarea {
     padding: 10px 14px;
     border: 1px solid var(--border-light);
@@ -117,6 +118,27 @@
   textarea {
     resize: vertical;
   }
+
+  select {
+    appearance: auto;
+    cursor: pointer;
+  }
+
+  .new-category-input {
+    margin-top: 10px;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* Custom Checkboxes */
@@ -235,6 +257,27 @@
       font-size: 12px;
       font-weight: 600;
     }
+
+    .image-delete-btn {
+      margin-left: auto;
+      border: 1px solid #fecaca;
+      background: #fff;
+      color: #b91c1c;
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+
+      &:hover:not([disabled]) {
+        background: #fef2f2;
+      }
+
+      &[disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
   }
 
   .card-body {
@@ -309,12 +352,63 @@
   }
 }
 
+.confirm-banner {
+  margin: 0;
+  padding: 16px 40px;
+  background-color: #fff7ed;
+  border-bottom: 1px solid #fdba74;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.confirm-title {
+  margin: 0 0 4px;
+  color: #9a3412;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.confirm-text {
+  margin: 0;
+  color: #9a3412;
+  font-size: 14px;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
 /* Primary Button */
 .form-actions {
   margin-top: 30px;
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+  flex-wrap: wrap;
+}
+
+.danger-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 14px 24px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  background-color: #dc2626;
+  color: #ffffff;
+
+  &:hover:not([disabled]) {
+    background-color: #b91c1c;
+  }
+
+  &[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 }
 
 .publish-btn,
@@ -358,7 +452,7 @@
     grid-template-columns: 1fr;
   }
   
-  .edit-header, .cosmic-form {
+  .edit-header, .cosmic-form, .status-message, .confirm-banner {
     padding: 24px 20px;
   }
   

@@ -36,7 +36,7 @@ public class CJDropshippingService : ICJDropshippingService
         _baseUrl = (options.Value.BaseUrl ?? "https://developers.cjdropshipping.com/api2.0").TrimEnd('/');
     }
 
-    /// <summary>Submits a supplier order and returns the CJ shipment order id. Not called while fulfillment is disabled.</summary>
+    /// <summary>Submits a supplier order and returns the CJ shipment order id.</summary>
     public async Task<string> CreateOrderV3Async(CjCreateOrderV3Request requestPayload)
     {
         var jsonResponse = await PostAsync("/v1/shopping/order/createOrderV3", requestPayload);
@@ -50,7 +50,7 @@ public class CJDropshippingService : ICJDropshippingService
         throw new Exception($"Failed to create order. CJ Response: {jsonResponse}");
     }
 
-    /// <summary>Pays a CJ shipment from the wallet. Not called while fulfillment is disabled.</summary>
+    /// <summary>Pays a CJ shipment from the wallet.</summary>
     public async Task<bool> PayBalanceV2Async(string shipmentOrderId)
     {
         var jsonResponse = await PostAsync("/v1/shopping/pay/payBalanceV2", new { shipmentOrderId });

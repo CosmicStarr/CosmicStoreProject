@@ -11,8 +11,7 @@ using Models.AngularDTOs;
 namespace Data.Classes;
 
 /// <summary>
-/// Checkout and order lifecycle: persist paid orders, map line SKUs to CJ vids, cancel/refund locally.
-/// CJ create/pay/status calls are implemented but currently skipped.
+/// Checkout and order lifecycle: persist Stripe-paid orders, then submit to CJ only when the wallet can cover fulfillment.
 /// </summary>
 public class OrderService : IOrderService
 {
@@ -50,7 +49,7 @@ public class OrderService : IOrderService
     }
 
     /// <summary>
-    /// Creates an order after Stripe confirms payment. Each line SKU is mapped to a vid. CJ fulfillment is not submitted.
+    /// Creates an order after Stripe confirms payment. CJ fulfillment is submitted only when the wallet can cover it.
     /// </summary>
     public async Task<OrderDto> CreateOrderAsync(AngularCheckoutRequest request, string? userId, string? userEmail)
     {
@@ -85,6 +84,7 @@ public class OrderService : IOrderService
             ShippingAddress = request.StreetAddress,
             City = request.City,
             State = request.ProvinceOrState,
+            ZipCode = request.ZipCode,
             Country = request.CountryCode,
             Status = Status.PaymentRecevied.ToString(),
             PaymentTransactionId = request.StripePaymentMethodId,
@@ -105,6 +105,8 @@ public class OrderService : IOrderService
             order.Items.Add(new OrderItem
             {
                 Sku = item.Sku,
+                Name = itemNames[item.Sku],
+                Status = "Ordered",
                 CjVariantId = await ResolveVariantIdAsync(product, item.Sku),
                 Quantity = item.Amount,
                 PriceAtPurchase = product.SellPrice
@@ -120,43 +122,10 @@ public class OrderService : IOrderService
         _storeUnitOfWork.Repository<Order>().Add(order);
         await _storeUnitOfWork.Complete();
 
-        // CJ fulfillment is disabled so test Stripe checkouts do not create real shipments.
-        // try
-        // {
-        //     var cjPayload = new CjCreateOrderV3Request
-        //     {
-        //         orderNumber = order.OrderId,
-        //         shippingCustomerName = request.FullName,
-        //         shippingAddress = request.StreetAddress,
-        //         shippingCity = request.City,
-        //         shippingProvince = request.ProvinceOrState,
-        //         shippingCountryCode = request.CountryCode,
-        //         shippingCountry = MapCountryName(request.CountryCode),
-        //         logisticName = order.LogisticName,
-        //         fromCountryCode = _configuration["CJDropshipping:FromCountryCode"] ?? "CN",
-        //         products = order.Items.Select(i => new CjOrderProduct
-        //         {
-        //             vid = i.CjVariantId,
-        //             quantity = i.Quantity
-        //         }).ToList()
-        //     };
-        //
-        //     var shipmentOrderId = await _cjService.CreateOrderV3Async(cjPayload);
-        //     order.CjShipmentOrderId = shipmentOrderId;
-        //
-        //     var isPaid = await _cjService.PayBalanceV2Async(shipmentOrderId);
-        //     order.Status = isPaid ? Status.Processing.ToString() : Status.PaymentOnHold.ToString();
-        //     order.LastStatusSyncAt = DateTime.UtcNow;
-        // }
-        // catch (Exception ex)
-        // {
-        //     _logger.LogError(ex, "CJ submission failed for order {OrderId}; leaving it queued for retry.", order.OrderId);
-        //     order.Status = Status.Submitted.ToString();
-        // }
-        _logger.LogInformation("Skipping CJ fulfillment for order {OrderId}.", order.OrderId);
+        await ReserveStockAsync(order);
+        await TryFulfillWithCjAsync(order);
 
         _storeUnitOfWork.Repository<Order>().Update(order);
-        await ReserveStockAsync(order);
         await _storeUnitOfWork.Complete();
 
         var dto = MapToDto(order);
@@ -187,12 +156,23 @@ public class OrderService : IOrderService
     /// <summary>Lists every order for the admin grid, newest first.</summary>
     public async Task<IEnumerable<OrderDto>> GetAllOrdersAsync()
     {
-        var orders = await _storeUnitOfWork.Repository<Order>()
-            .GetAllParams(
-                orderby: q => q.OrderByDescending(o => o.CreatedAt),
-                includeProperties: "Items");
+        var collected = new List<Order>();
+        var page = 1;
 
-        return orders.Select(MapToDto);
+        while (true)
+        {
+            var batch = await _storeUnitOfWork.Repository<Order>()
+                .GetAllParams(
+                    new PageParams { PageNumber = page, PageSize = 50 },
+                    orderby: q => q.OrderByDescending(o => o.CreatedAt),
+                    includeProperties: "Items");
+
+            collected.AddRange(batch);
+            if (!batch.HasNextPage) break;
+            page++;
+        }
+
+        return collected.Select(MapToDto).ToList();
     }
 
     /// <summary>Loads one order. When userId is set, the order must belong to that user.</summary>
@@ -202,13 +182,19 @@ public class OrderService : IOrderService
         return order is null ? null : MapToDto(order);
     }
 
-    /// <summary>Would refresh one order from CJ; currently a no-op while fulfillment is off.</summary>
+    /// <summary>Retries CJ submit when the wallet can cover it, then refreshes shipment status.</summary>
     public async Task<OrderDto?> SyncOrderStatusAsync(string orderId)
     {
         var order = await LoadOrderAsync(orderId);
         if (order is null) return null;
 
-        var updated = await ApplyRemoteStatusAsync(order);
+        var hadShipment = !string.IsNullOrWhiteSpace(order.CjShipmentOrderId);
+        var updated = await TryFulfillWithCjAsync(order);
+        if (hadShipment && await ApplyRemoteStatusAsync(order))
+        {
+            updated = true;
+        }
+
         if (updated)
         {
             _storeUnitOfWork.Repository<Order>().Update(order);
@@ -218,13 +204,15 @@ public class OrderService : IOrderService
         return MapToDto(order);
     }
 
-    /// <summary>Would poll CJ for open shipments; currently returns 0 while fulfillment is off.</summary>
+    /// <summary>
+    /// Submits queued Stripe-paid orders when the CJ wallet can cover them, then polls open shipments.
+    /// </summary>
     public async Task<int> SyncPendingOrdersAsync(CancellationToken cancellationToken = default)
     {
         var orders = await _storeUnitOfWork.Repository<Order>()
             .GetAllParams(
                 new PageParams { PageNumber = 1, PageSize = 50 },
-                o => o.CjShipmentOrderId != null && !TerminalStatuses.Contains(o.Status),
+                o => !TerminalStatuses.Contains(o.Status),
                 q => q.OrderBy(o => o.LastStatusSyncAt),
                 "Items");
 
@@ -234,7 +222,14 @@ public class OrderService : IOrderService
         {
             if (cancellationToken.IsCancellationRequested) break;
 
-            if (await ApplyRemoteStatusAsync(order))
+            var hadShipment = !string.IsNullOrWhiteSpace(order.CjShipmentOrderId);
+            var updated = await TryFulfillWithCjAsync(order);
+            if (hadShipment && await ApplyRemoteStatusAsync(order))
+            {
+                updated = true;
+            }
+
+            if (updated)
             {
                 _storeUnitOfWork.Repository<Order>().Update(order);
                 updatedCount++;
@@ -249,50 +244,227 @@ public class OrderService : IOrderService
         return updatedCount;
     }
 
-    /// <summary>Marks an unshipped order cancelled and puts reserved stock back. Does not call CJ.</summary>
+    /// <summary>Cancels an unshipped order with CJ when a shipment exists, then restocks.</summary>
     public async Task<OrderDto?> CancelOrderAsync(string orderId)
     {
         var order = await LoadOrderAsync(orderId);
         if (order is null) return null;
 
-        if (order.Status is nameof(Status.Shipped) or nameof(Status.Delivered))
+        if (order.Status is nameof(Status.Cancelled) or nameof(Status.Refunded))
         {
-            throw new InvalidOperationException("Shipped orders cannot be cancelled. Issue a refund instead.");
+            return MapToDto(order);
         }
 
-        if (!string.IsNullOrWhiteSpace(order.CjShipmentOrderId))
+        await EnsureUnfulfilledAtCjAsync(order);
+
+        var cjCancelled = await TryCancelCjShipmentAsync(order);
+        if (!cjCancelled)
         {
-            // CJ fulfillment is disabled; do not cancel a supplier shipment.
-            // var cancelled = await _cjService.CancelOrderAsync(order.CjShipmentOrderId);
-            // if (!cancelled)
-            // {
-            //     _logger.LogWarning("CJ refused to cancel shipment {ShipmentOrderId}.", order.CjShipmentOrderId);
-            // }
+            throw new InvalidOperationException(
+                "The supplier could not cancel this shipment. Please try again or contact support.");
         }
+
+        await ReleaseStockAsync(order);
+        MarkItems(order, Status.Cancelled.ToString());
 
         order.Status = Status.Cancelled.ToString();
         order.LastStatusSyncAt = DateTime.UtcNow;
 
         _storeUnitOfWork.Repository<Order>().Update(order);
-        await ReleaseStockAsync(order);
         await _storeUnitOfWork.Complete();
 
         return MapToDto(order);
     }
 
-    /// <summary>Sets local status to Refunded. Does not call Stripe or CJ.</summary>
-    public async Task<OrderDto?> RefundOrderAsync(string orderId)
+    /// <summary>
+    /// Customer cancellation after a live CJ status check. Unfulfilled orders are cancelled on CJ
+    /// and refunded through Stripe. Shipped orders are refused.
+    /// </summary>
+    public async Task<OrderDto?> RequestCancellationAsync(string orderId, string userId)
     {
-        var order = await LoadOrderAsync(orderId);
+        var order = await LoadOrderAsync(orderId, userId);
         if (order is null) return null;
 
-        order.Status = Status.Refunded.ToString();
+        if (order.Status is nameof(Status.Cancelled) or nameof(Status.Refunded))
+        {
+            return MapToDto(order);
+        }
+
+        await EnsureUnfulfilledAtCjAsync(order);
+
+        var cjCancelled = await TryCancelCjShipmentAsync(order);
+        if (!cjCancelled)
+        {
+            throw new InvalidOperationException(
+                "The supplier could not cancel this shipment. Please try again or contact support.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(order.PaymentTransactionId)
+            && order.PaymentStatus is not (nameof(Status.PaymentFailed) or nameof(Status.Pending)))
+        {
+            await _paymentService.RefundPaymentAsync(order.PaymentTransactionId);
+            order.PaymentStatus = nameof(Status.Refunded);
+        }
+
+        await ReleaseStockAsync(order);
+        MarkItems(order, Status.Cancelled.ToString());
+
+        order.Status = Status.Cancelled.ToString();
         order.LastStatusSyncAt = DateTime.UtcNow;
 
         _storeUnitOfWork.Repository<Order>().Update(order);
         await _storeUnitOfWork.Complete();
 
         return MapToDto(order);
+    }
+
+    /// <summary>
+    /// Cancels one line and refunds that line (plus shipping when it is the last active item).
+    /// Remaining items stay on the order. An unshipped CJ shipment is cancelled so it can be resubmitted without the line.
+    /// </summary>
+    public async Task<OrderDto?> CancelOrderItemAsync(string orderId, int itemId)
+    {
+        var order = await LoadOrderAsync(orderId);
+        if (order is null) return null;
+
+        if (order.Status is nameof(Status.Cancelled) or nameof(Status.Refunded))
+        {
+            return MapToDto(order);
+        }
+
+        await EnsureUnfulfilledAtCjAsync(order);
+
+        var item = order.Items.FirstOrDefault(line => line.Id == itemId);
+        if (item is null)
+        {
+            throw new InvalidOperationException("That item is not on this order.");
+        }
+
+        if (!IsActiveItem(item))
+        {
+            return MapToDto(order);
+        }
+
+        if (string.IsNullOrWhiteSpace(order.PaymentTransactionId))
+        {
+            throw new InvalidOperationException("This order has no Stripe payment to refund for that item.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(order.CjShipmentOrderId))
+        {
+            var cjCancelled = await TryCancelCjShipmentAsync(order);
+            if (!cjCancelled)
+            {
+                throw new InvalidOperationException(
+                    "This order is already at CJ and that shipment could not be updated. Cancel the whole order instead.");
+            }
+
+            order.CjShipmentOrderId = null;
+            order.TrackingNumber = null;
+            if (order.Status is nameof(Status.Processing) or nameof(Status.Submitted))
+            {
+                order.Status = Status.PaymentRecevied.ToString();
+            }
+        }
+
+        var remainingActive = order.Items.Count(IsActiveItem);
+        var refundAmount = item.PriceAtPurchase * item.Quantity;
+        if (remainingActive == 1)
+        {
+            refundAmount += order.ShippingCost;
+        }
+
+        await _paymentService.RefundPaymentAsync(
+            order.PaymentTransactionId,
+            PaymentService.ToMinorUnits(refundAmount),
+            $"order-item-refund-{order.OrderId}-{item.Id}");
+
+        await ReleaseStockForItemAsync(item);
+        item.Status = Status.Cancelled.ToString();
+        _storeUnitOfWork.Repository<OrderItem>().Update(item);
+
+        if (!order.Items.Any(IsActiveItem))
+        {
+            order.Status = Status.Cancelled.ToString();
+            order.PaymentStatus = nameof(Status.Refunded);
+        }
+
+        order.LastStatusSyncAt = DateTime.UtcNow;
+        _storeUnitOfWork.Repository<Order>().Update(order);
+        await _storeUnitOfWork.Complete();
+
+        return MapToDto(order);
+    }
+
+    /// <summary>Refunds the Stripe PaymentIntent, then marks the order refunded and restocks when it never shipped.</summary>
+    public async Task<OrderDto?> RefundOrderAsync(string orderId)
+    {
+        var order = await LoadOrderAsync(orderId);
+        if (order is null) return null;
+
+        if (IsLocallyRefunded(order))
+        {
+            return MapToDto(order);
+        }
+
+        if (string.IsNullOrWhiteSpace(order.PaymentTransactionId))
+        {
+            throw new InvalidOperationException("This order has no Stripe payment to refund.");
+        }
+
+        if (order.PaymentStatus is nameof(Status.PaymentFailed) or nameof(Status.Pending))
+        {
+            throw new InvalidOperationException("This order was never charged, so there is nothing to refund.");
+        }
+
+        await TryCancelCjShipmentAsync(order);
+        await _paymentService.RefundPaymentAsync(order.PaymentTransactionId);
+        await ApplyLocalRefundAsync(order);
+        return MapToDto(order);
+    }
+
+    /// <summary>Marks the order refunded after Stripe already returned the money (Dashboard or webhook).</summary>
+    public async Task<OrderDto?> ApplyPaymentRefundedAsync(string paymentIntentId)
+    {
+        var order = await _storeUnitOfWork.Repository<Order>()
+            .GetFirstOrDefault(o => o.PaymentTransactionId == paymentIntentId, includeProperties: "Items");
+
+        if (order is null) return null;
+        if (IsLocallyRefunded(order)) return MapToDto(order);
+
+        await TryCancelCjShipmentAsync(order);
+        await ApplyLocalRefundAsync(order);
+        return MapToDto(order);
+    }
+
+    /// <summary>True when both fulfillment and payment already show Refunded.</summary>
+    private static bool IsLocallyRefunded(Order order) =>
+        order.Status == nameof(Status.Refunded) && order.PaymentStatus == nameof(Status.Refunded);
+
+    /// <summary>
+    /// Sets Refunded on the order and payment. Restocks only when reserved inventory was not
+    /// already released (cancel) and the goods have not left the warehouse.
+    /// </summary>
+    private async Task ApplyLocalRefundAsync(Order order)
+    {
+        var shouldRestock = order.Status is not (
+            nameof(Status.Refunded) or
+            nameof(Status.Cancelled) or
+            nameof(Status.Shipped) or
+            nameof(Status.Delivered));
+
+        if (shouldRestock)
+        {
+            await ReleaseStockAsync(order);
+        }
+
+        MarkItems(order, Status.Refunded.ToString());
+        order.Status = Status.Refunded.ToString();
+        order.PaymentStatus = nameof(Status.Refunded);
+        order.LastStatusSyncAt = DateTime.UtcNow;
+
+        _storeUnitOfWork.Repository<Order>().Update(order);
+        await _storeUnitOfWork.Complete();
     }
 
     /// <summary>Ensures Stripe reports succeeded and the charged cents match the order total.</summary>
@@ -315,6 +487,13 @@ public class OrderService : IOrderService
 
             throw new InvalidOperationException("The payment amount does not match your order total.");
         }
+
+        var postalCheck = intent.LatestCharge?.PaymentMethodDetails?.Card?.Checks?.AddressPostalCodeCheck;
+        if (string.Equals(postalCheck, "fail", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "The ZIP / postal code did not match this card. Please check it and try again.");
+        }
     }
 
     /// <summary>Loads an order with its line items, optionally scoped to one customer.</summary>
@@ -327,28 +506,189 @@ public class OrderService : IOrderService
                 .GetFirstOrDefault(o => o.OrderId == orderId && o.AppUserId == userId, includeProperties: "Items");
     }
 
-    /// <summary>Would copy CJ status/tracking onto the order. Always false while fulfillment is off.</summary>
-    private Task<bool> ApplyRemoteStatusAsync(Order order)
+    /// <summary>
+    /// Sends or pays the CJ shipment only when the wallet can cover estimated product + freight cost.
+    /// Stripe payment stays PaymentRecevied; the order is not placed on hold.
+    /// </summary>
+    private async Task<bool> TryFulfillWithCjAsync(Order order)
     {
-        if (string.IsNullOrWhiteSpace(order.CjShipmentOrderId)) return Task.FromResult(false);
+        if (IsTerminalOrShipped(order.Status) || !order.Items.Any(IsActiveItem))
+        {
+            return false;
+        }
 
-        // CJ fulfillment is disabled; do not poll supplier status.
-        return Task.FromResult(false);
-        // var remote = await _cjService.GetOrderStatusAsync(order.CjShipmentOrderId);
-        // if (remote is null) return false;
-        //
-        // var mappedStatus = MapCjStatus(remote.OrderStatus) ?? order.Status;
-        // var changed = mappedStatus != order.Status || remote.TrackNumber != order.TrackingNumber;
-        //
-        // order.Status = mappedStatus;
-        // if (!string.IsNullOrWhiteSpace(remote.TrackNumber))
-        // {
-        //     order.TrackingNumber = remote.TrackNumber;
-        // }
-        // order.LastStatusSyncAt = DateTime.UtcNow;
-        //
-        // return changed;
+        if (order.Status is nameof(Status.Processing)
+            && !string.IsNullOrWhiteSpace(order.CjShipmentOrderId))
+        {
+            return false;
+        }
+
+        var estimate = await EstimateCjFulfillmentCostAsync(order);
+        if (!await CanCoverCjFulfillmentAsync(estimate))
+        {
+            _logger.LogInformation(
+                "Skipping CJ submit for order {OrderId}; wallet cannot cover estimated fulfillment {Estimate}. Stripe payment is unchanged.",
+                order.OrderId,
+                estimate);
+
+            if (order.Status == nameof(Status.PaymentOnHold))
+            {
+                order.Status = Status.PaymentRecevied.ToString();
+                order.LastStatusSyncAt = DateTime.UtcNow;
+                return true;
+            }
+
+            return false;
+        }
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(order.CjShipmentOrderId))
+            {
+                order.CjShipmentOrderId = await _cjService.CreateOrderV3Async(BuildCjCreateRequest(order));
+            }
+
+            var isPaid = await _cjService.PayBalanceV2Async(order.CjShipmentOrderId);
+            order.Status = isPaid ? Status.Processing.ToString() : Status.Submitted.ToString();
+            order.LastStatusSyncAt = DateTime.UtcNow;
+
+            if (!isPaid)
+            {
+                _logger.LogWarning(
+                    "CJ created shipment {ShipmentOrderId} for order {OrderId} but wallet pay did not complete.",
+                    order.CjShipmentOrderId,
+                    order.OrderId);
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "CJ submission failed for order {OrderId}; leaving it queued for retry.", order.OrderId);
+            order.Status = Status.Submitted.ToString();
+            order.LastStatusSyncAt = DateTime.UtcNow;
+            return true;
+        }
     }
+
+    /// <summary>True when the CJ wallet is readable and can cover this fulfillment estimate.</summary>
+    private async Task<bool> CanCoverCjFulfillmentAsync(decimal estimate)
+    {
+        var wallet = await _cjService.GetWalletBalanceAsync();
+        if (wallet is null)
+        {
+            _logger.LogWarning("CJ wallet balance is unavailable; not sending orders to CJ.");
+            return false;
+        }
+
+        if (wallet.Amount <= 0m)
+        {
+            return false;
+        }
+
+        return estimate <= 0m || wallet.Amount >= estimate;
+    }
+
+    /// <summary>
+    /// Estimates what CJ will charge: variant cost (or retail / markup) plus the selected freight.
+    /// </summary>
+    private async Task<decimal> EstimateCjFulfillmentCostAsync(Order order)
+    {
+        var markup = _configuration.GetValue("StoreSettings:DefaultMarkup", 2.0m);
+        if (markup <= 0m)
+        {
+            markup = 1m;
+        }
+
+        decimal goods = 0m;
+        foreach (var item in order.Items.Where(IsActiveItem))
+        {
+            var variant = await _storeUnitOfWork.Repository<ProductVariant>()
+                .GetFirstOrDefault(v =>
+                    v.Sku == item.Sku
+                    || (!string.IsNullOrWhiteSpace(item.CjVariantId) && v.CjVariantId == item.CjVariantId));
+
+            var unitCost = variant is not null && variant.CjPrice > 0m
+                ? variant.CjPrice
+                : item.PriceAtPurchase / markup;
+
+            goods += unitCost * item.Quantity;
+        }
+
+        return goods + order.ShippingCost;
+    }
+
+    /// <summary>Builds the CJ create-order payload from a persisted store order.</summary>
+    private CjCreateOrderV3Request BuildCjCreateRequest(Order order)
+    {
+        return new CjCreateOrderV3Request
+        {
+            orderNumber = order.OrderId,
+            shippingCustomerName = order.CustomerName,
+            shippingAddress = order.ShippingAddress,
+            shippingCity = order.City,
+            shippingProvince = order.State,
+            shippingCountryCode = order.Country,
+            shippingCountry = MapCountryName(order.Country),
+            logisticName = order.LogisticName,
+            fromCountryCode = _configuration["CJDropshipping:FromCountryCode"] ?? "CN",
+            products = order.Items.Where(IsActiveItem).Select(item => new CjOrderProduct
+            {
+                vid = item.CjVariantId,
+                quantity = item.Quantity
+            }).ToList()
+        };
+    }
+
+    /// <summary>Asks CJ to cancel an unshipped shipment. Failures are logged and do not block local cancel/refund.</summary>
+    private async Task<bool> TryCancelCjShipmentAsync(Order order)
+    {
+        if (string.IsNullOrWhiteSpace(order.CjShipmentOrderId))
+        {
+            return true;
+        }
+
+        if (order.Status is nameof(Status.Shipped) or nameof(Status.Delivered))
+        {
+            return false;
+        }
+
+        var cancelled = await _cjService.CancelOrderAsync(order.CjShipmentOrderId);
+        if (!cancelled)
+        {
+            _logger.LogWarning("CJ refused to cancel shipment {ShipmentOrderId}.", order.CjShipmentOrderId);
+        }
+
+        return cancelled;
+    }
+
+    /// <summary>Copies CJ status/tracking onto the order when a shipment id exists.</summary>
+    private async Task<bool> ApplyRemoteStatusAsync(Order order)
+    {
+        if (string.IsNullOrWhiteSpace(order.CjShipmentOrderId)) return false;
+
+        var remote = await _cjService.GetOrderStatusAsync(order.CjShipmentOrderId);
+        if (remote is null) return false;
+
+        var mappedStatus = MapCjStatus(remote.OrderStatus) ?? order.Status;
+        var changed = mappedStatus != order.Status || remote.TrackNumber != order.TrackingNumber;
+
+        order.Status = mappedStatus;
+        if (!string.IsNullOrWhiteSpace(remote.TrackNumber))
+        {
+            order.TrackingNumber = remote.TrackNumber;
+        }
+        order.LastStatusSyncAt = DateTime.UtcNow;
+
+        return changed;
+    }
+
+    /// <summary>True for statuses that should never be sent to CJ again.</summary>
+    private static bool IsTerminalOrShipped(string status) =>
+        status is nameof(Status.Delivered)
+            or nameof(Status.Cancelled)
+            or nameof(Status.Refunded)
+            or nameof(Status.Shipped);
 
     /// <summary>Finds the storefront product for a cart/order SKU (parent SKU, skuPhoto, or variant SKU).</summary>
     private async Task<Products?> FindProductByLineSkuAsync(string sku)
@@ -420,16 +760,12 @@ public class OrderService : IOrderService
         });
     }
 
-    /// <summary>Decrements Products.StockQuantity for each order line after a successful checkout.</summary>
+    /// <summary>Decrements Products.StockQuantity for each distinct product after a successful checkout.</summary>
     private async Task ReserveStockAsync(Order order)
     {
-        foreach (var item in order.Items)
+        foreach (var (product, quantity) in await LoadStockTargetsAsync(order))
         {
-            var product = await FindProductByLineSkuAsync(item.Sku);
-
-            if (product is null) continue;
-
-            product.StockQuantity = Math.Max(0, product.StockQuantity - item.Quantity);
+            product.StockQuantity = Math.Max(0, product.StockQuantity - quantity);
             _storeUnitOfWork.Repository<Products>().Update(product);
         }
     }
@@ -437,21 +773,96 @@ public class OrderService : IOrderService
     /// <summary>Adds reserved quantities back when an order is cancelled.</summary>
     private async Task ReleaseStockAsync(Order order)
     {
-        foreach (var item in order.Items)
+        foreach (var (product, quantity) in await LoadStockTargetsAsync(order))
         {
-            var product = await FindProductByLineSkuAsync(item.Sku);
-
-            if (product is null) continue;
-
-            product.StockQuantity += item.Quantity;
+            product.StockQuantity += quantity;
             _storeUnitOfWork.Repository<Products>().Update(product);
         }
     }
 
+    /// <summary>
+    /// Loads one product instance per storefront id so two cart SKUs of the same product
+    /// cannot attach duplicate Products rows to the change tracker.
+    /// </summary>
+    private async Task<List<(Products Product, int Quantity)>> LoadStockTargetsAsync(Order order)
+    {
+        var products = new Dictionary<string, Products>(StringComparer.OrdinalIgnoreCase);
+        var quantities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in order.Items.Where(IsActiveItem))
+        {
+            var product = await FindProductByLineSkuAsync(item.Sku);
+            if (product is null)
+            {
+                continue;
+            }
+
+            products.TryAdd(product.Id, product);
+            quantities[product.Id] = quantities.GetValueOrDefault(product.Id) + item.Quantity;
+        }
+
+        return products
+            .Select(pair => (pair.Value, quantities[pair.Key]))
+            .ToList();
+    }
+
+    private const string ShippedCancelMessage =
+        "This order has already shipped, so it cannot be cancelled. Please wait for it to arrive and then process a standard return.";
+
+    /// <summary>
+    /// Asks CJ for the live shipment status. Allows cancel when there is no shipment yet or CJ
+    /// still reports pending/unfulfilled. Shipped or delivered shipments are refused.
+    /// </summary>
+    private async Task EnsureUnfulfilledAtCjAsync(Order order)
+    {
+        if (string.IsNullOrWhiteSpace(order.CjShipmentOrderId))
+        {
+            if (order.Status is nameof(Status.Shipped) or nameof(Status.Delivered))
+            {
+                throw new InvalidOperationException(ShippedCancelMessage);
+            }
+
+            return;
+        }
+
+        var remote = await _cjService.GetOrderStatusAsync(order.CjShipmentOrderId);
+        if (remote is null)
+        {
+            throw new InvalidOperationException(
+                "We could not confirm this order's fulfillment status with the supplier. Please try again in a few minutes.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(remote.TrackNumber))
+        {
+            order.TrackingNumber = remote.TrackNumber;
+        }
+
+        var mapped = MapCjStatus(remote.OrderStatus);
+        if (!string.IsNullOrWhiteSpace(mapped))
+        {
+            order.Status = mapped;
+        }
+
+        order.LastStatusSyncAt = DateTime.UtcNow;
+        _storeUnitOfWork.Repository<Order>().Update(order);
+        await _storeUnitOfWork.Complete();
+
+        if (IsCjShippedOrDelivered(remote.OrderStatus)
+            || order.Status is nameof(Status.Shipped) or nameof(Status.Delivered))
+        {
+            throw new InvalidOperationException(ShippedCancelMessage);
+        }
+    }
+
+    /// <summary>True when CJ reports the parcel has left the warehouse or is already delivered.</summary>
+    private static bool IsCjShippedOrDelivered(string? cjStatus) =>
+        cjStatus?.Trim().ToUpperInvariant() is
+            "SHIPPED" or "PARTIAL_SHIPPED" or "DELIVERING" or "DELIVERED" or "COMPLETED" or "FINISHED";
+
     /// <summary>Maps a CJ shipment status string onto the local Status enum name.</summary>
     private static string? MapCjStatus(string? cjStatus) => cjStatus?.Trim().ToUpperInvariant() switch
     {
-        "CREATED" or "UNPAID" => nameof(Status.PaymentOnHold),
+        "CREATED" or "UNPAID" => nameof(Status.Submitted),
         "IN_CANCEL" or "CANCELLED" or "CANCEL" => nameof(Status.Cancelled),
         "UNSHIPPED" or "PROCESSING" or "PENDING" => nameof(Status.Processing),
         "SHIPPED" or "PARTIAL_SHIPPED" or "DELIVERING" => nameof(Status.Shipped),
@@ -485,7 +896,7 @@ public class OrderService : IOrderService
                 .Replace("{{EMAIL}}", WebUtility.HtmlEncode(order.CustomerEmail))
                 .Replace("{{ORDER_ID}}", WebUtility.HtmlEncode(order.OrderId))
                 .Replace("{{ITEMS}}", itemRows)
-                .Replace("{{ADDRESS}}", WebUtility.HtmlEncode($"{order.ShippingAddress}, {order.City}, {order.State} {order.Country}"))
+                .Replace("{{ADDRESS}}", WebUtility.HtmlEncode($"{order.ShippingAddress}, {order.City}, {order.State} {order.ZipCode} {order.Country}"))
                 .Replace("{{SHIPPING}}", $"{WebUtility.HtmlEncode(order.LogisticName)} — ${order.ShippingCost.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}")
                 .Replace("{{TOTAL}}", $"${order.Total.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}");
 
@@ -510,6 +921,7 @@ public class OrderService : IOrderService
             ShippingAddress = order.ShippingAddress,
             City = order.City,
             State = order.State,
+            ZipCode = order.ZipCode,
             Country = order.Country,
             PaymentStatus = order.PaymentStatus,
             LogisticName = order.LogisticName,
@@ -517,14 +929,49 @@ public class OrderService : IOrderService
             TrackingNumber = order.TrackingNumber,
             LastStatusSyncAt = order.LastStatusSyncAt,
             CreatedAt = order.CreatedAt,
-            Total = order.Items.Sum(i => i.PriceAtPurchase * i.Quantity) + order.ShippingCost,
+            Total = RemainingTotal(order),
             Items = order.Items.Select(i => new OrderItemDto
             {
+                Id = i.Id,
                 Sku = i.Sku,
+                Name = i.Name,
+                Status = string.IsNullOrWhiteSpace(i.Status) ? "Ordered" : i.Status,
                 Quantity = i.Quantity,
                 PriceAtPurchase = i.PriceAtPurchase
             }).ToList()
         };
+    }
+
+    /// <summary>True when the line is still fulfillable (not cancelled or refunded).</summary>
+    private static bool IsActiveItem(OrderItem item) =>
+        item.Status is not (nameof(Status.Cancelled) or nameof(Status.Refunded));
+
+    /// <summary>Marks remaining active lines with the given status.</summary>
+    private void MarkItems(Order order, string status)
+    {
+        foreach (var item in order.Items.Where(IsActiveItem))
+        {
+            item.Status = status;
+            _storeUnitOfWork.Repository<OrderItem>().Update(item);
+        }
+    }
+
+    /// <summary>Puts one line's reserved quantity back on the storefront product.</summary>
+    private async Task ReleaseStockForItemAsync(OrderItem item)
+    {
+        var product = await FindProductByLineSkuAsync(item.Sku);
+        if (product is null) return;
+
+        product.StockQuantity += item.Quantity;
+        _storeUnitOfWork.Repository<Products>().Update(product);
+    }
+
+    /// <summary>Active line totals plus shipping when anything is still on the order.</summary>
+    private static decimal RemainingTotal(Order order)
+    {
+        var active = order.Items.Where(IsActiveItem).ToList();
+        var goods = active.Sum(item => item.PriceAtPurchase * item.Quantity);
+        return active.Count > 0 ? goods + order.ShippingCost : 0m;
     }
 
     /// <summary>Expands an ISO country code to the name CJ's create-order API expects.</summary>

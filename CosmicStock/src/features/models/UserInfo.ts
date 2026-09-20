@@ -4,6 +4,7 @@ export interface IUser {
   userName: string;
   emailConfirmed: boolean;
   isGuest?: boolean;
+  pendingEmail?: string | null;
 }
 
 export interface ILoginValues {
@@ -23,6 +24,7 @@ export interface IUserAddress {
   streetAddress: string;
   city: string;
   provinceOrState: string;
+  zipCode: string;
   countryCode: string;
   isDefault: boolean;
 }

@@ -8,14 +8,27 @@
         <p class="muted">Placed on {{ order()!.createdAt | date:'medium' }}</p>
       </header>
 
+      @if (message()) {
+        <p class="action-message" [class.error]="messageIsError()" role="status">{{ message() }}</p>
+      }
+
       <section class="detail-card">
         <h3>Status</h3>
         <p class="status">{{ order()!.status }}</p>
         @if (order()!.cjShipmentOrderId) {
-          <p class="muted">CJ Order: {{ order()!.cjShipmentOrderId }}</p>
+          <p class="muted">Supplier order: {{ order()!.cjShipmentOrderId }}</p>
         }
         @if (order()!.trackingNumber) {
           <p class="tracking">Tracking number: <code>{{ order()!.trackingNumber }}</code></p>
+        }
+        @if (canCancel()) {
+          <button
+            type="button"
+            class="secondary-btn"
+            [disabled]="cancelling()"
+            (click)="requestCancellation()">
+            {{ cancelling() ? 'Checking fulfillment...' : 'Cancel order' }}
+          </button>
         }
       </section>
 
@@ -23,7 +36,7 @@
         <h3>Shipping</h3>
         <p>{{ order()!.customerName }}</p>
         <p>{{ order()!.shippingAddress }}</p>
-        <p>{{ order()!.city }}, {{ order()!.state }} {{ order()!.country }}</p>
+        <p>{{ order()!.city }}, {{ order()!.state }} {{ order()!.zipCode }} {{ order()!.country }}</p>
         <p class="muted">
           {{ order()!.logisticName }} — {{ order()!.shippingCost | currency:'USD':'symbol' }}
         </p>
@@ -31,9 +44,14 @@
 
       <section class="detail-card">
         <h3>Items</h3>
-        @for (item of order()!.items; track item.sku) {
-          <div class="item-row">
-            <span>{{ item.sku }} × {{ item.quantity }}</span>
+        @for (item of order()!.items; track item.id || item.sku) {
+          <div class="item-row" [class.inactive-row]="item.status === 'Cancelled' || item.status === 'Refunded'">
+            <span>
+              {{ item.name || item.sku }} × {{ item.quantity }}
+              @if (item.status && item.status !== 'Ordered') {
+                <span class="muted"> ({{ item.status }})</span>
+              }
+            </span>
             <span>{{ item.priceAtPurchase * item.quantity | currency:'USD':'symbol' }}</span>
           </div>
         }
@@ -46,7 +64,7 @@
           <strong>{{ order()!.total | currency:'USD':'symbol' }}</strong>
         </div>
       </section>
-    } @else if (loading) {
+    } @else if (loading()) {
       <p class="muted">Loading order...</p>
     } @else {
       <p class="muted">Order not found.</p>

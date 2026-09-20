@@ -22,6 +22,10 @@ public class UserAddressDto
     public string ProvinceOrState { get; set; } = string.Empty;
 
     [Required]
+    [MaxLength(20)]
+    public string ZipCode { get; set; } = string.Empty;
+
+    [Required]
     public string CountryCode { get; set; } = string.Empty;
 
     public bool IsDefault { get; set; }

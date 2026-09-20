@@ -1,0 +1,116 @@
+:host {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.overflow-row {
+  position: relative;
+  min-width: 0;
+}
+
+.overflow-row.on-orange {
+  --overflow-fade: var(--primary-orange);
+  --overflow-arrow-bg: #fff;
+  --overflow-arrow-fg: var(--primary-orange);
+}
+
+.overflow-row.on-light {
+  --overflow-fade: #fff;
+  --overflow-arrow-bg: #fff;
+  --overflow-arrow-fg: var(--primary-orange);
+}
+
+.overflow-row::before,
+.overflow-row::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3rem;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 1;
+  transition: opacity 0.2s ease;
+}
+
+.overflow-row::before {
+  left: 0;
+  background: linear-gradient(to right, var(--overflow-fade) 20%, transparent);
+}
+
+.overflow-row::after {
+  right: 0;
+  background: linear-gradient(to left, var(--overflow-fade) 20%, transparent);
+}
+
+.overflow-row.has-overflow-start::before,
+.overflow-row.has-overflow-end::after {
+  opacity: 1;
+}
+
+.overflow-track {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.overflow-track::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.overflow-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--overflow-arrow-bg);
+  color: var(--overflow-arrow-fg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-50%);
+}
+
+.overflow-arrow.start {
+  left: 0.4rem;
+}
+
+.overflow-arrow.end {
+  right: 0.4rem;
+}
+
+.overflow-arrow svg {
+  width: 1rem;
+  height: 1rem;
+  fill: currentColor;
+}
+
+.overflow-arrow:hover,
+.overflow-arrow:focus-visible {
+  background: #fff7ed;
+}
+
+.overflow-arrow:focus-visible {
+  outline: 3px solid var(--overflow-arrow-fg);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overflow-row::before,
+  .overflow-row::after {
+    transition: none;
+  }
+}

@@ -3,6 +3,7 @@ export interface IEditProduct {
     nameEn: string;
     sku: string;
     descriptionEn?: string;
+    shortDescription?: string;
     isFeatured: boolean;
     isNewArrival: boolean;
     isTopSelling: boolean;
@@ -16,6 +17,7 @@ export interface IEditProduct {
 }
 
 export interface IProductImage {
+    id?: number;
     productId: string;
     photoUrl: string;
     skuPhoto: string;
@@ -36,6 +38,7 @@ export interface ICjProductImport {
     nameEn: string;
     sku: string;
     descriptionEn?: string;
+    shortDescription?: string;
     bigImage?: string;
     category?: string;
     sellPrice: number;

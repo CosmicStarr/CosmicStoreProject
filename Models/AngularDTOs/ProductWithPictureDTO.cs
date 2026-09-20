@@ -7,6 +7,7 @@ public class ProductWithPictureDto
     public string? NameEn { get; set; }
     public string? Sku { get; set; }
     public string? DescriptionEn { get; set; }
+    public string? ShortDescription { get; set; }
     public bool IsFeatured { get; set; }
     public bool IsNewArrival { get; set;}
     public bool IsTopSelling { get; set; }

@@ -1,5 +1,6 @@
 <app-site-navbar />
 
+
 <section class="hero-banner">
   @if (heroImages().length) {
     <div class="hero-wash" aria-hidden="true">
@@ -16,33 +17,6 @@
 
 <main class="catalog-layout container">
   <aside class="sidebar">
-    <div class="filter-group category-filter">
-      <h2 class="filter-title">Categories</h2>
-      <ul class="filter-list">
-        <li>
-          <button
-            type="button"
-            class="filter-link"
-            [class.active]="!sunParams.category"
-            (click)="selectCategory(null)">
-            All Products
-          </button>
-        </li>
-        @for (category of categories(); track category.name) {
-          <li>
-            <button
-              type="button"
-              class="filter-link"
-              [class.active]="sunParams.category === category.name"
-              (click)="selectCategory(category.name)">
-              {{ category.name }}
-              <span class="count">({{ category.count }})</span>
-            </button>
-          </li>
-        }
-      </ul>
-    </div>
-
     <div class="filter-group price-filter">
       <h2 class="filter-title">Price Range</h2>
       <div class="price-inputs">
@@ -68,6 +42,14 @@
       </form>
 
       <div class="toolbar-actions">
+        <label class="sort-wrapper">
+          <span>Items per page</span>
+          <select class="sort-select" [value]="sunParams.pageSize" (change)="onPageSizeSelect($event)">
+            @for (size of pageSizeOptions; track size) {
+              <option [value]="size">{{ size }}</option>
+            }
+          </select>
+        </label>
         <label class="sort-wrapper">
           <span>Sort By</span>
           <select class="sort-select" [value]="sunParams.sort" (change)="onSortSelect($event)">

@@ -53,13 +53,13 @@ public class WishlistController(IStoreUnitOfWork storeUnitOfWork) : BaseControll
         var item = new WishlistItem
         {
             AppUserId = userId,
-            ProductId = productId,
-            Product = product
+            ProductId = productId
         };
 
         wishlistRepo.Add(item);
         await _storeUnitOfWork.Complete();
 
+        item.Product = product;
         return Ok(MapToDto(item));
     }
 

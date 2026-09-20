@@ -104,9 +104,56 @@ public class StoreRepo<T>(ApplicationDbStoreContext context) : IStoreRepo<T> whe
         dbSet.RemoveRange(entities);
     }
 
-    /// <summary>Marks a storefront row as modified.</summary>
+    /// <summary>Marks a storefront row as modified. If another copy of the same key is already tracked, copies values onto that instance instead of attaching a duplicate.</summary>
     public void Update(T entity)
     {
-        dbSet.Update(entity);
+        var tracked = FindTracked(entity);
+        if (tracked is null)
+        {
+            dbSet.Update(entity);
+            return;
+        }
+
+        if (!ReferenceEquals(tracked, entity))
+        {
+            _context.Entry(tracked).CurrentValues.SetValues(entity);
+        }
+    }
+
+    /// <summary>Returns the change-tracker instance for this entity's primary key, if one is already attached.</summary>
+    private T? FindTracked(T entity)
+    {
+        var key = _context.Model.FindEntityType(typeof(T))?.FindPrimaryKey();
+        if (key is null || key.Properties.Count == 0)
+        {
+            return null;
+        }
+
+        var keyValues = key.Properties.Select(property => GetPropertyValue(entity, property)).ToArray();
+
+        foreach (var candidate in dbSet.Local)
+        {
+            var sameKey = true;
+            for (var index = 0; index < key.Properties.Count; index++)
+            {
+                if (!Equals(GetPropertyValue(candidate, key.Properties[index]), keyValues[index]))
+                {
+                    sameKey = false;
+                    break;
+                }
+            }
+
+            if (sameKey)
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static object? GetPropertyValue(object instance, Microsoft.EntityFrameworkCore.Metadata.IProperty property)
+    {
+        return property.PropertyInfo?.GetValue(instance) ?? property.FieldInfo?.GetValue(instance);
     }
 }

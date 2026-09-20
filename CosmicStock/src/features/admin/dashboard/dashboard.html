@@ -5,8 +5,8 @@
   </div>
   <div class="header-actions">
     <a routerLink="/admin/add-product" class="primary-btn">Add Product</a>
-    <button type="button" class="secondary-btn" (click)="publishAll()" [disabled]="publishing || !apiData().length">
-      {{ publishing ? 'Publishing...' : 'Publish All on Page' }}
+    <button type="button" class="secondary-btn" (click)="publishAll()" [disabled]="publishing() || !apiData().length">
+      {{ publishing() ? 'Publishing...' : 'Publish All on Page' }}
     </button>
   </div>
 </header>
@@ -51,8 +51,8 @@
   </div>
 </section>
 
-@if (message) {
-  <p class="status-message" [class.error]="isError">{{ message }}</p>
+@if (message()) {
+  <p class="status-message" [class.error]="isError()" role="status" aria-live="polite">{{ message() }}</p>
 }
 
 @if (loadError()) {
@@ -85,7 +85,7 @@
       </div>
 
       <div class="card-footer">
-        <button type="button" class="publish-btn" (click)="publishOne(product.id)" [disabled]="publishing">
+        <button type="button" class="publish-btn" (click)="publishOne(product.id)" [disabled]="publishing()">
           Publish to Store
         </button>
         <a routerLink="/admin/edit-Product/{{ product.id }}" class="action-btn">Edit Details</a>

@@ -21,6 +21,7 @@ public class Order
     public string ShippingAddress { get; set; } = string.Empty;
     public string City { get; set; } = string.Empty;
     public string State { get; set; } = string.Empty;
+    public string ZipCode { get; set; } = string.Empty;
     public string Country { get; set; } = string.Empty;
 
     // The Stripe PaymentIntent id, used for accounting and webhook reconciliation

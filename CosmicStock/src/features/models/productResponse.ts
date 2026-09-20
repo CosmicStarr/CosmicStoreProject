@@ -5,6 +5,7 @@ export interface IProductResponse {
   nameEn: string;
   sku: string;
   descriptionEn: string;
+  shortDescription?: string;
   isFeatured: boolean;
   isNewArrival: boolean;
   isTopSelling: boolean;

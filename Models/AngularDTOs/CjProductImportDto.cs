@@ -30,6 +30,7 @@ public class CjProductImportDto
     public string NameEn { get; set; } = string.Empty;
     public string Sku { get; set; } = string.Empty;
     public string? DescriptionEn { get; set; }
+    public string? ShortDescription { get; set; }
     public string? BigImage { get; set; }
     public string? Category { get; set; }
     public decimal SellPrice { get; set; }

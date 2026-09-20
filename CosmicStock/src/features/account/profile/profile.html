@@ -9,22 +9,139 @@
     </div>
   </header>
 
+  <section class="card orders-card">
+    <h2>Orders</h2>
+    <p class="muted">Click an order to see details or request a cancellation.</p>
+
+    @if (ordersMessage()) {
+      <p class="error-text" role="status">{{ ordersMessage() }}</p>
+    }
+
+    <div class="table-wrap" [attr.aria-busy]="ordersLoading()">
+      <table>
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Payment</th>
+            <th>Items</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (!orders().length) {
+            <tr>
+              <td colspan="6" class="empty-cell">
+                {{ ordersLoading() ? 'Loading orders...' : 'You have not placed any orders yet.' }}
+              </td>
+            </tr>
+          } @else {
+            @for (order of orders(); track order.orderId) {
+              <tr
+                class="order-row"
+                tabindex="0"
+                (click)="openOrder(order)"
+                (keydown.enter)="openOrder(order)">
+                <td>{{ order.orderId.slice(0, 8) }}</td>
+                <td>{{ order.createdAt | date:'short' }}</td>
+                <td><span class="status">{{ order.status }}</span></td>
+                <td>{{ order.paymentStatus || '—' }}</td>
+                <td>{{ itemCount(order) }}</td>
+                <td>{{ order.total | currency:'USD':'symbol' }}</td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
   <section class="card">
     <h2>Account</h2>
     <form [formGroup]="profileForm" (ngSubmit)="saveProfile()">
       <div class="form-group">
-        <label for="userName">Display Name</label>
+        <label for="userName">Username</label>
         <input id="userName" type="text" formControlName="userName">
       </div>
       <div class="form-group">
         <label for="email">Email</label>
-        <input id="email" type="email" formControlName="email">
+        <input id="email" type="email" formControlName="email" readonly>
       </div>
       @if (profileMessage) {
         <p [class.error-text]="isError">{{ profileMessage }}</p>
       }
       <button type="submit" class="submit-btn" [disabled]="profileForm.invalid">Save Profile</button>
     </form>
+
+    <div class="email-change">
+      <h3>Change email</h3>
+      <p class="muted">We will ask for your password before showing the email form.</p>
+
+      @if (pendingEmail(); as pending) {
+        <div class="notice-container" role="status">
+          <p class="notice-text">
+            A change to <strong>{{ pending }}</strong> is waiting. Check that inbox for a verification
+            link. It expires in 20 minutes. Your current email stays active until then.
+          </p>
+        </div>
+      }
+
+      @if (emailChangeMessage(); as message) {
+        <p [class.error-text]="emailChangeError()" [class.success-text]="!emailChangeError()" role="status">
+          {{ message }}
+        </p>
+      }
+
+      @if (emailFormVisible()) {
+        <form [formGroup]="emailChangeForm" (ngSubmit)="requestEmailChange()">
+          <div class="form-group">
+            <label for="newEmail">New email address</label>
+            <input
+              id="newEmail"
+              #newEmailInput
+              type="email"
+              formControlName="newEmail"
+              autocomplete="email"
+              placeholder="you@example.com">
+          </div>
+          <div class="form-actions">
+            <button type="button" class="secondary-btn" (click)="cancelEmailChange()">Cancel</button>
+            <button
+              type="submit"
+              class="submit-btn"
+              [disabled]="emailChangeForm.invalid || emailChangeSubmitting()"
+              [attr.aria-busy]="emailChangeSubmitting()">
+              {{ emailChangeSubmitting() ? 'Sending…' : 'Send verification' }}
+            </button>
+          </div>
+        </form>
+      } @else if (showReauth()) {
+        <form [formGroup]="reauthForm" (ngSubmit)="confirmPasswordForEmail()">
+          <div class="form-group">
+            <label for="emailCurrentPassword">Current password</label>
+            <input
+              id="emailCurrentPassword"
+              #reauthPassword
+              type="password"
+              formControlName="currentPassword"
+              autocomplete="current-password">
+          </div>
+          <div class="form-actions">
+            <button type="button" class="secondary-btn" (click)="cancelEmailChange()">Cancel</button>
+            <button
+              type="submit"
+              class="submit-btn"
+              [disabled]="reauthForm.invalid || reauthSubmitting()"
+              [attr.aria-busy]="reauthSubmitting()">
+              {{ reauthSubmitting() ? 'Checking…' : 'Confirm password' }}
+            </button>
+          </div>
+        </form>
+      } @else {
+        <button type="button" class="secondary-btn" (click)="beginEmailChange()">Change email</button>
+      }
+    </div>
   </section>
 
   <section class="card">
@@ -62,7 +179,7 @@
                 <span class="badge">Default</span>
               }
               <p>{{ address.fullName }}</p>
-              <p class="muted">{{ address.streetAddress }}, {{ address.city }}, {{ address.provinceOrState }} {{ address.countryCode }}</p>
+              <p class="muted">{{ address.streetAddress }}, {{ address.city }}, {{ address.provinceOrState }} {{ address.zipCode }} {{ address.countryCode }}</p>
             </div>
             <div class="address-actions">
               <button type="button" class="secondary-btn" (click)="editAddress(address)">Edit</button>
@@ -97,6 +214,10 @@
         <div class="form-group">
           <label for="provinceOrState">State / Province</label>
           <input id="provinceOrState" type="text" formControlName="provinceOrState">
+        </div>
+        <div class="form-group">
+          <label for="zipCode">ZIP / Postal code</label>
+          <input id="zipCode" type="text" formControlName="zipCode" autocomplete="postal-code">
         </div>
         <div class="form-group">
           <label for="countryCode">Country Code</label>

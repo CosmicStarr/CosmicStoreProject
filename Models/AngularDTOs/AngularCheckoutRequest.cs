@@ -11,6 +11,11 @@ public class AngularCheckoutRequest
     public string StreetAddress { get; set; } = string.Empty;
     public string City { get; set; } = string.Empty;
     public string ProvinceOrState { get; set; } = string.Empty;
+
+    [Required]
+    [MaxLength(20)]
+    public string ZipCode { get; set; } = string.Empty;
+
     public string CountryCode { get; set; } = string.Empty;
 
     public string StripePaymentMethodId { get; set; } = string.Empty;

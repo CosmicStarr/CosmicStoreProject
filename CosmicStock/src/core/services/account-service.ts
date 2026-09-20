@@ -115,10 +115,7 @@ export class AccountService {
   }
 
   logout() {
-    localStorage.clear();
-    this.endGuestCheckout();
-    this.cartService.clearLocalCart();
-    this.currentUserSource.next(null);
+    this.clearSession();
     this.router.navigate(['/login']);
   }
 
@@ -161,6 +158,52 @@ export class AccountService {
         this.currentUserSource.next(user);
       })
     );
+  }
+
+  reauthenticate(currentPassword: string) {
+    return this.http.post<{ reauthToken: string; expiresInSeconds: number }>(
+      `${this.apiUrl}account/reauthenticate`,
+      { currentPassword }
+    );
+  }
+
+  requestEmailChange(reauthToken: string, newEmail: string) {
+    return this.http.post<{ message: string; pendingEmail: string; expiresInMinutes: number }>(
+      `${this.apiUrl}account/change-email`,
+      { reauthToken, newEmail }
+    ).pipe(
+      tap((response) => {
+        const user = this.currentUserValue;
+        if (!user) {
+          return;
+        }
+
+        const next = { ...user, pendingEmail: response.pendingEmail };
+        localStorage.setItem('cosmicStockUser', JSON.stringify(next));
+        this.currentUserSource.next(next);
+      })
+    );
+  }
+
+  confirmEmailChange(userId: string, token: string, email: string) {
+    return this.http.post<{ message: string }>(`${this.apiUrl}account/confirm-change-email`, {
+      userId,
+      token,
+      email,
+    });
+  }
+
+  lockAccount(userId: string, token: string) {
+    return this.http.post<{ message: string }>(`${this.apiUrl}account/lock-account`, { userId, token }).pipe(
+      tap(() => this.clearSession())
+    );
+  }
+
+  clearSession() {
+    localStorage.clear();
+    this.endGuestCheckout();
+    this.cartService.clearLocalCart();
+    this.currentUserSource.next(null);
   }
 
   changePassword(payload: { currentPassword: string; newPassword: string; confirmPassword: string }) {

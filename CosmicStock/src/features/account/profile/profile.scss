@@ -129,8 +129,87 @@
   color: #64748b;
 }
 
+.orders-card .muted {
+  margin: 0 0 16px;
+}
+
+.table-wrap {
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  background: #f8fafc;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.empty-cell {
+  color: #64748b;
+  text-align: center;
+  padding: 28px 14px;
+}
+
+.order-row {
+  cursor: pointer;
+
+  &:hover {
+    background: #f8fafc;
+  }
+}
+
+.status {
+  color: #ff9100;
+  font-weight: 600;
+}
+
 .error-text {
   color: #dc2626;
+}
+
+.success-text {
+  color: #166534;
+}
+
+.email-change {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid #e2e8f0;
+
+  h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+  }
+}
+
+.notice-container {
+  background-color: #fff7ed;
+  border-left: 4px solid #ff9100;
+  padding: 12px;
+  margin-bottom: 16px;
+  border-radius: 4px;
+}
+
+.notice-text {
+  margin: 0;
+  color: #1e293b;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 @media (max-width: 640px) {

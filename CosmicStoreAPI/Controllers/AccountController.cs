@@ -26,6 +26,7 @@ public class AccountController : ControllerBase
     private readonly SignInManager<AppUser> _signInManager;
     private readonly ITokenService _tokenService;
     private readonly IEmailSender _emailSender;
+    private readonly IEmailChangeService _emailChangeService;
     private readonly IConfiguration _configuration;
     private readonly IWebHostEnvironment _env;
     private readonly RoleManager<IdentityRole> _roleManager;
@@ -34,7 +35,8 @@ public class AccountController : ControllerBase
     public AccountController(
         UserManager<AppUser> userManager, 
         SignInManager<AppUser> signInManager, 
-        ITokenService tokenService,IEmailSender emailSender, 
+        ITokenService tokenService,IEmailSender emailSender,
+        IEmailChangeService emailChangeService,
         IConfiguration configuration, 
         IWebHostEnvironment env, 
         RoleManager<IdentityRole> roleManager)
@@ -43,6 +45,7 @@ public class AccountController : ControllerBase
         _signInManager = signInManager;
         _tokenService = tokenService;
         _emailSender = emailSender;
+        _emailChangeService = emailChangeService;
         _configuration = configuration; 
         _env = env;
         _roleManager = roleManager;
@@ -60,10 +63,21 @@ public class AccountController : ControllerBase
                 return BadRequest(new { message = "Email is already in use" });
             }
 
+            var userName = registerDto.UserName.Trim();
+            if (string.IsNullOrWhiteSpace(userName))
+            {
+                return BadRequest(new { message = "Username is required." });
+            }
+
+            if (await _userManager.FindByNameAsync(userName) != null)
+            {
+                return BadRequest(new { message = "Username is already in use" });
+            }
+
             // 2. Create the AppUser instance
             var user = new AppUser
             {
-                UserName = registerDto.Email,
+                UserName = userName,
                 Email = registerDto.Email
             };
 
@@ -129,7 +143,7 @@ public class AccountController : ControllerBase
             {
                 Email = user.Email,
                 Token = await _tokenService.CreateToken(user),
-                UserName = registerDto.UserName ?? "User",
+                UserName = user.UserName ?? userName,
                 EmailConfirmed = user.EmailConfirmed,
                 IsGuest = false
             };
@@ -147,7 +161,19 @@ public class AccountController : ControllerBase
         // 3. If successful, return UserDto with a JWT from _tokenService
         var user = await _userManager.FindByEmailAsync(loginDto.Email);
 
-            if (user == null) return Unauthorized(new { message = "Invalid email or password" });
+            if (user == null)
+            {
+                return Unauthorized(new
+                {
+                    message = "No account found for this email.",
+                    code = "accountNotFound"
+                });
+            }
+
+            if (await _userManager.IsLockedOutAsync(user))
+            {
+                return Unauthorized(new { message = "This account is locked. Contact support if you need help recovering it." });
+            }
 
             var result = await _signInManager.CheckPasswordSignInAsync(user, loginDto.Password, false);
 
@@ -184,9 +210,7 @@ public class AccountController : ControllerBase
             return GuestUserDto(guestId);
         }
 
-        var email = User.FindFirstValue(ClaimTypes.Email);
-        var user = await _userManager.FindByEmailAsync(email!);
-
+        var user = await GetSignedInUserAsync();
         if (user == null) return Unauthorized();
 
         return await ToUserDto(user);
@@ -312,8 +336,7 @@ public class AccountController : ControllerBase
             return StatusCode(403, new { message = "Guest checkout does not include a profile." });
         }
 
-        var email = User.FindFirstValue(ClaimTypes.Email);
-        var user = await _userManager.FindByEmailAsync(email!);
+        var user = await GetSignedInUserAsync();
         if (user == null) return Unauthorized();
 
         user.UserName = dto.UserName;
@@ -342,8 +365,7 @@ public class AccountController : ControllerBase
             return StatusCode(403, new { message = "Guest checkout does not include a profile." });
         }
 
-        var email = User.FindFirstValue(ClaimTypes.Email);
-        var user = await _userManager.FindByEmailAsync(email!);
+        var user = await GetSignedInUserAsync();
         if (user == null) return Unauthorized();
 
         var result = await _userManager.ChangePasswordAsync(user, dto.CurrentPassword, dto.NewPassword);
@@ -359,16 +381,224 @@ public class AccountController : ControllerBase
         return Ok(new { message = "Password changed successfully." });
     }
 
+    /// <summary>
+    /// Confirms the current password and issues a short-lived token required to reveal/submit an email change.
+    /// </summary>
+    [Authorize]
+    [HttpPost("reauthenticate")]
+    public async Task<IActionResult> Reauthenticate(ReauthenticateDto dto)
+    {
+        if (GuestPrincipal.IsGuest(User))
+        {
+            return StatusCode(403, new { message = "Guest checkout does not include a profile." });
+        }
+
+        var signedIn = await GetSignedInUserAsync();
+        if (signedIn == null) return Unauthorized();
+
+        if (await _userManager.IsLockedOutAsync(signedIn))
+        {
+            return Unauthorized(new { message = "This account is locked." });
+        }
+
+        var passwordCheck = await _signInManager.CheckPasswordSignInAsync(signedIn, dto.CurrentPassword, false);
+        if (!passwordCheck.Succeeded)
+        {
+            return Unauthorized(new { message = "Current password is incorrect." });
+        }
+
+        var reauthToken = await _emailChangeService.IssueReauthTokenAsync(signedIn.Id);
+        return Ok(new
+        {
+            reauthToken,
+            expiresInSeconds = (int)_emailChangeService.ReauthLifetime.TotalSeconds
+        });
+    }
+
+    /// <summary>
+    /// Stores a pending email and sends a short-lived verification link to the new address,
+    /// plus a lock-account alert to the current address. The active email is not changed yet.
+    /// </summary>
+    [Authorize]
+    [HttpPost("change-email")]
+    public async Task<IActionResult> RequestEmailChange(RequestEmailChangeDto dto)
+    {
+        if (GuestPrincipal.IsGuest(User))
+        {
+            return StatusCode(403, new { message = "Guest checkout does not include a profile." });
+        }
+
+        var signedIn = await GetSignedInUserAsync();
+        if (signedIn == null) return Unauthorized();
+
+        var newEmail = dto.NewEmail.Trim();
+        var currentEmail = signedIn.Email ?? string.Empty;
+        if (string.Equals(_userManager.NormalizeEmail(newEmail), _userManager.NormalizeEmail(currentEmail), StringComparison.Ordinal))
+        {
+            return BadRequest(new { message = "That is already your email address." });
+        }
+
+        if (await _userManager.FindByEmailAsync(newEmail) != null)
+        {
+            return BadRequest(new { message = "This email cannot be used." });
+        }
+
+        if (!await _emailChangeService.ConsumeReauthTokenAsync(signedIn.Id, dto.ReauthToken))
+        {
+            return Unauthorized(new { message = "Please confirm your password again before changing your email." });
+        }
+
+        await _emailChangeService.StorePendingChangeAsync(signedIn.Id, currentEmail, newEmail);
+
+        var changeToken = await _userManager.GenerateChangeEmailTokenAsync(signedIn, newEmail);
+        var confirmUrl = BuildAppUrl("ReturnPath:confirmEmailChange", new Dictionary<string, string?>
+        {
+            ["email"] = newEmail,
+            ["userId"] = signedIn.Id,
+            ["token"] = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(changeToken))
+        });
+
+        var lockToken = await _emailChangeService.IssueLockTokenAsync(signedIn.Id);
+        var lockUrl = BuildAppUrl("ReturnPath:lockAccount", new Dictionary<string, string?>
+        {
+            ["userId"] = signedIn.Id,
+            ["token"] = lockToken
+        });
+
+        var confirmHtml = await LoadEmailTemplateAsync("ConfirmEmailChange.html", confirmUrl);
+        try
+        {
+            await _emailSender.SendEmailAsync(newEmail, "Confirm your new CosmicStore email", confirmHtml);
+        }
+        catch (Exception)
+        {
+            await _emailChangeService.RemovePendingChangeAsync(signedIn.Id);
+            await _emailChangeService.RemoveLockTokenAsync(signedIn.Id);
+            return StatusCode(503, new { message = "We could not send a verification email. Try again in a few minutes." });
+        }
+
+        var alertHtml = await LoadEmailTemplateAsync("EmailChangeAlert.html", lockUrl);
+        try
+        {
+            await _emailSender.SendEmailAsync(currentEmail, "Your CosmicStore email was recently changed", alertHtml);
+        }
+        catch (Exception)
+        {
+            // The new-address verification already went out; do not fail the request if the alert cannot send.
+        }
+
+        return Ok(new
+        {
+            message = $"A verification link was sent to {newEmail}. It expires in 20 minutes.",
+            pendingEmail = newEmail,
+            expiresInMinutes = (int)_emailChangeService.PendingChangeLifetime.TotalMinutes
+        });
+    }
+
+    /// <summary>
+    /// Applies a pending email after the new address clicks the short-lived verification link.
+    /// </summary>
+    [HttpPost("confirm-change-email")]
+    public async Task<IActionResult> ConfirmEmailChange(ConfirmEmailChangeDto dto)
+    {
+        var user = await _userManager.FindByIdAsync(dto.UserId);
+        if (user == null)
+        {
+            return BadRequest(new { message = "This verification link is invalid or has expired." });
+        }
+
+        var pending = await _emailChangeService.GetPendingChangeAsync(user.Id);
+        if (pending == null
+            || !string.Equals(
+                _userManager.NormalizeEmail(pending.NewEmail),
+                _userManager.NormalizeEmail(dto.Email),
+                StringComparison.Ordinal))
+        {
+            return BadRequest(new { message = "This verification link is invalid or has expired." });
+        }
+
+        IdentityResult? changeResult = null;
+        foreach (var candidate in IdentityTokenCandidates(dto.Token))
+        {
+            changeResult = await _userManager.ChangeEmailAsync(user, pending.NewEmail, candidate);
+            if (changeResult.Succeeded)
+            {
+                break;
+            }
+        }
+
+        if (changeResult is not { Succeeded: true })
+        {
+            return BadRequest(new { message = "This verification link is invalid or has expired." });
+        }
+
+        if (string.Equals(user.UserName, pending.OldEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            user.UserName = pending.NewEmail;
+            await _userManager.UpdateAsync(user);
+        }
+
+        await _emailChangeService.RemovePendingChangeAsync(user.Id);
+        return Ok(new { message = "Your email address has been updated. Sign in with the new address." });
+    }
+
+    /// <summary>
+    /// Locks the account from the security alert sent to the original email address.
+    /// </summary>
+    [HttpPost("lock-account")]
+    public async Task<IActionResult> LockAccount(LockAccountDto dto)
+    {
+        var user = await _userManager.FindByIdAsync(dto.UserId);
+        if (user == null || !await _emailChangeService.ValidateLockTokenAsync(user.Id, dto.Token))
+        {
+            return BadRequest(new { message = "This lock link is invalid or has expired." });
+        }
+
+        await _userManager.SetLockoutEnabledAsync(user, true);
+        await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddYears(100));
+        await _userManager.UpdateSecurityStampAsync(user);
+        await _emailChangeService.RemovePendingChangeAsync(user.Id);
+        await _emailChangeService.RemoveLockTokenAsync(user.Id);
+
+        return Ok(new { message = "Your account has been locked. Sign-in is disabled. Contact support if you need help recovering it." });
+    }
+
     /// <summary>Builds an Angular return URL with a URL-safe Identity token plus userId and email.</summary>
     private string BuildReturnUrl(string configKey, string token, string userId, string email)
     {
-        var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-        return QueryHelpers.AddQueryString(_configuration[configKey]!, new Dictionary<string, string?>
+        return BuildAppUrl(configKey, new Dictionary<string, string?>
         {
             ["email"] = email,
             ["userId"] = userId,
-            ["token"] = encodedToken
+            ["token"] = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token))
         });
+    }
+
+    private string BuildAppUrl(string configKey, Dictionary<string, string?> query)
+    {
+        var baseUrl = _configuration[configKey];
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            throw new InvalidOperationException($"{configKey} is not configured.");
+        }
+
+        return QueryHelpers.AddQueryString(baseUrl, query);
+    }
+
+    private async Task<AppUser?> GetSignedInUserAsync()
+    {
+        if (GuestPrincipal.IsGuest(User))
+        {
+            return null;
+        }
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return null;
+        }
+
+        return await _userManager.FindByIdAsync(userId);
     }
 
     /// <summary>
@@ -442,13 +672,15 @@ public class AccountController : ControllerBase
 
     private async Task<UserDto> ToUserDto(AppUser user)
     {
+        var pending = await _emailChangeService.GetPendingChangeAsync(user.Id);
         return new UserDto
         {
             Email = user.Email!,
             Token = await _tokenService.CreateToken(user),
             UserName = user.UserName ?? "User",
             EmailConfirmed = user.EmailConfirmed,
-            IsGuest = false
+            IsGuest = false,
+            PendingEmail = pending?.NewEmail
         };
     }
 }

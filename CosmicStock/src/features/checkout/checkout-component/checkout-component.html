@@ -13,7 +13,7 @@
             @for (address of savedAddresses(); track address.id) {
               <button type="button" class="address-chip" (click)="applyAddress(address)">
                 <strong>{{ address.label }}</strong>
-                <span>{{ address.streetAddress }}, {{ address.city }}</span>
+                <span>{{ address.streetAddress }}, {{ address.city }} {{ address.zipCode }}</span>
               </button>
             }
           </div>
@@ -42,16 +42,22 @@
         <div class="form-row">
           <div class="form-group">
             <label for="city">City</label>
-            <input id="city" type="text" formControlName="city">
+            <input id="city" type="text" formControlName="city" autocomplete="address-level2">
           </div>
           <div class="form-group">
             <label for="provinceOrState">State / Province</label>
-            <input id="provinceOrState" type="text" formControlName="provinceOrState">
+            <input id="provinceOrState" type="text" formControlName="provinceOrState" autocomplete="address-level1">
           </div>
         </div>
-        <div class="form-group">
-          <label for="countryCode">Country Code</label>
-          <input id="countryCode" type="text" formControlName="countryCode" placeholder="US">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="zipCode">ZIP / Postal code</label>
+            <input id="zipCode" type="text" formControlName="zipCode" placeholder="12345" autocomplete="postal-code">
+          </div>
+          <div class="form-group">
+            <label for="countryCode">Country Code</label>
+            <input id="countryCode" type="text" formControlName="countryCode" placeholder="US" autocomplete="country">
+          </div>
         </div>
       </section>
 
@@ -118,6 +124,7 @@
         }
         <p class="payment-note">
           Card details go straight to Stripe and never reach our servers.
+          Stripe uses your ZIP / postal code to verify the card.
         </p>
       </section>
 

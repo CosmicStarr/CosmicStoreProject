@@ -2,11 +2,32 @@
   <div class="edit-container">
     <header class="edit-header">
       <h2>{{ isCreate() ? 'Add Product' : 'Edit Product' }}</h2>
-      <p>{{ isCreate() ? 'Create a storefront product. Enter a CJ pid or SKU to import variants and images.' : 'Update product details, pricing, and media.' }}</p>
+      <p>{{ isCreate() ? 'Add a product to the admin catalog. Publish it from the dashboard when you want it on the storefront.' : 'Update product details, pricing, and media. Unpublished items stay in the admin catalog until you publish.' }}</p>
     </header>
 
-    @if (saveMessage) {
-      <p class="status-message" [class.error]="isError" role="status">{{ saveMessage }}</p>
+    @if (saveMessage()) {
+      <p class="status-message" [class.error]="isError()" role="status" aria-live="polite">{{ saveMessage() }}</p>
+    }
+
+    @if (pendingDelete(); as pending) {
+      <div class="confirm-banner" role="alertdialog" aria-labelledby="delete-confirm-title" aria-describedby="delete-confirm-text">
+        <div>
+          <p id="delete-confirm-title" class="confirm-title">
+            {{ pending.type === 'product' ? 'Delete this product?' : 'Delete this image?' }}
+          </p>
+          <p id="delete-confirm-text" class="confirm-text">
+            {{ pending.type === 'product'
+              ? 'This removes the product from the storefront. This cannot be undone.'
+              : 'This removes the selected image from the product gallery.' }}
+          </p>
+        </div>
+        <div class="confirm-actions">
+          <button type="button" class="btn-secondary" (click)="cancelDelete()" [disabled]="deleting()">Cancel</button>
+          <button type="button" class="danger-btn" (click)="confirmDelete()" [disabled]="deleting()">
+            {{ deleting() ? 'Deleting...' : (pending.type === 'product' ? 'Delete product' : 'Delete image') }}
+          </button>
+        </div>
+      </div>
     }
 
     <form [formGroup]="productForm" (ngSubmit)="onSubmit()" class="cosmic-form">
@@ -56,8 +77,27 @@
           </div>
           
           <div class="form-group">
-            <label>Category</label>
-            <input type="text" formControlName="category" placeholder="e.g. Electronics">
+            <label for="category">Category</label>
+            <select
+              id="category"
+              [value]="addingNewCategory() ? newCategoryOption : (productForm.get('category')?.value ?? '')"
+              (change)="onCategorySelect($any($event.target).value)">
+              <option value="">Select a category</option>
+              @for (category of categories(); track category) {
+                <option [value]="category">{{ category }}</option>
+              }
+              <option [value]="newCategoryOption">Add new category…</option>
+            </select>
+            @if (addingNewCategory()) {
+              <label class="visually-hidden" for="newCategory">New category name</label>
+              <input
+                id="newCategory"
+                type="text"
+                [value]="productForm.get('category')?.value"
+                (input)="onNewCategoryInput($any($event.target).value)"
+                placeholder="Enter a new category"
+                class="new-category-input">
+            }
           </div>
           
           <div class="form-group">
@@ -81,6 +121,11 @@
                 [alt]="(productForm.get('nameEn')?.value || 'Product') + ' main image'">
             </div>
           }
+        </div>
+
+        <div class="form-group full-width mt-16">
+          <label for="shortDescription">Short description</label>
+          <textarea id="shortDescription" formControlName="shortDescription" rows="3" placeholder="Brief summary shown on the product page"></textarea>
         </div>
 
         <div class="form-group full-width mt-16">
@@ -138,6 +183,14 @@
                 @if (group.get('type')?.value) {
                   <span class="type-badge">{{ group.get('type')?.value }}</span>
                 }
+                <button
+                  type="button"
+                  class="image-delete-btn"
+                  (click)="requestDeleteImage($index)"
+                  [disabled]="deleting()"
+                  [attr.aria-label]="'Delete ' + galleryImageAlt($index)">
+                  Delete image
+                </button>
               </div>
 
               <div class="card-body">
@@ -179,12 +232,19 @@
       <!-- Form Actions -->
       <div class="form-actions">
         @if (!isCreate()) {
+          <button
+            type="button"
+            class="danger-btn"
+            (click)="requestDeleteProduct()"
+            [disabled]="deleting() || saving()">
+            Delete Product
+          </button>
           <button type="button" class="publish-btn" (click)="publishToStore()">
             Publish to Store
           </button>
         }
-        <button type="submit" class="submit-btn" [disabled]="productForm.invalid || saving">
-          {{ saving ? 'Saving...' : (isCreate() ? 'Add Product' : 'Save Changes') }}
+        <button type="submit" class="submit-btn" [disabled]="productForm.invalid || saving() || deleting()">
+          {{ saving() ? 'Saving...' : (isCreate() ? 'Add Product' : 'Save Changes') }}
         </button>
       </div>
       

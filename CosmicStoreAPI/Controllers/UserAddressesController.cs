@@ -62,6 +62,7 @@ public class UserAddressesController(IStoreUnitOfWork storeUnitOfWork) : BaseCon
             StreetAddress = dto.StreetAddress,
             City = dto.City,
             ProvinceOrState = dto.ProvinceOrState,
+            ZipCode = dto.ZipCode,
             CountryCode = dto.CountryCode,
             IsDefault = dto.IsDefault
         };
@@ -99,6 +100,7 @@ public class UserAddressesController(IStoreUnitOfWork storeUnitOfWork) : BaseCon
         address.StreetAddress = dto.StreetAddress;
         address.City = dto.City;
         address.ProvinceOrState = dto.ProvinceOrState;
+        address.ZipCode = dto.ZipCode;
         address.CountryCode = dto.CountryCode;
         address.IsDefault = dto.IsDefault;
 
@@ -162,6 +164,7 @@ public class UserAddressesController(IStoreUnitOfWork storeUnitOfWork) : BaseCon
         StreetAddress = address.StreetAddress,
         City = address.City,
         ProvinceOrState = address.ProvinceOrState,
+        ZipCode = address.ZipCode,
         CountryCode = address.CountryCode,
         IsDefault = address.IsDefault
     };

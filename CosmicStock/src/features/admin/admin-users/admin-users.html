@@ -2,19 +2,27 @@
   <h1>Users</h1>
 </header>
 
-@if (loading) {
-  <p class="muted">Loading users...</p>
-} @else {
-  <div class="table-wrap">
-    <table>
-      <thead>
+@if (message()) {
+  <p class="action-message" role="status">{{ message() }}</p>
+}
+
+<div class="table-wrap" [attr.aria-busy]="loading()">
+  <table>
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Username</th>
+        <th>User ID</th>
+      </tr>
+    </thead>
+    <tbody>
+      @if (!users().length) {
         <tr>
-          <th>Email</th>
-          <th>Username</th>
-          <th>User ID</th>
+          <td colspan="3" class="empty-cell">
+            {{ loading() ? 'Loading users...' : 'No users yet.' }}
+          </td>
         </tr>
-      </thead>
-      <tbody>
+      } @else {
         @for (user of users(); track user.id) {
           <tr>
             <td>{{ user.email }}</td>
@@ -22,7 +30,7 @@
             <td class="muted">{{ user.id }}</td>
           </tr>
         }
-      </tbody>
-    </table>
-  </div>
-}
+      }
+    </tbody>
+  </table>
+</div>

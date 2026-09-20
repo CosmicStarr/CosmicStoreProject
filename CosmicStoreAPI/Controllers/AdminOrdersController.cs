@@ -33,4 +33,21 @@ public class AdminOrdersController(IOrderService orderService) : BaseController
         if (order is null) return NotFound();
         return Ok(order);
     }
+
+    /// <summary>
+    /// Cancels one line item and refunds that line through Stripe. Other items stay on the order.
+    /// </summary>
+    [HttpPost("{orderId}/items/{itemId:int}/cancel")]
+    public async Task<ActionResult<OrderDto>> CancelOrderItem(string orderId, int itemId)
+    {
+        try
+        {
+            var order = await _orderService.CancelOrderItemAsync(orderId, itemId);
+            return order is null ? NotFound() : Ok(order);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }

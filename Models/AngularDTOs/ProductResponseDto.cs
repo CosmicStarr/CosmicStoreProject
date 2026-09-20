@@ -9,6 +9,7 @@ public class ProductResponseDto
     public string? BigImage { get; set; }
     public string? Category { get; set; }
     public string? DescriptionEn { get; set; }
+    public string? ShortDescription { get; set; }
     public bool IsFeatured { get; set; }
     public bool IsNewArrival { get; set;}
     public bool IsTopSelling { get; set; }

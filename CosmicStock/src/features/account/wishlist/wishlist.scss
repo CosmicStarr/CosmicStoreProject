@@ -4,6 +4,20 @@
   padding: 32px 20px 60px;
 }
 
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+
+  h1 {
+    margin: 0 0 8px;
+    font-size: 28px;
+  }
+}
+
 .wishlist-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -16,6 +30,8 @@
   border-radius: 12px;
   overflow: hidden;
   background: #fff;
+  display: flex;
+  flex-direction: column;
 
   img {
     width: 100%;
@@ -25,8 +41,15 @@
   }
 }
 
+.image-link {
+  display: block;
+}
+
 .card-body {
   padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 
   h2 {
     margin: 0 0 8px;
@@ -36,12 +59,17 @@
       color: inherit;
       text-decoration: none;
     }
+
+    a:hover,
+    a:focus-visible {
+      color: #c05600;
+    }
   }
 }
 
 .price {
   font-weight: 700;
-  color: #ff9100;
+  color: #c05600;
   margin: 8px 0 12px;
 }
 
@@ -51,14 +79,40 @@
   font-size: 13px;
 }
 
+.card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+
 .danger-btn,
-.link-btn {
+.link-btn,
+.add-btn,
+.secondary-btn {
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 8px 14px;
   cursor: pointer;
   text-decoration: none;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.add-btn {
+  background: linear-gradient(180deg, #ff9a1f 0%, #ff7f00 100%);
+  color: #1a1208;
+  flex: 1;
+}
+
+.add-btn:hover:not([disabled]) {
+  background: #e06f00;
+}
+
+.add-btn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .danger-btn {
@@ -66,8 +120,37 @@
   color: #b91c1c;
 }
 
-.link-btn {
+.link-btn,
+.secondary-btn {
   background: #ff9100;
-  color: #fff;
+  color: #1a1208;
+}
+
+.secondary-btn {
+  background: #fff7ed;
+  color: #9a3412;
+  border: 1px solid #fdba74;
+}
+
+.link-btn {
   margin-top: 12px;
+}
+
+.success-text {
+  color: #166534;
+  font-weight: 600;
+}
+
+.error-text {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.add-btn:focus-visible,
+.danger-btn:focus-visible,
+.link-btn:focus-visible,
+.secondary-btn:focus-visible,
+.card-body a:focus-visible {
+  outline: 3px solid #ff9100;
+  outline-offset: 2px;
 }

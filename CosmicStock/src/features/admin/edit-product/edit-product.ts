@@ -5,6 +5,8 @@ import { AdminProductService } from '../../../core/services/admin-product';
 import { AdminCjService } from '../../../core/services/admin-cj-service';
 import { ICjVariant, IEditProduct } from '../../models/editProduct';
 
+type PendingDelete = { type: 'product' } | { type: 'image'; index: number };
+
 @Component({
   selector: 'app-edit-product',
   imports: [ReactiveFormsModule],
@@ -20,20 +22,27 @@ export class EditProductComponent implements OnInit {
   protected readonly isCreate = signal(false);
   protected readonly loadingFromCj = signal(false);
   protected readonly cjVariants = signal<ICjVariant[]>([]);
+  protected readonly saveMessage = signal<string | null>(null);
+  protected readonly isError = signal(false);
+  protected readonly saving = signal(false);
+  protected readonly pendingDelete = signal<PendingDelete | null>(null);
+  protected readonly deleting = signal(false);
+  protected readonly categories = signal<string[]>([]);
+  protected readonly addingNewCategory = signal(false);
+  protected readonly newCategoryOption = '__new__';
   protected productForm: FormGroup = new FormGroup({});
-  saveMessage: string | null = null;
-  isError = false;
-  saving = false;
 
   ngOnInit(): void {
     this.isCreate.set(this.route.snapshot.data['mode'] === 'create');
     this.productId = this.route.snapshot.paramMap.get('id') || '';
+    this.readNavigationNotice();
 
     this.productForm = new FormGroup({
       id: new FormControl(this.productId),
       cjProductId: new FormControl(''),
       nameEn: new FormControl('', Validators.required),
       descriptionEn: new FormControl(''),
+      shortDescription: new FormControl(''),
       sku: new FormControl('', Validators.required),
       isFeatured: new FormControl(true),
       isNewArrival: new FormControl(false),
@@ -45,6 +54,8 @@ export class EditProductComponent implements OnInit {
       productImages: new FormArray([])
     });
 
+    this.loadCategories();
+
     if (!this.isCreate()) {
       this.productForm.patchValue({ isFeatured: false });
       this.getProduct();
@@ -55,16 +66,60 @@ export class EditProductComponent implements OnInit {
     return this.productForm.get('productImages') as FormArray;
   }
 
+  onCategorySelect(value: string): void {
+    if (value === this.newCategoryOption) {
+      this.addingNewCategory.set(true);
+      this.productForm.patchValue({ category: '' });
+      return;
+    }
+
+    this.addingNewCategory.set(false);
+    this.productForm.patchValue({ category: value });
+  }
+
+  onNewCategoryInput(value: string): void {
+    this.productForm.patchValue({ category: value });
+  }
+
+  private loadCategories(): void {
+    this.productService.getCategories().subscribe({
+      next: (categories) => {
+        const names = [...new Set(categories.map((name) => name.trim()).filter(Boolean))]
+          .sort((left, right) => left.localeCompare(right));
+        this.categories.set(names);
+        this.ensureCategoryOption(this.productForm.get('category')?.value);
+      },
+      error: () => this.categories.set([]),
+    });
+  }
+
+  private ensureCategoryOption(name: string | null | undefined): void {
+    const category = name?.trim();
+    if (!category || category === this.newCategoryOption) {
+      this.addingNewCategory.set(false);
+      return;
+    }
+
+    this.addingNewCategory.set(false);
+    if (this.categories().some((item) => item.toLowerCase() === category.toLowerCase())) {
+      return;
+    }
+
+    this.categories.update((items) =>
+      [...items, category].sort((left, right) => left.localeCompare(right))
+    );
+  }
+
   loadFromCj(): void {
     const pid = String(this.productForm.get('cjProductId')?.value ?? '').trim();
     if (!pid || this.loadingFromCj()) return;
 
     this.loadingFromCj.set(true);
-    this.saveMessage = null;
+    this.saveMessage.set(null);
     this.adminCj.previewProduct(pid).subscribe({
       next: (preview) => {
         this.loadingFromCj.set(false);
-        this.isError = false;
+        this.isError.set(false);
         this.cjVariants.set(preview.variants ?? []);
         this.productForm.patchValue({
           cjProductId: preview.cjProductId || pid,
@@ -73,25 +128,27 @@ export class EditProductComponent implements OnInit {
           sellPrice: preview.sellPrice,
           bigImage: preview.bigImage ?? '',
           descriptionEn: preview.descriptionEn ?? '',
+          shortDescription: preview.shortDescription?.trim() ?? '',
           category: preview.category ?? '',
         });
+        this.ensureCategoryOption(preview.category);
 
         this.productImagesArray.clear();
         for (const variant of preview.variants ?? []) {
           this.addImage(variant.imageUrl ?? '', variant.sku, variant.variantName);
         }
 
-        this.saveMessage = `Loaded ${this.cjVariants().length} variants for ${preview.cjProductId || pid}.`;
+        this.saveMessage.set(`Loaded ${this.cjVariants().length} variants for ${preview.cjProductId || pid}.`);
       },
       error: (err: { error?: { message?: string } }) => {
         this.loadingFromCj.set(false);
-        this.isError = true;
-        this.saveMessage = err.error?.message ?? 'Failed to load CJ product.';
+        this.isError.set(true);
+        this.saveMessage.set(err.error?.message ?? 'Failed to load CJ product.');
       }
     });
   }
 
-  addImage(imageString: string, skuPhoto?: string, type?: string): void {
+  addImage(imageString: string, skuPhoto?: string, type?: string, pictureId?: number): void {
     const url = imageString?.trim();
     if (!url) return;
 
@@ -104,15 +161,46 @@ export class EditProductComponent implements OnInit {
       if (imageType && !String(existing.get('type')?.value ?? '').trim()) {
         existing.get('type')?.setValue(imageType);
       }
+      if (pictureId && !Number(existing.get('id')?.value)) {
+        existing.get('id')?.setValue(pictureId);
+      }
       return;
     }
 
     this.productImagesArray.push(new FormGroup({
+      id: new FormControl(pictureId ?? 0),
       productId: new FormControl(this.productId),
       photoUrl: new FormControl(url),
       skuPhoto: new FormControl(sku),
       type: new FormControl(imageType)
     }));
+  }
+
+  requestDeleteImage(index: number): void {
+    if (index < 0 || index >= this.productImagesArray.length) return;
+    this.pendingDelete.set({ type: 'image', index });
+  }
+
+  requestDeleteProduct(): void {
+    if (this.isCreate() || !this.productId) return;
+    this.pendingDelete.set({ type: 'product' });
+  }
+
+  cancelDelete(): void {
+    if (this.deleting()) return;
+    this.pendingDelete.set(null);
+  }
+
+  confirmDelete(): void {
+    const pending = this.pendingDelete();
+    if (!pending || this.deleting()) return;
+
+    if (pending.type === 'image') {
+      this.deleteImage(pending.index);
+      return;
+    }
+
+    this.deleteProduct();
   }
 
   galleryImageAlt(index: number): string {
@@ -133,21 +221,23 @@ export class EditProductComponent implements OnInit {
           bigImage: product.bigImage ?? '',
           category: product.category ?? '',
           descriptionEn: product.descriptionEn ?? '',
+          shortDescription: product.shortDescription?.trim() ?? '',
           isFeatured: product.isFeatured,
           isNewArrival: product.isNewArrival,
           isTopSelling: product.isTopSelling,
           stockQuantity: product.stockQuantity,
         });
+        this.ensureCategoryOption(product.category);
 
         this.productImagesArray.clear();
         if (product.bigImage) {
           const hero = (product.pictures ?? []).find(
             (picture) => picture.photoUrl?.trim() === product.bigImage?.trim()
           );
-          this.addImage(product.bigImage, hero?.skuPhoto ?? product.sku, hero?.type);
+          this.addImage(product.bigImage, hero?.skuPhoto ?? product.sku, hero?.type, hero?.id);
         }
         for (const picture of product.pictures ?? []) {
-          this.addImage(picture.photoUrl, picture.skuPhoto, picture.type);
+          this.addImage(picture.photoUrl, picture.skuPhoto, picture.type, picture.id);
         }
       },
       error: (err) => console.error('Failed to load product metadata', err)
@@ -157,8 +247,8 @@ export class EditProductComponent implements OnInit {
   onSubmit() {
     if (this.productForm.invalid) return;
 
-    this.saving = true;
-    this.saveMessage = null;
+    this.saving.set(true);
+    this.saveMessage.set(null);
     const mainImage = String(this.productForm.get('bigImage')?.value ?? '').trim();
     if (mainImage) {
       this.addImage(mainImage);
@@ -167,15 +257,16 @@ export class EditProductComponent implements OnInit {
     if (this.isCreate()) {
       this.productService.createProduct(this.formPayload()).subscribe({
         next: (created) => {
-          this.saving = false;
-          this.isError = false;
-          this.saveMessage = 'Product added to the storefront.';
-          void this.router.navigate(['/admin/edit-Product', created.id]);
+          this.saving.set(false);
+          const name = created.nameEn?.trim() || 'Product';
+          void this.router.navigate(['/admin/dashboard'], {
+            state: { notice: `${name} was added to the admin catalog. Publish it when you want it on the storefront.` },
+          });
         },
         error: (err: { error?: { message?: string } }) => {
-          this.saving = false;
-          this.isError = true;
-          this.saveMessage = err.error?.message ?? 'Failed to add product.';
+          this.saving.set(false);
+          this.isError.set(true);
+          this.saveMessage.set(err.error?.message ?? 'Failed to add product.');
         }
       });
       return;
@@ -183,14 +274,14 @@ export class EditProductComponent implements OnInit {
 
     this.productService.updateProduct(this.productId, this.formPayload()).subscribe({
       next: () => {
-        this.saving = false;
-        this.saveMessage = 'Product saved to storefront.';
-        this.isError = false;
+        this.saving.set(false);
+        this.saveMessage.set('Product saved.');
+        this.isError.set(false);
       },
       error: () => {
-        this.saving = false;
-        this.saveMessage = 'Failed to save product.';
-        this.isError = true;
+        this.saving.set(false);
+        this.saveMessage.set('Failed to save product.');
+        this.isError.set(true);
       }
     });
   }
@@ -198,14 +289,86 @@ export class EditProductComponent implements OnInit {
   publishToStore() {
     this.productService.publishProduct(this.productId, this.formPayload()).subscribe({
       next: () => {
-        this.saveMessage = 'Product published to storefront from CJ catalog.';
-        this.isError = false;
+        this.saveMessage.set('Product published to storefront from CJ catalog.');
+        this.isError.set(false);
       },
       error: () => {
-        this.saveMessage = 'Publish failed.';
-        this.isError = true;
+        this.saveMessage.set('Publish failed.');
+        this.isError.set(true);
       }
     });
+  }
+
+  private deleteImage(index: number): void {
+    const group = this.productImagesArray.at(index);
+    const pictureId = Number(group.get('id')?.value ?? 0);
+    const photoUrl = String(group.get('photoUrl')?.value ?? '').trim();
+
+    if (this.isCreate() || !this.productId) {
+      this.removeImageFromForm(index, photoUrl);
+      this.pendingDelete.set(null);
+      this.saveMessage.set('Image removed.');
+      this.isError.set(false);
+      return;
+    }
+
+    this.deleting.set(true);
+    this.productService.deleteProductImage(this.productId, pictureId > 0 ? pictureId : undefined, photoUrl).subscribe({
+      next: (product) => {
+        this.deleting.set(false);
+        this.pendingDelete.set(null);
+        this.removeImageFromForm(index, photoUrl);
+        if (product.bigImage !== undefined) {
+          this.productForm.patchValue({ bigImage: product.bigImage ?? '' });
+        }
+        this.saveMessage.set('Image deleted.');
+        this.isError.set(false);
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.deleting.set(false);
+        this.isError.set(true);
+        this.saveMessage.set(err.error?.message ?? 'Could not delete that image.');
+      },
+    });
+  }
+
+  private deleteProduct(): void {
+    this.deleting.set(true);
+    this.productService.deleteProduct(this.productId).subscribe({
+      next: () => {
+        this.deleting.set(false);
+        this.pendingDelete.set(null);
+        void this.router.navigate(['/admin/dashboard'], {
+          state: { notice: 'Product deleted from the storefront.' },
+        });
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.deleting.set(false);
+        this.isError.set(true);
+        this.saveMessage.set(err.error?.message ?? 'Could not delete this product.');
+      },
+    });
+  }
+
+  private removeImageFromForm(index: number, photoUrl: string): void {
+    this.productImagesArray.removeAt(index);
+    const currentMain = String(this.productForm.get('bigImage')?.value ?? '').trim();
+    if (currentMain && currentMain === photoUrl) {
+      const nextUrl = String(this.productImagesArray.at(0)?.get('photoUrl')?.value ?? '').trim();
+      this.productForm.patchValue({ bigImage: nextUrl });
+    }
+  }
+
+  private readNavigationNotice(): void {
+    const state = (this.router.getCurrentNavigation()?.extras.state ?? history.state) as {
+      notice?: string;
+      noticeError?: boolean;
+    } | undefined;
+
+    if (state?.notice) {
+      this.saveMessage.set(state.notice);
+      this.isError.set(!!state.noticeError);
+    }
   }
 
   private formPayload(): IEditProduct {
@@ -213,6 +376,7 @@ export class EditProductComponent implements OnInit {
     const cjProductId = String(raw.cjProductId ?? '').trim();
     return {
       ...raw,
+      shortDescription: String(raw.shortDescription ?? '').trim() || undefined,
       cjProductId: cjProductId || undefined,
       variants: this.cjVariants()
     };

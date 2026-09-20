@@ -18,8 +18,8 @@ public class OrdersController(IOrderService orderService, UserManager<AppUser> u
     private readonly UserManager<AppUser> _userManager = userManager;
 
     /// <summary>
-    /// Creates an order from the checkout payload, verifies Stripe payment, and maps each line SKU to a CJ vid.
-    /// Guests may check out without an Identity user. CJ fulfillment submit is currently skipped in OrderService.
+    /// Creates an order from the checkout payload and verifies Stripe payment.
+    /// Guests may check out without an Identity user. CJ fulfillment waits until the wallet can cover it.
     /// </summary>
     [AllowAnonymous]
     [HttpPost("checkout")]
@@ -71,5 +71,24 @@ public class OrdersController(IOrderService orderService, UserManager<AppUser> u
         var order = await _orderService.GetOrderAsync(orderId, userId);
         if (order is null) return NotFound(new { message = "Order not found." });
         return Ok(order);
+    }
+
+    /// <summary>
+    /// Customer cancellation: checks CJ fulfillment status, cancels an unfulfilled shipment, and refunds Stripe.
+    /// </summary>
+    [Authorize]
+    [HttpPost("{orderId}/cancel")]
+    public async Task<ActionResult<OrderDto>> CancelOrder(string orderId)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        try
+        {
+            var order = await _orderService.RequestCancellationAsync(orderId, userId);
+            return order is null ? NotFound(new { message = "Order not found." }) : Ok(order);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 }

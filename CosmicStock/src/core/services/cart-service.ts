@@ -13,6 +13,7 @@ export class CartService {
 
   private cartState = signal<IShoppingCart | null>(null);
   private panelOpenState = signal(false);
+  private cartWriteVersion = 0;
   readonly cart = this.cartState.asReadonly();
   readonly panelOpen = this.panelOpenState.asReadonly();
 
@@ -31,9 +32,16 @@ export class CartService {
   loadCart() {
     const cartId = this.getCartId();
     const options = cartId ? { params: { cartId } } : {};
+    const requestVersion = this.cartWriteVersion;
 
     this.http.get<IShoppingCart>(`${this.apiUrl}Cart`, options).subscribe({
-      next: (cart) => this.applyCart(cart),
+      next: (cart) => {
+        if (requestVersion !== this.cartWriteVersion) {
+          return;
+        }
+
+        this.applyCart(cart);
+      },
     });
   }
 
@@ -99,19 +107,25 @@ export class CartService {
     const current = this.cartState();
     const incomingCount = cart.shoppingCartItems?.length ?? 0;
     const currentCount = current?.shoppingCartItems?.length ?? 0;
-    if (currentCount > 0 && incomingCount === 0 && current?.id !== cart.id) {
+    if (currentCount > 0 && incomingCount === 0) {
       return;
     }
 
-    this.setCart(cart);
+    this.replaceCart(cart);
   }
 
   private setCart(cart: IShoppingCart) {
+    this.cartWriteVersion++;
+    this.replaceCart(cart);
+  }
+
+  private replaceCart(cart: IShoppingCart) {
     localStorage.setItem(CART_ID_KEY, cart.id);
     this.cartState.set(normalizeCart(cart));
   }
 
   clearLocalCart() {
+    this.cartWriteVersion++;
     localStorage.removeItem(CART_ID_KEY);
     this.cartState.set(null);
     this.panelOpenState.set(false);

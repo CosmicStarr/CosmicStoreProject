@@ -1,0 +1,118 @@
+<a routerLink="/admin/orders" class="back-link">← Back to orders</a>
+
+@if (message()) {
+  <p class="action-message" role="status">{{ message() }}</p>
+}
+
+@if (loading()) {
+  <p class="muted">Loading order...</p>
+} @else if (order(); as detail) {
+  <header class="page-header">
+    <div>
+      <h1>Order {{ detail.orderId.slice(0, 8) }}</h1>
+      <p class="muted">Placed {{ detail.createdAt | date:'medium' }}</p>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="secondary-btn" [disabled]="busyOrder()" (click)="syncOrder()">
+        Sync
+      </button>
+      @if (canCancelOrder()) {
+        <button type="button" class="secondary-btn" [disabled]="busyOrder()" (click)="cancelOrder()">
+          Cancel order
+        </button>
+      }
+      @if (canRefundOrder()) {
+        <button type="button" class="secondary-btn" [disabled]="busyOrder()" (click)="refundOrder()">
+          Refund remaining
+        </button>
+      }
+    </div>
+  </header>
+
+  <section class="detail-grid">
+    <article class="detail-card">
+      <h2>Status</h2>
+      <p class="status">{{ detail.status }}</p>
+      <p>
+        Payment:
+        <span
+          class="payment-status"
+          [class.unpaid]="detail.paymentStatus !== 'PaymentRecevied' && detail.paymentStatus !== 'Refunded'"
+          [class.refunded]="detail.paymentStatus === 'Refunded'">
+          {{ detail.paymentStatus || '—' }}
+        </span>
+      </p>
+      @if (detail.cjShipmentOrderId) {
+        <p class="muted">CJ shipment: {{ detail.cjShipmentOrderId }}</p>
+      }
+      @if (detail.trackingNumber) {
+        <p>Tracking: <code>{{ detail.trackingNumber }}</code></p>
+      }
+    </article>
+
+    <article class="detail-card">
+      <h2>Customer</h2>
+      <p>{{ detail.customerName }}</p>
+      <p class="muted">{{ detail.customerEmail }}</p>
+      <p>{{ detail.shippingAddress }}</p>
+      <p>{{ detail.city }}, {{ detail.state }} {{ detail.zipCode }} {{ detail.country }}</p>
+      <p class="muted">
+        {{ detail.logisticName }} — {{ detail.shippingCost | currency:'USD':'symbol' }}
+      </p>
+    </article>
+  </section>
+
+  <section class="detail-card items-card">
+    <h2>Items</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>SKU</th>
+            <th>Qty</th>
+            <th>Price</th>
+            <th>Line total</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of detail.items; track item.id || item.sku) {
+            <tr [class.inactive-row]="item.status === 'Cancelled' || item.status === 'Refunded'">
+              <td>{{ item.name || item.sku }}</td>
+              <td class="muted">{{ item.sku }}</td>
+              <td>{{ item.quantity }}</td>
+              <td>{{ item.priceAtPurchase | currency:'USD':'symbol' }}</td>
+              <td>{{ lineTotal(item) | currency:'USD':'symbol' }}</td>
+              <td><span class="status">{{ item.status || 'Ordered' }}</span></td>
+              <td>
+                @if (canCancelItem(item)) {
+                  <button
+                    type="button"
+                    class="row-btn"
+                    [disabled]="busyItemId() === item.id"
+                    (click)="cancelItem(item)">
+                    {{ busyItemId() === item.id ? 'Cancelling...' : 'Cancel item' }}
+                  </button>
+                } @else {
+                  <span class="muted">—</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="totals">
+      <div class="item-row">
+        <span>Shipping</span>
+        <span>{{ detail.shippingCost | currency:'USD':'symbol' }}</span>
+      </div>
+      <div class="total-row">
+        <span>Remaining total</span>
+        <strong>{{ detail.total | currency:'USD':'symbol' }}</strong>
+      </div>
+    </div>
+  </section>
+}

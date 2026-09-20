@@ -1,5 +1,5 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import { IFlatProduct } from '../../models/flattenProduct';
 import { sunParams } from '../../models/paramOptions';
@@ -16,6 +16,7 @@ const PAGE_SIZE_OPTIONS = [12, 24, 48];
 })
 export class DashboardComponent implements OnInit {
   private adminService = inject(AdminProductService);
+  private router = inject(Router);
   private searchChanges = new Subject<string>();
 
   protected sunParams = new sunParams();
@@ -41,12 +42,13 @@ export class DashboardComponent implements OnInit {
     return `Showing ${start}-${end} of ${total}`;
   });
 
-  publishing = false;
-  message: string | null = null;
-  isError = false;
+  publishing = signal(false);
+  message = signal<string | null>(null);
+  isError = signal(false);
 
   ngOnInit() {
     this.sunParams.pageSize = 24;
+    this.readNavigationNotice();
 
     this.searchChanges.pipe(debounceTime(400), distinctUntilChanged()).subscribe((term) => {
       this.sunParams.search = term;
@@ -117,19 +119,19 @@ export class DashboardComponent implements OnInit {
   }
 
   publishOne(productId: string) {
-    this.publishing = true;
-    this.message = null;
+    this.publishing.set(true);
+    this.message.set(null);
 
     this.adminService.publishProduct(productId).subscribe({
       next: () => {
-        this.publishing = false;
-        this.message = 'Product published to storefront.';
-        this.isError = false;
+        this.publishing.set(false);
+        this.message.set('Product published to storefront.');
+        this.isError.set(false);
       },
       error: () => {
-        this.publishing = false;
-        this.message = 'Failed to publish product.';
-        this.isError = true;
+        this.publishing.set(false);
+        this.message.set('Failed to publish product.');
+        this.isError.set(true);
       },
     });
   }
@@ -138,20 +140,32 @@ export class DashboardComponent implements OnInit {
     const ids = this.apiData().map((p) => p.id);
     if (!ids.length) return;
 
-    this.publishing = true;
-    this.message = null;
+    this.publishing.set(true);
+    this.message.set(null);
 
     this.adminService.publishBulk(ids).subscribe({
       next: (result) => {
-        this.publishing = false;
-        this.message = `Published ${result.length} product(s) to storefront.`;
-        this.isError = false;
+        this.publishing.set(false);
+        this.message.set(`Published ${result.length} product(s) to storefront.`);
+        this.isError.set(false);
       },
       error: () => {
-        this.publishing = false;
-        this.message = 'Bulk publish failed.';
-        this.isError = true;
+        this.publishing.set(false);
+        this.message.set('Bulk publish failed.');
+        this.isError.set(true);
       },
     });
+  }
+
+  private readNavigationNotice(): void {
+    const state = (this.router.getCurrentNavigation()?.extras.state ?? history.state) as {
+      notice?: string;
+      noticeError?: boolean;
+    } | undefined;
+
+    if (state?.notice) {
+      this.message.set(state.notice);
+      this.isError.set(!!state.noticeError);
+    }
   }
 }

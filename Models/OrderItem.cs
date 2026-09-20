@@ -13,6 +13,8 @@ public class OrderItem
     public Order Order { get; set; } = null!;
 
     public string Sku { get; set; } = string.Empty; // Your DB SKU
+    public string Name { get; set; } = string.Empty;
+    public string Status { get; set; } = "Ordered";
     public string CjVariantId { get; set; } = string.Empty; // The CJ VID
     public int Quantity { get; set; }
     

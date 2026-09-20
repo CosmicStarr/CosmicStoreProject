@@ -11,16 +11,20 @@ namespace Data.Classes;
 public class EditCjProducts(
     IUnitOfWork unitOfWork,
     IStoreUnitOfWork storeUnitOfWork,
-    ICJDropshippingService cjService) : IEditCjProducts
+    ICJDropshippingService cjService,
+    ICacheService cacheService) : IEditCjProducts
 {
+    private static readonly TimeSpan StagingOverlayTtl = TimeSpan.FromDays(30);
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IStoreUnitOfWork _storeUnitOfWork = storeUnitOfWork;
     private readonly ICJDropshippingService _cjService = cjService;
+    private readonly ICacheService _cacheService = cacheService;
 
     /// <summary>
-    /// Creates a storefront product with a new Guid. Optional CJ pid/variants become ProductVariant rows (vids).
+    /// Adds a product to <c>dbo.FlatProducts</c> so it appears on the admin dashboard.
+    /// It is not copied to the storefront until Publish.
     /// </summary>
-    public async Task<Products> CreateManualProductAsync(EditProductInfo product)
+    public async Task<ProductResponseDto> CreateManualProductAsync(EditProductInfo product)
     {
         if (string.IsNullOrWhiteSpace(product.NameEn) || string.IsNullOrWhiteSpace(product.Sku))
         {
@@ -28,64 +32,102 @@ public class EditCjProducts(
         }
 
         var sku = product.Sku.Trim();
-        var existingSku = await _storeUnitOfWork.Repository<Products>()
+        var storeSku = await _storeUnitOfWork.Repository<Products>()
             .GetFirstOrDefault(p => p.Sku == sku);
-        if (existingSku is not null)
+        if (storeSku is not null)
         {
-            throw new InvalidOperationException($"SKU '{sku}' is already in use.");
+            throw new InvalidOperationException($"SKU '{sku}' is already on the storefront.");
+        }
+
+        var cjPid = product.CjProductId?.Trim();
+        var id = !string.IsNullOrWhiteSpace(cjPid) ? cjPid : Guid.NewGuid().ToString();
+
+        var existingStaging = await _unitOfWork.Repository<FlatProduct>()
+            .GetFirstOrDefault(item => item.Id == id);
+        if (existingStaging is null)
+        {
+            var skuTaken = await _unitOfWork.Repository<FlatProduct>()
+                .GetFirstOrDefault(item => item.Sku == sku);
+            if (skuTaken is not null)
+            {
+                throw new InvalidOperationException($"SKU '{sku}' is already in the admin catalog.");
+            }
         }
 
         var variants = await ResolveVariantsAsync(product);
-        var id = Guid.NewGuid().ToString();
-        var images = product.ProductImages;
+        var images = NormalizeImages(id, sku, product.ProductImages, variants);
+        var bigImage = FirstNonEmpty(product.BigImage, images.FirstOrDefault()?.PhotoUrl);
+        var categoryId = await ResolveCategoryIdAsync(product.Category);
 
-        if ((images is null || images.Count == 0) && variants.Count > 0)
+        if (existingStaging is not null)
         {
-            images = variants
-                .Where(variant => !string.IsNullOrWhiteSpace(variant.ImageUrl))
-                .Select(variant => new PictureDto
-                {
-                    ProductId = id,
-                    PhotoUrl = variant.ImageUrl,
-                    SkuPhoto = string.IsNullOrWhiteSpace(variant.Sku) ? sku : variant.Sku,
-                    Type = variant.VariantName
-                })
-                .ToList();
+            existingStaging.NameEn = product.NameEn.Trim();
+            existingStaging.Sku = sku;
+            existingStaging.SellPrice = product.SellPrice;
+            existingStaging.BigImage = bigImage;
+            existingStaging.CategoryId = categoryId;
+            _unitOfWork.Repository<FlatProduct>().Update(existingStaging);
+        }
+        else
+        {
+            _unitOfWork.Repository<FlatProduct>().Add(new FlatProduct
+            {
+                Id = id,
+                NameEn = product.NameEn.Trim(),
+                Sku = sku,
+                SellPrice = product.SellPrice,
+                BigImage = bigImage,
+                CategoryId = categoryId
+            });
         }
 
-        var storeProduct = new Products
+        await _unitOfWork.Complete();
+        await SaveStagingOverlayAsync(id, product, images, variants);
+
+        return (await GetStagingProductAsync(id))!;
+    }
+
+    /// <summary>Loads a <c>dbo.FlatProducts</c> row plus any saved editor overlay (gallery, description, flags).</summary>
+    public async Task<ProductResponseDto?> GetStagingProductAsync(string id)
+    {
+        var staging = await _unitOfWork.Repository<FlatProduct>()
+            .GetFirstOrDefault(item => item.Id == id, "Category");
+        if (staging is null)
         {
-            Id = id,
-            NameEn = product.NameEn.Trim(),
-            Sku = sku,
-            SellPrice = product.SellPrice,
-            BigImage = FirstNonEmpty(product.BigImage, variants.FirstOrDefault()?.ImageUrl),
-            Category = product.Category,
-            DescriptionEn = product.DescriptionEn,
-            IsFeatured = product.IsFeatured,
-            IsNewArrival = product.IsNewArrival,
-            IsTopSelling = product.IsTopSelling,
-            CjVariantId = variants.FirstOrDefault()?.Vid,
-            StockQuantity = product.StockQuantity > 0 ? product.StockQuantity : 50
-        };
+            return null;
+        }
 
-        _storeUnitOfWork.Repository<Products>().Add(storeProduct);
-        await ReplaceProductImagesAsync(id, images);
-        AddProductVariants(id, sku, variants);
-        await _storeUnitOfWork.Complete();
+        return ToStagingResponse(staging, await GetStagingOverlayAsync(id));
+    }
 
-        storeProduct.ProductImages = (images ?? [])
-            .Where(image => !string.IsNullOrWhiteSpace(image.PhotoUrl))
-            .Select(image => new ProductImage
-            {
-                ProductId = id,
-                PhotoUrl = image.PhotoUrl!.Trim(),
-                SkuPhoto = string.IsNullOrWhiteSpace(image.SkuPhoto) ? string.Empty : image.SkuPhoto,
-                Type = string.IsNullOrWhiteSpace(image.Type) ? null : image.Type.Trim()
-            })
-            .ToList();
+    /// <summary>Updates a staging catalog row without publishing it to the storefront.</summary>
+    public async Task<ProductResponseDto?> UpdateStagingProductAsync(string id, EditProductInfo product)
+    {
+        var existing = await _unitOfWork.Repository<FlatProduct>()
+            .GetFirstOrDefault(item => item.Id == id);
+        if (existing is null)
+        {
+            return null;
+        }
 
-        return storeProduct;
+        var sku = string.IsNullOrWhiteSpace(product.Sku) ? existing.Sku : product.Sku.Trim();
+        var variants = await ResolveVariantsAsync(product);
+        var images = NormalizeImages(id, sku, product.ProductImages, variants);
+        var bigImage = FirstNonEmpty(product.BigImage, images.FirstOrDefault()?.PhotoUrl, existing.BigImage);
+
+        existing.NameEn = string.IsNullOrWhiteSpace(product.NameEn) ? existing.NameEn : product.NameEn.Trim();
+        existing.Sku = sku;
+        if (product.SellPrice > 0)
+        {
+            existing.SellPrice = product.SellPrice;
+        }
+        existing.BigImage = bigImage;
+        existing.CategoryId = await ResolveCategoryIdAsync(product.Category) ?? existing.CategoryId;
+        _unitOfWork.Repository<FlatProduct>().Update(existing);
+        await _unitOfWork.Complete();
+        await SaveStagingOverlayAsync(id, product, images, variants);
+
+        return await GetStagingProductAsync(id);
     }
 
     /// <summary>Updates an existing storefront product, or inserts one when publishing a new FlatProduct id.</summary>
@@ -101,6 +143,7 @@ public class EditCjProducts(
             existing.NameEn = product.NameEn ?? existing.NameEn;
             existing.Sku = product.Sku ?? existing.Sku;
             existing.DescriptionEn = product.DescriptionEn ?? existing.DescriptionEn;
+            existing.ShortDescription = NormalizeOptional(product.ShortDescription);
             existing.IsFeatured = product.IsFeatured;
             existing.IsNewArrival = product.IsNewArrival;
             existing.IsTopSelling = product.IsTopSelling;
@@ -127,6 +170,7 @@ public class EditCjProducts(
                 BigImage = product.BigImage,
                 Category = product.Category,
                 DescriptionEn = product.DescriptionEn,
+                ShortDescription = NormalizeOptional(product.ShortDescription),
                 IsFeatured = product.IsFeatured,
                 IsNewArrival = product.IsNewArrival,
                 IsTopSelling = product.IsTopSelling,
@@ -143,6 +187,129 @@ public class EditCjProducts(
         return storeProduct;
     }
 
+    /// <summary>Removes the storefront product if published, and the <c>dbo.FlatProducts</c> staging row.</summary>
+    public async Task<bool> DeleteStoreProductAsync(string productId)
+    {
+        var deleted = false;
+        var existing = await _storeUnitOfWork.Repository<Products>()
+            .GetFirstOrDefault(product => product.Id == productId);
+
+        if (existing is not null)
+        {
+            _storeUnitOfWork.Repository<Products>().Remove(existing);
+            await _storeUnitOfWork.Complete();
+            deleted = true;
+        }
+
+        var staging = await _unitOfWork.Repository<FlatProduct>()
+            .GetFirstOrDefault(product => product.Id == productId);
+        if (staging is not null)
+        {
+            _unitOfWork.Repository<FlatProduct>().Remove(staging);
+            await _unitOfWork.Complete();
+            deleted = true;
+        }
+
+        await _cacheService.RemoveData(StagingOverlayKey(productId));
+        return deleted;
+    }
+
+    /// <summary>Removes one gallery row. If it was the main image, the next remaining photo becomes BigImage.</summary>
+    public async Task<Products?> DeleteProductImageAsync(string productId, int? pictureId, string? photoUrl)
+    {
+        var product = await _storeUnitOfWork.Repository<Products>()
+            .GetFirstOrDefault(item => item.Id == productId);
+        if (product is null)
+        {
+            return null;
+        }
+
+        var images = await _storeUnitOfWork.Repository<ProductImage>()
+            .GetAllParams(new PageParams { PageNumber = 1, PageSize = 500 }, image => image.ProductId == productId);
+
+        ProductImage? match = null;
+        if (pictureId is > 0)
+        {
+            match = images.FirstOrDefault(image => image.Id == pictureId.Value);
+        }
+
+        if (match is null && !string.IsNullOrWhiteSpace(photoUrl))
+        {
+            var url = photoUrl.Trim();
+            match = images.FirstOrDefault(image =>
+                string.Equals(image.PhotoUrl?.Trim(), url, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (match is null)
+        {
+            return null;
+        }
+
+        _storeUnitOfWork.Repository<ProductImage>().Remove(match);
+
+        if (string.Equals(product.BigImage?.Trim(), match.PhotoUrl?.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            product.BigImage = images
+                .Where(image => image.Id != match.Id)
+                .Select(image => image.PhotoUrl)
+                .FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
+            _storeUnitOfWork.Repository<Products>().Update(product);
+        }
+
+        await _storeUnitOfWork.Complete();
+
+        product.ProductImages = images
+            .Where(image => image.Id != match.Id)
+            .ToList();
+        return product;
+    }
+
+    /// <summary>Removes one overlay/gallery image from a staging product that is not on the storefront yet.</summary>
+    public async Task<ProductResponseDto?> DeleteStagingImageAsync(string productId, string? photoUrl)
+    {
+        var staging = await _unitOfWork.Repository<FlatProduct>()
+            .GetFirstOrDefault(item => item.Id == productId);
+        if (staging is null)
+        {
+            return null;
+        }
+
+        var url = photoUrl?.Trim();
+        var overlay = await GetStagingOverlayAsync(productId) ?? new EditProductInfo { Id = productId };
+        var images = (overlay.ProductImages ?? [])
+            .Where(image => !string.IsNullOrWhiteSpace(image.PhotoUrl))
+            .ToList();
+
+        var removed = images.RemoveAll(image =>
+            !string.IsNullOrWhiteSpace(url)
+            && string.Equals(image.PhotoUrl?.Trim(), url, StringComparison.OrdinalIgnoreCase));
+
+        if (removed == 0
+            && !string.IsNullOrWhiteSpace(url)
+            && string.Equals(staging.BigImage?.Trim(), url, StringComparison.OrdinalIgnoreCase))
+        {
+            staging.BigImage = images.FirstOrDefault()?.PhotoUrl;
+            removed = 1;
+        }
+
+        if (removed == 0)
+        {
+            return null;
+        }
+
+        if (string.Equals(staging.BigImage?.Trim(), url, StringComparison.OrdinalIgnoreCase))
+        {
+            staging.BigImage = images.FirstOrDefault()?.PhotoUrl;
+        }
+
+        overlay.ProductImages = images;
+        overlay.BigImage = staging.BigImage;
+        _unitOfWork.Repository<FlatProduct>().Update(staging);
+        await _unitOfWork.Complete();
+        await _cacheService.ObjectToCache(StagingOverlayKey(productId), overlay, StagingOverlayTtl);
+        return await GetStagingProductAsync(productId);
+    }
+
     /// <summary>Copies one dbo.FlatProduct into store.Products with markup, applying optional editor overrides.</summary>
     public async Task<Products> PublishFlatProductAsync(string flatProductId, decimal markupMultiplier = 1.4m, EditProductInfo? overlay = null)
     {
@@ -152,9 +319,14 @@ public class EditCjProducts(
         if (flat is null)
             throw new InvalidOperationException($"CJ product '{flatProductId}' was not found.");
 
-        var productInfo = MapFlatToEditInfo(flat, markupMultiplier);
+        // Manual Add Product rows already store the intended sell price, not a CJ cost.
+        var multiplier = Guid.TryParse(flatProductId, out _) ? 1m : markupMultiplier;
+        var productInfo = MapFlatToEditInfo(flat, multiplier);
+        ApplyOverlay(productInfo, await GetStagingOverlayAsync(flatProductId));
         ApplyOverlay(productInfo, overlay);
-        return await EditCjProductAsync(flatProductId, productInfo);
+        var published = await EditCjProductAsync(flatProductId, productInfo);
+        await _cacheService.RemoveData(StagingOverlayKey(flatProductId));
+        return published;
     }
 
     /// <summary>Publishes many staging products to the storefront in sequence.</summary>
@@ -186,6 +358,7 @@ public class EditCjProducts(
                 BigImage = group.First().BigImage,
                 Category = group.First().Category,
                 DescriptionEn = group.First().DescriptionEn,
+                ShortDescription = NormalizeOptional(group.First().ShortDescription),
                 IsFeatured = group.First().IsFeatured,
                 IsNewArrival = group.First().IsNewArrival,
                 IsTopSelling = group.First().IsTopSelling,
@@ -212,6 +385,7 @@ public class EditCjProducts(
             .Where(image => !string.IsNullOrWhiteSpace(image.PhotoUrl))
             .Select(image => new PictureDto
             {
+                Id = image.Id,
                 ProductId = product.Id,
                 PhotoUrl = image.PhotoUrl,
                 SkuPhoto = image.SkuPhoto,
@@ -230,6 +404,7 @@ public class EditCjProducts(
             BigImage = product.BigImage,
             Category = product.Category,
             DescriptionEn = product.DescriptionEn,
+            ShortDescription = NormalizeOptional(product.ShortDescription),
             IsFeatured = product.IsFeatured,
             IsNewArrival = product.IsNewArrival,
             IsTopSelling = product.IsTopSelling,
@@ -289,6 +464,7 @@ public class EditCjProducts(
         var hasEditorFields = !string.IsNullOrWhiteSpace(overlay.NameEn)
             || overlay.ProductImages?.Count > 0
             || !string.IsNullOrWhiteSpace(overlay.DescriptionEn)
+            || !string.IsNullOrWhiteSpace(overlay.ShortDescription)
             || overlay.IsFeatured
             || overlay.IsNewArrival
             || overlay.IsTopSelling;
@@ -307,6 +483,9 @@ public class EditCjProducts(
 
         if (!string.IsNullOrWhiteSpace(overlay.DescriptionEn))
             productInfo.DescriptionEn = overlay.DescriptionEn;
+
+        if (!string.IsNullOrWhiteSpace(overlay.ShortDescription))
+            productInfo.ShortDescription = overlay.ShortDescription;
 
         if (!string.IsNullOrWhiteSpace(overlay.BigImage))
             productInfo.BigImage = overlay.BigImage;
@@ -368,6 +547,142 @@ public class EditCjProducts(
     {
         var match = values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
         return match?.Trim();
+    }
+
+    private static string? NormalizeOptional(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string StagingOverlayKey(string productId) => $"staging_overlay_{productId}";
+
+    private async Task<string?> ResolveCategoryIdAsync(string? categoryName)
+    {
+        var name = categoryName?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
+        var existing = await _unitOfWork.Repository<FlatCategory>()
+            .GetFirstOrDefault(category => category.CategoryName == name);
+        if (existing is not null)
+        {
+            return existing.CategoryId;
+        }
+
+        var category = new FlatCategory
+        {
+            CategoryId = Guid.NewGuid().ToString(),
+            CategoryName = name,
+            FullPath = name
+        };
+        _unitOfWork.Repository<FlatCategory>().Add(category);
+        return category.CategoryId;
+    }
+
+    private static List<PictureDto> NormalizeImages(
+        string productId,
+        string sku,
+        IList<PictureDto>? productImages,
+        IReadOnlyList<CjVariantDto> variants)
+    {
+        var images = (productImages ?? [])
+            .Where(image => !string.IsNullOrWhiteSpace(image.PhotoUrl))
+            .Select(image => new PictureDto
+            {
+                ProductId = productId,
+                PhotoUrl = image.PhotoUrl!.Trim(),
+                SkuPhoto = string.IsNullOrWhiteSpace(image.SkuPhoto) ? sku : image.SkuPhoto.Trim(),
+                Type = string.IsNullOrWhiteSpace(image.Type) ? null : image.Type.Trim()
+            })
+            .ToList();
+
+        if (images.Count > 0 || variants.Count == 0)
+        {
+            return images;
+        }
+
+        return variants
+            .Where(variant => !string.IsNullOrWhiteSpace(variant.ImageUrl))
+            .Select(variant => new PictureDto
+            {
+                ProductId = productId,
+                PhotoUrl = variant.ImageUrl,
+                SkuPhoto = string.IsNullOrWhiteSpace(variant.Sku) ? sku : variant.Sku,
+                Type = variant.VariantName
+            })
+            .ToList();
+    }
+
+    private async Task SaveStagingOverlayAsync(
+        string id,
+        EditProductInfo product,
+        IList<PictureDto> images,
+        IReadOnlyList<CjVariantDto> variants)
+    {
+        var overlay = new EditProductInfo
+        {
+            Id = id,
+            NameEn = product.NameEn,
+            Sku = product.Sku,
+            DescriptionEn = product.DescriptionEn,
+            ShortDescription = NormalizeOptional(product.ShortDescription),
+            IsFeatured = product.IsFeatured,
+            IsNewArrival = product.IsNewArrival,
+            IsTopSelling = product.IsTopSelling,
+            SellPrice = product.SellPrice,
+            StockQuantity = product.StockQuantity > 0 ? product.StockQuantity : 50,
+            BigImage = FirstNonEmpty(product.BigImage, images.FirstOrDefault()?.PhotoUrl),
+            Category = product.Category,
+            ProductImages = images,
+            CjProductId = product.CjProductId,
+            Variants = variants.ToList()
+        };
+
+        await _cacheService.ObjectToCache(StagingOverlayKey(id), overlay, StagingOverlayTtl);
+    }
+
+    private Task<EditProductInfo?> GetStagingOverlayAsync(string id) =>
+        _cacheService.GetCachedObject<EditProductInfo>(StagingOverlayKey(id));
+
+    private static ProductResponseDto ToStagingResponse(FlatProduct staging, EditProductInfo? overlay)
+    {
+        var pictures = (overlay?.ProductImages ?? [])
+            .Where(image => !string.IsNullOrWhiteSpace(image.PhotoUrl))
+            .Select(image => new PictureDto
+            {
+                ProductId = staging.Id,
+                PhotoUrl = image.PhotoUrl,
+                SkuPhoto = image.SkuPhoto,
+                Type = image.Type
+            })
+            .ToList();
+
+        if (pictures.Count == 0 && !string.IsNullOrWhiteSpace(staging.BigImage))
+        {
+            pictures.Add(new PictureDto
+            {
+                ProductId = staging.Id,
+                PhotoUrl = staging.BigImage,
+                SkuPhoto = staging.Sku
+            });
+        }
+
+        return new ProductResponseDto
+        {
+            Id = staging.Id,
+            NameEn = FirstNonEmpty(overlay?.NameEn, staging.NameEn),
+            Sku = FirstNonEmpty(overlay?.Sku, staging.Sku),
+            SellPrice = overlay is { SellPrice: > 0 } ? overlay.SellPrice : staging.SellPrice,
+            BigImage = FirstNonEmpty(overlay?.BigImage, staging.BigImage),
+            Category = FirstNonEmpty(overlay?.Category, staging.Category?.CategoryName),
+            DescriptionEn = overlay?.DescriptionEn,
+            ShortDescription = NormalizeOptional(overlay?.ShortDescription),
+            IsFeatured = overlay?.IsFeatured ?? false,
+            IsNewArrival = overlay?.IsNewArrival ?? false,
+            IsTopSelling = overlay?.IsTopSelling ?? false,
+            StockQuantity = overlay is { StockQuantity: > 0 } ? overlay.StockQuantity : 50,
+            Pictures = pictures
+        };
     }
 
     /// <summary>Builds the publish payload from a staging row, applying the storefront markup to sell price.</summary>

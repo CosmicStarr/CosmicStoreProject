@@ -7,4 +7,5 @@ public class UserDto
         public string UserName { get; set; } = string.Empty;
         public bool EmailConfirmed { get; set; }
         public bool IsGuest { get; set; }
+        public string? PendingEmail { get; set; }
 }

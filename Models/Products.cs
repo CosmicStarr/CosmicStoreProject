@@ -10,6 +10,7 @@ public class Products
     // NO ?: Let's say you require a Name and SKU in your DB.
     public string NameEn { get; set; } = string.Empty;
     public string? DescriptionEn { get; set; } // YES ?: Allow NULL for optional description
+    public string? ShortDescription { get; set; }
     public bool IsFeatured { get; set; }
     public bool IsNewArrival { get; set;}
     public bool IsTopSelling { get; set; }

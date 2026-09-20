@@ -66,6 +66,7 @@ export class CheckoutComponent implements OnInit, AfterViewInit, OnDestroy {
       streetAddress: ['', Validators.required],
       city: ['', Validators.required],
       provinceOrState: ['', Validators.required],
+      zipCode: ['', [Validators.required, Validators.maxLength(20)]],
       countryCode: ['US', Validators.required],
     });
 
@@ -114,6 +115,7 @@ export class CheckoutComponent implements OnInit, AfterViewInit, OnDestroy {
       streetAddress: address.streetAddress,
       city: address.city,
       provinceOrState: address.provinceOrState,
+      zipCode: address.zipCode,
       countryCode: address.countryCode,
     });
   }
@@ -188,7 +190,15 @@ export class CheckoutComponent implements OnInit, AfterViewInit, OnDestroy {
       const result = await this.paymentService.confirmCardPayment(
         intent.clientSecret,
         this.card,
-        this.checkoutForm.value.fullName,
+        {
+          name: this.checkoutForm.value.fullName,
+          email: this.checkoutForm.value.email,
+          line1: this.checkoutForm.value.streetAddress,
+          city: this.checkoutForm.value.city,
+          state: this.checkoutForm.value.provinceOrState,
+          postalCode: this.checkoutForm.value.zipCode,
+          country: this.checkoutForm.value.countryCode,
+        },
       );
 
       if (result.error) {

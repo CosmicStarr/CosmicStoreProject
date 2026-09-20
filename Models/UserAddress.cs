@@ -19,6 +19,8 @@ public class UserAddress
 
     public string ProvinceOrState { get; set; } = string.Empty;
 
+    public string ZipCode { get; set; } = string.Empty;
+
     public string CountryCode { get; set; } = string.Empty;
 
     public bool IsDefault { get; set; }

@@ -128,7 +128,13 @@
   padding: 0 6%;
   display: flex;
   align-items: stretch;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.category-nav-scroller {
+  flex: 1;
+  min-width: 0;
 }
 
 .all-categories-link,
@@ -144,6 +150,7 @@
   align-items: center;
   gap: 10px;
   text-decoration: none;
+  flex-shrink: 0;
 }
 
 .all-categories-link:hover,
@@ -170,6 +177,7 @@
   font-size: 0.9rem;
   font-weight: 600;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .category-nav-link:hover,
@@ -260,6 +268,7 @@
   }
 
   .all-categories-link,
+  .category-nav-scroller,
   .category-nav-link {
     display: none;
   }

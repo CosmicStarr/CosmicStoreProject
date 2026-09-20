@@ -9,15 +9,31 @@ public interface IOrderService
     Task<IEnumerable<OrderDto>> GetAllOrdersAsync();
     Task<OrderDto?> GetOrderAsync(string orderId, string? userId = null);
 
-    /// <summary>Pulls the latest fulfilment status and tracking number from CJ for a single order.</summary>
+    /// <summary>Retries CJ submit when the wallet can cover it, then refreshes shipment status.</summary>
     Task<OrderDto?> SyncOrderStatusAsync(string orderId);
 
-    /// <summary>Syncs every order that is not yet in a terminal state. Returns the number updated.</summary>
+    /// <summary>
+    /// Submits queued Stripe-paid orders when the CJ wallet can cover them, then polls open shipments.
+    /// </summary>
     Task<int> SyncPendingOrdersAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Cancels the order with CJ (when submitted) and marks it cancelled locally.</summary>
     Task<OrderDto?> CancelOrderAsync(string orderId);
 
-    /// <summary>Marks an order as refunded after the payment provider refund has been issued.</summary>
+    /// <summary>
+    /// Customer cancellation: asks CJ whether the shipment is still unfulfilled, then cancels
+    /// on CJ and refunds Stripe. Shipped orders are refused.
+    /// </summary>
+    Task<OrderDto?> RequestCancellationAsync(string orderId, string userId);
+
+    /// <summary>Cancels one line, refunds that line through Stripe, and leaves the rest of the order intact.</summary>
+    Task<OrderDto?> CancelOrderItemAsync(string orderId, int itemId);
+
+    /// <summary>Refunds the Stripe PaymentIntent, then marks the order refunded.</summary>
     Task<OrderDto?> RefundOrderAsync(string orderId);
+
+    /// <summary>
+    /// Applies a full Stripe refund that already happened (Dashboard or webhook) to the matching order.
+    /// </summary>
+    Task<OrderDto?> ApplyPaymentRefundedAsync(string paymentIntentId);
 }

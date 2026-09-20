@@ -22,6 +22,14 @@
         <p>Save orders, addresses, and a wishlist — or shop as a guest anytime</p>
       </div>
 
+      @if (fromMissingAccount()) {
+        <div class="notice-container" role="status">
+          <p class="notice-text">
+            We could not find an account for that email. Create one below to continue.
+          </p>
+        </div>
+      }
+
       <form [formGroup]="registerForm" (ngSubmit)="onSubmit()">
         <div class="form-group">
           <label for="userName">Username</label>

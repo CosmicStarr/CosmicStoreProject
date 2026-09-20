@@ -16,4 +16,8 @@ export class AdminOrdersService {
   getOrder(orderId: string): Observable<IOrder> {
     return this.http.get<IOrder>(`${this.apiUrl}AdminOrders/${orderId}`);
   }
+
+  cancelOrderItem(orderId: string, itemId: number): Observable<IOrder> {
+    return this.http.post<IOrder>(`${this.apiUrl}AdminOrders/${orderId}/items/${itemId}/cancel`, {});
+  }
 }

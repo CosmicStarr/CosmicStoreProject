@@ -5,9 +5,10 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { IPagination } from '../models/pagination';
 import { sunParams } from '../models/paramOptions';
 import { StoreProductsService } from '../../core/services/store-products';
-import { ICategorySummary, IProductResponse } from '../models/productResponse';
+import { IProductResponse } from '../models/productResponse';
 import { SiteNavbarComponent } from '../../core/components/site-navbar/site-navbar';
 import { SiteFooterComponent } from '../../core/components/site-footer/site-footer';
+
 
 @Component({
   imports: [RouterLink, SiteNavbarComponent, CurrencyPipe, FormsModule, SiteFooterComponent],
@@ -26,9 +27,10 @@ export class ProductsComponent implements OnInit {
   maxPriceInput: number | null = null;
   p?: IPagination;
   protected readonly loading = signal(false);
+  protected readonly pageSizeOptions = [12, 16, 20, 24];
 
   protected readonly products = signal<IProductResponse[]>([]);
-  protected readonly categories = signal<ICategorySummary[]>([]);
+  protected readonly selectedCategory = signal('');
   protected readonly heroImages = computed(() =>
     this.products()
       .map((product) => product.bigImage?.trim())
@@ -37,15 +39,13 @@ export class ProductsComponent implements OnInit {
   );
 
   ngOnInit(): void {
-    this.productService.getCategories().subscribe({
-      next: (categories) => this.categories.set(categories),
-    });
-
     this.route.queryParamMap.subscribe((params) => {
       this.sunParams.search = params.get('search') ?? '';
       this.sunParams.category = params.get('category') ?? '';
+      this.selectedCategory.set(this.sunParams.category);
       this.sunParams.sort = params.get('sort') ?? '';
       this.sunParams.pageNumber = Number(params.get('page') ?? 1);
+      this.sunParams.pageSize = this.parsePageSize(params.get('pageSize'));
       this.searchInput = this.sunParams.search;
       this.minPriceInput = params.get('minPrice') ? Number(params.get('minPrice')) : null;
       this.maxPriceInput = params.get('maxPrice') ? Number(params.get('maxPrice')) : null;
@@ -71,13 +71,6 @@ export class ProductsComponent implements OnInit {
     });
   }
 
-  selectCategory(category: string | null) {
-    this.updateQuery({
-      category,
-      page: '1',
-    });
-  }
-
   applyFilters() {
     this.updateQuery({
       search: this.searchInput.trim() || null,
@@ -90,6 +83,14 @@ export class ProductsComponent implements OnInit {
   onSortSelect(event: Event) {
     const sort = (event.target as HTMLSelectElement).value;
     this.updateQuery({ sort: sort || null, page: '1' });
+  }
+
+  onPageSizeSelect(event: Event) {
+    const pageSize = this.parsePageSize((event.target as HTMLSelectElement).value);
+    this.updateQuery({
+      pageSize: pageSize === 12 ? null : pageSize.toString(),
+      page: '1',
+    });
   }
 
   goToPage(page: number) {
@@ -114,6 +115,7 @@ export class ProductsComponent implements OnInit {
       sort: this.sunParams.sort || null,
       minPrice: this.sunParams.minPrice?.toString() ?? null,
       maxPrice: this.sunParams.maxPrice?.toString() ?? null,
+      pageSize: this.sunParams.pageSize === 12 ? null : this.sunParams.pageSize.toString(),
       page: this.sunParams.pageNumber > 1 ? this.sunParams.pageNumber.toString() : null,
       ...changes,
     };
@@ -123,5 +125,10 @@ export class ProductsComponent implements OnInit {
       queryParams,
       queryParamsHandling: 'merge',
     });
+  }
+
+  private parsePageSize(value: string | null): number {
+    const size = Number(value);
+    return this.pageSizeOptions.includes(size) ? size : 12;
   }
 }

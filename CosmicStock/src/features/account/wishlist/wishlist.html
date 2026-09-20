@@ -1,10 +1,19 @@
+<app-site-navbar />
 <div class="wishlist-page">
   <header class="page-header">
-    <h1>My Wishlist</h1>
+    <div>
+      <h1>My Wishlist</h1>
+      <p class="muted">Saved products you can add to your cart anytime.</p>
+    </div>
+    <a routerLink="/store" class="secondary-btn">Continue shopping</a>
   </header>
 
-  @if (loading) {
-    <p class="muted">Loading wishlist...</p>
+  @if (message()) {
+    <p [class.error-text]="isError()" [class.success-text]="!isError()" role="status">{{ message() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="muted" role="status">Loading wishlist...</p>
   } @else if (!items().length) {
     <p class="muted">Your wishlist is empty.</p>
     <a routerLink="/store" class="link-btn">Browse Products</a>
@@ -19,10 +28,20 @@
             <h2><a [routerLink]="['/store', item.productId]">{{ item.nameEn }}</a></h2>
             <p class="sku">SKU: {{ item.sku }}</p>
             <p class="price">{{ item.sellPrice | currency:'USD':'symbol' }}</p>
-            <button type="button" class="danger-btn" (click)="removeItem(item.productId)">Remove</button>
+            <div class="card-actions">
+              <button
+                type="button"
+                class="add-btn"
+                (click)="addToCart(item)"
+                [disabled]="addingProductId() === item.productId">
+                {{ addingProductId() === item.productId ? 'Adding…' : 'Add to cart' }}
+              </button>
+              <button type="button" class="danger-btn" (click)="removeItem(item.productId)">Remove</button>
+            </div>
           </div>
         </article>
       }
     </div>
   }
 </div>
+<app-site-footer />

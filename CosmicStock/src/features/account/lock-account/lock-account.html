@@ -1,0 +1,22 @@
+<div class="account-wrapper">
+  <div class="account-container confirmation-panel">
+    @if (loading()) {
+      <h2>Locking your account</h2>
+      <p class="muted" role="status">Please wait while we secure the account.</p>
+    } @else if (isError()) {
+      <h2 id="lock-account-heading" tabindex="-1" #confirmHeading>Account not locked</h2>
+      <p class="error-text" role="status">{{ message() }}</p>
+      <div class="confirmation-actions">
+        <a routerLink="/login" class="link-btn">Go to login</a>
+        <a routerLink="/store" class="link-btn secondary">Continue shopping</a>
+      </div>
+    } @else {
+      <h2 id="lock-account-heading" tabindex="-1" #confirmHeading>Account locked</h2>
+      <p class="success-text" role="status">{{ message() }}</p>
+      <p class="muted">Sign-in is disabled until support restores access.</p>
+      <div class="confirmation-actions">
+        <a routerLink="/store" class="link-btn">Continue shopping as a guest</a>
+      </div>
+    }
+  </div>
+</div>

@@ -117,13 +117,117 @@ public class PaymentService : IPaymentService
     {
         try
         {
-            return await new PaymentIntentService().GetAsync(paymentIntentId);
+            return await new PaymentIntentService().GetAsync(
+                paymentIntentId,
+                new PaymentIntentGetOptions { Expand = ["latest_charge"] });
         }
         catch (StripeException ex)
         {
             _logger.LogWarning(ex, "Could not retrieve PaymentIntent {PaymentIntentId}.", paymentIntentId);
             return null;
         }
+    }
+
+    /// <summary>
+    /// Refunds a PaymentIntent in full or in part. Already-refunded charges return without error.
+    /// </summary>
+    public async Task RefundPaymentAsync(string paymentIntentId, long? amountCents = null, string? idempotencyKey = null)
+    {
+        if (string.IsNullOrWhiteSpace(paymentIntentId))
+        {
+            throw new InvalidOperationException("This order has no Stripe payment to refund.");
+        }
+
+        var intent = await GetPaymentIntentAsync(paymentIntentId);
+        if (intent is null)
+        {
+            throw new InvalidOperationException("That payment could not be found in Stripe.");
+        }
+
+        if (IsFullyRefunded(intent))
+        {
+            _logger.LogInformation("PaymentIntent {PaymentIntentId} is already fully refunded.", paymentIntentId);
+            return;
+        }
+
+        if (!string.Equals(intent.Status, "succeeded", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"This payment cannot be refunded (status: {intent.Status}).");
+        }
+
+        var remaining = RemainingRefundableCents(intent);
+        if (remaining <= 0)
+        {
+            return;
+        }
+
+        var refundCents = amountCents is > 0 ? Math.Min(amountCents.Value, remaining) : remaining;
+        if (refundCents <= 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var options = new RefundCreateOptions
+            {
+                PaymentIntent = paymentIntentId,
+                Reason = "requested_by_customer"
+            };
+
+            if (amountCents is > 0)
+            {
+                options.Amount = refundCents;
+            }
+
+            await new RefundService().CreateAsync(
+                options,
+                new RequestOptions { IdempotencyKey = idempotencyKey ?? $"order-refund-{paymentIntentId}" });
+        }
+        catch (StripeException ex)
+        {
+            var latest = await GetPaymentIntentAsync(paymentIntentId);
+            if (latest is not null && IsFullyRefunded(latest))
+            {
+                _logger.LogInformation(
+                    ex,
+                    "PaymentIntent {PaymentIntentId} refund was already applied.",
+                    paymentIntentId);
+                return;
+            }
+
+            _logger.LogError(ex, "Stripe refund failed for PaymentIntent {PaymentIntentId}.", paymentIntentId);
+            throw new InvalidOperationException(RefundUserMessage(ex));
+        }
+    }
+
+    /// <summary>True when Stripe has returned the full charged amount.</summary>
+    private static bool IsFullyRefunded(PaymentIntent intent)
+    {
+        var charge = intent.LatestCharge;
+        if (charge is null) return false;
+        if (charge.Refunded) return true;
+        return charge.Amount > 0 && charge.AmountRefunded >= charge.Amount;
+    }
+
+    /// <summary>Cents still available to refund on the latest charge.</summary>
+    private static long RemainingRefundableCents(PaymentIntent intent)
+    {
+        var charge = intent.LatestCharge;
+        if (charge is null) return 0;
+        return Math.Max(0, charge.Amount - charge.AmountRefunded);
+    }
+
+    /// <summary>Maps a Stripe refund failure to a short admin-facing message.</summary>
+    private static string RefundUserMessage(StripeException ex)
+    {
+        return ex.StripeError?.Code switch
+        {
+            "charge_disputed" => "This charge is disputed and cannot be refunded here.",
+            "charge_not_refundable" => "Stripe reports this charge cannot be refunded.",
+            "resource_missing" => "That payment could not be found in Stripe.",
+            _ => "Stripe could not refund this payment. Check the charge in the Stripe Dashboard."
+        };
     }
 
     /// <summary>Webhook helper: marks the matching order as payment received.</summary>

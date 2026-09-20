@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CurrencyPipe, DatePipe } from '@angular/common';
+import { Router } from '@angular/router';
 import { Observable } from 'rxjs';
 import { AdminOrdersService } from '../../../core/services/admin-orders';
 import { AdminCjService } from '../../../core/services/admin-cj-service';
@@ -10,29 +11,32 @@ import { IOrder } from '../../models/order';
   imports: [CurrencyPipe, DatePipe],
   templateUrl: './admin-orders.html',
   styleUrl: './admin-orders.scss',
+  host: { class: 'admin-orders-page' },
 })
 export class AdminOrdersComponent implements OnInit {
   private adminOrders = inject(AdminOrdersService);
   private adminCj = inject(AdminCjService);
+  private router = inject(Router);
 
   protected orders = signal<IOrder[]>([]);
   protected busyOrderId = signal<string | null>(null);
   protected message = signal<string | null>(null);
-  loading = true;
+  protected loading = signal(true);
 
   ngOnInit(): void {
     this.load();
   }
 
   load() {
-    this.loading = true;
+    this.loading.set(true);
     this.adminOrders.getOrders().subscribe({
       next: (orders) => {
-        this.orders.set(orders);
-        this.loading = false;
+        this.orders.set(Array.isArray(orders) ? orders : []);
+        this.loading.set(false);
       },
-      error: () => {
-        this.loading = false;
+      error: (err) => {
+        this.loading.set(false);
+        this.message.set(err.error?.message || 'Orders could not be loaded.');
       },
     });
   }
@@ -43,7 +47,9 @@ export class AdminOrdersComponent implements OnInit {
 
     this.adminCj.syncPendingOrders().subscribe({
       next: (result) => {
-        this.message.set(`Updated ${result.updatedOrders} order(s) from CJ.`);
+        this.message.set(
+          `Processed ${result.updatedOrders} order(s). Paid orders are sent to CJ when the wallet can cover them.`,
+        );
         this.busyOrderId.set(null);
         this.load();
       },
@@ -63,7 +69,23 @@ export class AdminOrdersComponent implements OnInit {
   }
 
   refundOrder(order: IOrder) {
-    this.runOrderAction(order, () => this.adminCj.refundOrder(order.orderId));
+    const amount = order.total.toFixed(2);
+    const confirmed = window.confirm(
+      `Refund $${amount} to ${order.customerEmail}? Stripe will return the payment to the original card.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    this.runOrderAction(
+      order,
+      () => this.adminCj.refundOrder(order.orderId),
+      'Refund issued through Stripe.',
+    );
+  }
+
+  openOrder(order: IOrder) {
+    void this.router.navigate(['/admin/orders', order.orderId]);
   }
 
   canCancel(order: IOrder) {
@@ -71,10 +93,14 @@ export class AdminOrdersComponent implements OnInit {
   }
 
   canRefund(order: IOrder) {
-    return order.status !== 'Refunded';
+    return order.paymentStatus === 'PaymentRecevied' || order.paymentStatus === 'Paid';
   }
 
-  private runOrderAction(order: IOrder, request: () => Observable<IOrder>) {
+  private runOrderAction(
+    order: IOrder,
+    request: () => Observable<IOrder>,
+    successMessage?: string,
+  ) {
     this.busyOrderId.set(order.orderId);
     this.message.set(null);
 
@@ -84,6 +110,9 @@ export class AdminOrdersComponent implements OnInit {
           orders.map((o) => (o.orderId === updated.orderId ? updated : o)),
         );
         this.busyOrderId.set(null);
+        if (successMessage) {
+          this.message.set(successMessage);
+        }
       },
       error: (err) => {
         this.message.set(err.error?.message || 'That action could not be completed.');

@@ -110,6 +110,20 @@
   margin: 4px 0;
 }
 
+.notice-container {
+  background-color: #fff7ed;
+  border-left: 4px solid var(--primary-orange);
+  padding: 12px;
+  margin-bottom: 20px;
+  border-radius: 4px;
+}
+
+.notice-text {
+  color: var(--text-dark);
+  font-size: 13px;
+  margin: 0;
+}
+
 .submit-btn {
   width: 100%;
   padding: 14px;

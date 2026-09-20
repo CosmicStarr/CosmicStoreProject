@@ -78,8 +78,8 @@ public class ShoppingCartService : IShoppingCartService
 
         if (product is null) return null;
 
-        var lineSku = await ResolveLineSkuAsync(product, sku);
-        if (lineSku is null) return null;
+        var lineSku = await ResolveLineSkuAsync(product, sku) ?? product.Sku;
+        if (string.IsNullOrWhiteSpace(lineSku)) return null;
 
         product.ProductImages = null;
 

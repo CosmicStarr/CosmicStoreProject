@@ -21,7 +21,7 @@
         <h2>Shipping</h2>
         <p>{{ placed.customerName }}</p>
         <p>{{ placed.shippingAddress }}</p>
-        <p>{{ placed.city }}, {{ placed.state }} {{ placed.country }}</p>
+        <p>{{ placed.city }}, {{ placed.state }} {{ placed.zipCode }} {{ placed.country }}</p>
         <p class="muted">
           {{ placed.logisticName }} — {{ placed.shippingCost | currency:'USD':'symbol' }}
         </p>

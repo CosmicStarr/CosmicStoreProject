@@ -106,7 +106,7 @@ public class AdminCjController(
     }
 
     /// <summary>
-    /// Polls CJ for status/tracking on orders that still have a shipment id (currently a no-op while fulfillment is off).
+    /// Submits queued orders when the CJ wallet can cover them, then polls shipment status.
     /// </summary>
     [HttpPost("orders/sync")]
     public async Task<ActionResult<object>> SyncPendingOrders(CancellationToken cancellationToken)
@@ -143,13 +143,20 @@ public class AdminCjController(
     }
 
     /// <summary>
-    /// Marks an order as Refunded in the store database (does not call Stripe or CJ).
+    /// Refunds the Stripe PaymentIntent and marks the order Refunded.
     /// </summary>
     [HttpPost("orders/{orderId}/refund")]
     public async Task<ActionResult<OrderDto>> RefundOrder(string orderId)
     {
-        var order = await _orderService.RefundOrderAsync(orderId);
-        return order is null ? NotFound() : Ok(order);
+        try
+        {
+            var order = await _orderService.RefundOrderAsync(orderId);
+            return order is null ? NotFound() : Ok(order);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     /// <summary>First non-blank string among CJ name/sku/image fallbacks.</summary>

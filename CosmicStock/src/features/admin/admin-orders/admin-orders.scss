@@ -1,9 +1,16 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 64px);
+}
+
 .page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 24px;
+  flex-shrink: 0;
 }
 
 .page-header h1 {
@@ -15,7 +22,9 @@
 }
 
 .table-wrap {
-  overflow-x: auto;
+  flex: 1;
+  min-height: 240px;
+  overflow: auto;
   background: #fff;
   border: 1px solid var(--border-light);
   border-radius: 10px;
@@ -33,10 +42,28 @@ th, td {
 }
 
 th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: var(--bg-light);
   font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  box-shadow: 0 1px 0 var(--border-light);
+}
+
+.empty-cell {
+  color: var(--text-muted);
+  text-align: center;
+  padding: 32px 16px;
+}
+
+.order-row {
+  cursor: pointer;
+
+  &:hover {
+    background: var(--bg-light);
+  }
 }
 
 .status {
@@ -50,6 +77,10 @@ th {
 
   &.unpaid {
     color: var(--text-muted);
+  }
+
+  &.refunded {
+    color: #b45309;
   }
 }
 

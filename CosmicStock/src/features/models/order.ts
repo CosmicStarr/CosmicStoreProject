@@ -1,6 +1,8 @@
 export interface IOrderItem {
+  id: number;
   sku: string;
   name: string;
+  status: string;
   quantity: number;
   priceAtPurchase: number;
 }
@@ -29,6 +31,7 @@ export interface IOrder {
   shippingAddress: string;
   city: string;
   state: string;
+  zipCode: string;
   country: string;
   logisticName: string;
   shippingCost: number;
@@ -45,6 +48,7 @@ export interface ICheckoutRequest {
   streetAddress: string;
   city: string;
   provinceOrState: string;
+  zipCode: string;
   countryCode: string;
   stripePaymentMethodId: string;
   logisticName?: string;

@@ -93,6 +93,25 @@ getAllProducts(sun: sunParams): Observable<PaginatedResults<IFlatProduct[]>> {
     );
   }
 
+  deleteProduct(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}EditProducts/${encodeURIComponent(id)}`);
+  }
+
+  deleteProductImage(productId: string, pictureId?: number, photoUrl?: string): Observable<IProductResponse> {
+    let params = new HttpParams();
+    if (pictureId && pictureId > 0) {
+      params = params.set('pictureId', pictureId.toString());
+    }
+    if (photoUrl?.trim()) {
+      params = params.set('photoUrl', photoUrl.trim());
+    }
+
+    return this.http.delete<IProductResponse>(
+      `${this.apiUrl}EditProducts/${encodeURIComponent(productId)}/images`,
+      { params }
+    );
+  }
+
   publishProduct(id: string, productData?: IEditProduct, markup?: number): Observable<unknown> {
     let params = new HttpParams();
     if (markup !== undefined) {

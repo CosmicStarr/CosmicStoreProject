@@ -5,20 +5,29 @@ import { AdminUsersService, IAdminUser } from '../../../core/services/admin-user
   selector: 'app-admin-users',
   templateUrl: './admin-users.html',
   styleUrl: './admin-users.scss',
+  host: { class: 'admin-users-page' },
 })
 export class AdminUsersComponent implements OnInit {
   private adminUsers = inject(AdminUsersService);
+
   protected users = signal<IAdminUser[]>([]);
-  loading = true;
+  protected loading = signal(true);
+  protected message = signal<string | null>(null);
 
   ngOnInit(): void {
+    this.load();
+  }
+
+  load() {
+    this.loading.set(true);
     this.adminUsers.getUsers().subscribe({
       next: (users) => {
-        this.users.set(users);
-        this.loading = false;
+        this.users.set(Array.isArray(users) ? users : []);
+        this.loading.set(false);
       },
-      error: () => {
-        this.loading = false;
+      error: (err) => {
+        this.loading.set(false);
+        this.message.set(err.error?.message || 'Users could not be loaded.');
       },
     });
   }

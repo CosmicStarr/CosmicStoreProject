@@ -116,33 +116,86 @@
             </p>
           </div>
 
-          <p class="short-description">{{ shortDescription() }}</p>
+          @if (shortDescription()) {
+            <p class="short-description">{{ shortDescription() }}</p>
+          }
 
-          <div class="cart-actions-row">
-            <div class="quantity-counter">
-              <button type="button" class="counter-btn" (click)="decrementQty()" [disabled]="!inStock()">-</button>
-              <input type="text" [value]="quantity()" readonly aria-label="Quantity">
-              <button type="button" class="counter-btn" (click)="incrementQty()" [disabled]="!inStock()">+</button>
+          <div class="purchase-actions">
+            <div class="cart-actions-row">
+              <div class="quantity-counter">
+                <button type="button" class="counter-btn" (click)="decrementQty()" [disabled]="!inStock()" aria-label="Decrease quantity">−</button>
+                <input type="text" [value]="quantity()" readonly aria-label="Quantity">
+                <button type="button" class="counter-btn" (click)="incrementQty()" [disabled]="!inStock()" aria-label="Increase quantity">+</button>
+              </div>
+              <button
+                type="button"
+                class="add-to-cart-orange"
+                (click)="addToCart()"
+                [disabled]="addingToCart() || !inStock()">
+                <svg class="cart-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-1.99.9-1.99 2S15.9 22 17 22s2-.9 2-2-.9-2-2-2zM7.16 14h9.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 21.05 5H5.21L4.27 2H1v2h2l3.6 7.59-1.35 2.44C4.52 15.37 5.48 17 7 17h12v-2H7.16l1.1-1z"/>
+                </svg>
+                {{ !inStock() ? 'Out of stock' : (addingToCart() ? 'Adding…' : 'Add to cart') }}
+              </button>
             </div>
+
             <button
               type="button"
-              class="add-to-cart-orange"
-              (click)="addToCart()"
-              [disabled]="addingToCart || !inStock()">
-              <i class="fa-solid fa-basket-shopping"></i>
-              {{ !inStock() ? 'Out of stock' : (addingToCart ? 'Adding...' : 'Add to cart') }}
+              class="wishlist-btn"
+              [class.saved]="inWishlist()"
+              [attr.aria-pressed]="inWishlist()"
+              [disabled]="wishlistLoading()"
+              (click)="toggleWishlist()">
+              <svg class="heart-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 21s-6.7-4.35-9.33-8.22C.7 10.1 1.2 6.7 3.9 5.05 6.05 3.73 8.7 4.3 10.2 6.05L12 8.1l1.8-2.05c1.5-1.75 4.15-2.32 6.3-1C22.8 6.7 23.3 10.1 21.33 12.78 18.7 16.65 12 21 12 21z"/>
+              </svg>
+              {{ wishlistLabel() }}
             </button>
-            <button type="button" class="wishlist-btn" (click)="toggleWishlist()" [disabled]="wishlistLoading">
-              {{ inWishlist() ? '♥ Saved' : '♡ Add to Wishlist' }}
-            </button>
-            <a routerLink="/cart" class="view-cart-link">View Cart</a>
+            <div class="action-links">
+              <a routerLink="/cart" class="view-cart-link">View cart</a>
+              @if (inWishlist()) {
+                <a routerLink="/account/wishlist" class="view-cart-link">View wishlist</a>
+              }
+            </div>
           </div>
-          @if (cartMessage) {
-            <p class="cart-feedback">{{ cartMessage }}</p>
+          @if (cartMessage()) {
+            <p class="cart-feedback" role="status">{{ cartMessage() }}</p>
           }
-          @if (wishlistMessage) {
-            <p class="cart-feedback">{{ wishlistMessage }}</p>
+          @if (wishlistMessage()) {
+            <p class="cart-feedback" [class.is-error]="wishlistError()" role="status">{{ wishlistMessage() }}</p>
           }
+
+          <div class="share-block">
+            <h2 class="share-heading">Share this product</h2>
+            <div class="share-row">
+              @if (canNativeShare()) {
+                <button type="button" class="share-btn native-share" (click)="shareNative()" aria-label="Share with device apps">
+                  Share
+                </button>
+              }
+              <a class="share-btn fb-share" [href]="shareLinks().facebook" target="_blank" rel="noopener noreferrer" aria-label="Share on Facebook">
+                Facebook
+              </a>
+              <a class="share-btn tw-share" [href]="shareLinks().twitter" target="_blank" rel="noopener noreferrer" aria-label="Share on X">
+                X
+              </a>
+              <a class="share-btn pin-share" [href]="shareLinks().pinterest" target="_blank" rel="noopener noreferrer" aria-label="Share on Pinterest">
+                Pinterest
+              </a>
+              <a class="share-btn wa-share" [href]="shareLinks().whatsapp" target="_blank" rel="noopener noreferrer" aria-label="Share on WhatsApp">
+                WhatsApp
+              </a>
+              <a class="share-btn mail-share" [href]="shareLinks().email" aria-label="Share by email">
+                Email
+              </a>
+              <button type="button" class="share-btn copy-share" (click)="copyShareLink()">
+                Copy link
+              </button>
+            </div>
+            @if (shareMessage()) {
+              <p class="cart-feedback" role="status">{{ shareMessage() }}</p>
+            }
+          </div>
         </div>
 
       </div>

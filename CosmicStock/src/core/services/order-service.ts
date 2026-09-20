@@ -20,4 +20,8 @@ export class OrderService {
   getOrder(orderId: string): Observable<IOrder> {
     return this.http.get<IOrder>(`${this.apiUrl}Orders/${orderId}`);
   }
+
+  requestCancellation(orderId: string): Observable<IOrder> {
+    return this.http.post<IOrder>(`${this.apiUrl}Orders/${orderId}/cancel`, {});
+  }
 }

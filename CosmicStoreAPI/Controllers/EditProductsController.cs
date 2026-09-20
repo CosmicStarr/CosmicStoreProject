@@ -85,7 +85,7 @@ public class EditProductsController(
 
     /// <summary>
     /// Loads one product for the edit form: storefront row plus <c>store.Pictures</c> when published,
-    /// otherwise the CJ staging row (main image only).
+    /// otherwise the <c>dbo.FlatProducts</c> staging row and any saved editor overlay.
     /// </summary>
     [HttpGet("{id}")]
     public async Task<ActionResult<ProductResponseDto>> GetProduct(string id)
@@ -102,41 +102,20 @@ public class EditProductsController(
             return Ok(response);
         }
 
-        var staging = await _unitOfWork.Repository<FlatProduct>().GetFirstOrDefault(x => x.Id == id, "Category");
-        if (staging is null) return NotFound();
-
-        return Ok(new ProductResponseDto
-        {
-            Id = staging.Id,
-            NameEn = staging.NameEn,
-            Sku = staging.Sku,
-            SellPrice = staging.SellPrice,
-            BigImage = staging.BigImage,
-            Category = staging.Category?.CategoryName,
-            Pictures = string.IsNullOrWhiteSpace(staging.BigImage)
-                ? []
-                : [
-                    new PictureDto
-                    {
-                        ProductId = staging.Id,
-                        PhotoUrl = staging.BigImage,
-                        SkuPhoto = staging.Sku
-                    }
-                ]
-        });
+        var staging = await _editCjProducts.GetStagingProductAsync(id);
+        return staging is null ? NotFound() : Ok(staging);
     }
 
     /// <summary>
-    /// Creates a storefront product that is not in the CJ staging grid. Optional pid imports variants (vids).
+    /// Adds a product to <c>dbo.FlatProducts</c> for the admin dashboard. Publish later to put it on the storefront.
     /// </summary>
     [HttpPost("Create")]
-    public async Task<ActionResult<Products>> CreateProduct([FromBody] EditProductInfo product)
+    public async Task<ActionResult<ProductResponseDto>> CreateProduct([FromBody] EditProductInfo product)
     {
         try
         {
             var data = await _editCjProducts.CreateManualProductAsync(product);
-            await InvalidateProductCacheAsync();
-            return Ok(EditCjProducts.ToResponse(data));
+            return Ok(data);
         }
         catch (InvalidOperationException ex)
         {
@@ -145,11 +124,63 @@ public class EditProductsController(
     }
 
     /// <summary>
-    /// Updates a published storefront product (name, price, flags, gallery).
+    /// Deletes a storefront product and its gallery, variants, and wishlist rows.
+    /// </summary>
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteProduct(string id)
+    {
+        var deleted = await _editCjProducts.DeleteStoreProductAsync(id);
+        if (!deleted)
+        {
+            return NotFound(new { message = "That product was not found in the catalog or storefront." });
+        }
+
+        await InvalidateProductCacheAsync();
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Deletes one gallery image. Pass pictureId when known, or photoUrl as a fallback.
+    /// </summary>
+    [HttpDelete("{id}/images")]
+    public async Task<ActionResult<ProductResponseDto>> DeleteProductImage(
+        string id,
+        [FromQuery] int? pictureId,
+        [FromQuery] string? photoUrl)
+    {
+        if (pictureId is null or < 1 && string.IsNullOrWhiteSpace(photoUrl))
+        {
+            return BadRequest(new { message = "A picture id or image URL is required." });
+        }
+
+        var product = await _editCjProducts.DeleteProductImageAsync(id, pictureId, photoUrl);
+        if (product is not null)
+        {
+            await InvalidateProductCacheAsync();
+            return Ok(EditCjProducts.ToResponse(product));
+        }
+
+        var staging = await _editCjProducts.DeleteStagingImageAsync(id, photoUrl);
+        return staging is null
+            ? NotFound(new { message = "That image was not found on this product." })
+            : Ok(staging);
+    }
+
+    /// <summary>
+    /// Updates a published storefront product, or the staging catalog row when it is not published yet.
     /// </summary>
     [HttpPost("UpdateProduct/{id}")]
-    public async Task<ActionResult<Products>> EditProduct(string id, [FromBody] EditProductInfo product)
+    public async Task<ActionResult<ProductResponseDto>> EditProduct(string id, [FromBody] EditProductInfo product)
     {
+        var storeProduct = await _storeUnitOfWork.Repository<Products>()
+            .GetFirstOrDefault(item => item.Id == id);
+
+        if (storeProduct is null)
+        {
+            var staging = await _editCjProducts.UpdateStagingProductAsync(id, product);
+            return staging is null ? NotFound(new { message = "That catalog product was not found." }) : Ok(staging);
+        }
+
         var data = await _editCjProducts.EditCjProductAsync(id, product);
         await InvalidateProductCacheAsync();
         return Ok(EditCjProducts.ToResponse(data));

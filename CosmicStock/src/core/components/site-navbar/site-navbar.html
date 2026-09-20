@@ -120,13 +120,20 @@
       </div>
     </div>
 
-    @for (category of categories(); track category.name) {
-      <a
-        class="category-nav-link"
-        [routerLink]="['/store']"
-        [queryParams]="{ category: category.name, page: 1 }">
-        {{ category.name }}
-      </a>
-    }
+    <app-overflow-row
+      class="category-nav-scroller"
+      tone="on-orange"
+      previousLabel="Show previous categories"
+      nextLabel="Show more categories"
+      [contentKey]="categories().length">
+      @for (category of categories(); track category.name) {
+        <a
+          class="category-nav-link"
+          [routerLink]="['/store']"
+          [queryParams]="{ category: category.name, page: 1 }">
+          {{ category.name }}
+        </a>
+      }
+    </app-overflow-row>
   </nav>
 }

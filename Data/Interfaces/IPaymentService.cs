@@ -14,6 +14,12 @@ public interface IPaymentService
     /// <summary>Reads a PaymentIntent straight from Stripe so the server can verify it before fulfilling.</summary>
     Task<Stripe.PaymentIntent?> GetPaymentIntentAsync(string paymentIntentId);
 
+    /// <summary>
+    /// Refunds a PaymentIntent. Pass amountCents for a partial refund; omit it to return the
+    /// remaining balance. No-ops when Stripe already shows a full refund.
+    /// </summary>
+    Task RefundPaymentAsync(string paymentIntentId, long? amountCents = null, string? idempotencyKey = null);
+
     Task<Order?> MarkPaymentSucceededAsync(string paymentIntentId);
 
     Task<Order?> MarkPaymentFailedAsync(string paymentIntentId);

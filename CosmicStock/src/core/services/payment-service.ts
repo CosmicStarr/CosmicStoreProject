@@ -38,6 +38,7 @@ export class PaymentService {
     this.elements ??= stripe.elements();
 
     return this.elements.create('card', {
+      hidePostalCode: true,
       style: {
         base: {
           fontSize: '16px',
@@ -49,12 +50,37 @@ export class PaymentService {
     });
   }
 
-  async confirmCardPayment(clientSecret: string, card: StripeCardElement, name: string) {
+  async confirmCardPayment(
+    clientSecret: string,
+    card: StripeCardElement,
+    billing: {
+      name: string;
+      email?: string;
+      line1: string;
+      city: string;
+      state: string;
+      postalCode: string;
+      country: string;
+    },
+  ) {
     const stripe = await this.getStripe();
     if (!stripe) throw new Error('Stripe failed to load.');
 
     return stripe.confirmCardPayment(clientSecret, {
-      payment_method: { card, billing_details: { name } },
+      payment_method: {
+        card,
+        billing_details: {
+          name: billing.name,
+          email: billing.email,
+          address: {
+            line1: billing.line1,
+            city: billing.city,
+            state: billing.state,
+            postal_code: billing.postalCode,
+            country: billing.country.trim().toUpperCase(),
+          },
+        },
+      },
     });
   }
 

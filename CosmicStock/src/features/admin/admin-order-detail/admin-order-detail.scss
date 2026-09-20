@@ -1,0 +1,147 @@
+:host {
+  display: block;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 16px;
+  color: var(--primary-orange);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  margin: 0 0 4px;
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.action-message {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  background: var(--bg-light);
+  border-left: 4px solid var(--primary-orange);
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.detail-card {
+  background: #fff;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.detail-card h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.status {
+  color: var(--primary-orange);
+  font-weight: 600;
+}
+
+.payment-status {
+  font-weight: 600;
+  color: #15803d;
+
+  &.unpaid {
+    color: var(--text-muted);
+  }
+
+  &.refunded {
+    color: #b45309;
+  }
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-light);
+}
+
+th {
+  background: var(--bg-light);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.inactive-row {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.inactive-row .status,
+.inactive-row .row-btn {
+  text-decoration: none;
+}
+
+.totals {
+  margin-top: 12px;
+}
+
+.item-row, .total-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.total-row {
+  font-size: 18px;
+}
+
+.secondary-btn, .row-btn {
+  padding: 8px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: #fff;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover:not([disabled]) {
+    border-color: var(--primary-orange);
+  }
+
+  &[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+code {
+  background: var(--bg-light);
+  padding: 2px 6px;
+  border-radius: 4px;
+}

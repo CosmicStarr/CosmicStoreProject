@@ -17,17 +17,20 @@ namespace CosmicStoreAPI.Controllers;
 public class PaymentController : BaseController
 {
     private readonly IPaymentService _paymentService;
+    private readonly IOrderService _orderService;
     private readonly UserManager<AppUser> _userManager;
     private readonly ILogger<PaymentController> _logger;
     private readonly string _webhookSecret;
 
     public PaymentController(
         IPaymentService paymentService,
+        IOrderService orderService,
         UserManager<AppUser> userManager,
         IConfiguration configuration,
         ILogger<PaymentController> logger)
     {
         _paymentService = paymentService;
+        _orderService = orderService;
         _userManager = userManager;
         _logger = logger;
         _webhookSecret = configuration["Stripe:WebhookSecret"] ?? string.Empty;
@@ -67,7 +70,7 @@ public class PaymentController : BaseController
     }
 
     /// <summary>
-    /// Stripe callback: marks the matching order paid or failed from payment_intent events.
+    /// Stripe callback: marks the matching order paid, failed, or fully refunded.
     /// </summary>
     [AllowAnonymous]
     [HttpPost("webhook")]
@@ -93,28 +96,46 @@ public class PaymentController : BaseController
             return BadRequest(new ApiErrorResponse(400, "Invalid Stripe signature."));
         }
 
-        if (stripeEvent.Data.Object is not PaymentIntent intent)
-        {
-            return Ok();
-        }
-
         switch (stripeEvent.Type)
         {
             case "payment_intent.succeeded":
-                _logger.LogInformation("Payment succeeded for intent {IntentId}.", intent.Id);
-                var paidOrder = await _paymentService.MarkPaymentSucceededAsync(intent.Id);
-                if (paidOrder is not null)
+                if (stripeEvent.Data.Object is PaymentIntent paidIntent)
                 {
-                    _logger.LogInformation("Order {OrderId} marked as paid.", paidOrder.OrderId);
+                    _logger.LogInformation("Payment succeeded for intent {IntentId}.", paidIntent.Id);
+                    var paidOrder = await _paymentService.MarkPaymentSucceededAsync(paidIntent.Id);
+                    if (paidOrder is not null)
+                    {
+                        _logger.LogInformation("Order {OrderId} marked as paid.", paidOrder.OrderId);
+                    }
                 }
                 break;
 
             case "payment_intent.payment_failed":
-                _logger.LogWarning("Payment failed for intent {IntentId}.", intent.Id);
-                var failedOrder = await _paymentService.MarkPaymentFailedAsync(intent.Id);
-                if (failedOrder is not null)
+                if (stripeEvent.Data.Object is PaymentIntent failedIntent)
                 {
-                    _logger.LogInformation("Order {OrderId} marked as payment failed.", failedOrder.OrderId);
+                    _logger.LogWarning("Payment failed for intent {IntentId}.", failedIntent.Id);
+                    var failedOrder = await _paymentService.MarkPaymentFailedAsync(failedIntent.Id);
+                    if (failedOrder is not null)
+                    {
+                        _logger.LogInformation("Order {OrderId} marked as payment failed.", failedOrder.OrderId);
+                    }
+                }
+                break;
+
+            case "charge.refunded":
+                if (stripeEvent.Data.Object is Charge charge
+                    && charge.Refunded
+                    && !string.IsNullOrWhiteSpace(charge.PaymentIntentId))
+                {
+                    _logger.LogInformation(
+                        "Charge {ChargeId} fully refunded for intent {IntentId}.",
+                        charge.Id,
+                        charge.PaymentIntentId);
+                    var refundedOrder = await _orderService.ApplyPaymentRefundedAsync(charge.PaymentIntentId);
+                    if (refundedOrder is not null)
+                    {
+                        _logger.LogInformation("Order {OrderId} marked as refunded.", refundedOrder.OrderId);
+                    }
                 }
                 break;
         }

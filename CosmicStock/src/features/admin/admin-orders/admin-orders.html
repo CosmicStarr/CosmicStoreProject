@@ -9,34 +9,39 @@
   <p class="action-message" role="status">{{ message() }}</p>
 }
 
-@if (loading) {
-  <p class="muted">Loading orders...</p>
-} @else if (!orders().length) {
-  <p class="muted">No orders yet.</p>
-} @else {
-  <div class="table-wrap">
-    <table>
-      <thead>
+<div class="table-wrap" [attr.aria-busy]="loading()">
+  <table>
+    <thead>
+      <tr>
+        <th>Order</th>
+        <th>Customer</th>
+        <th>Status</th>
+        <th>Payment</th>
+        <th>Shipping</th>
+        <th>Tracking</th>
+        <th>Total</th>
+        <th>Date</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @if (!orders().length) {
         <tr>
-          <th>Order</th>
-          <th>Customer</th>
-          <th>Status</th>
-          <th>Payment</th>
-          <th>Shipping</th>
-          <th>Tracking</th>
-          <th>Total</th>
-          <th>Date</th>
-          <th>Actions</th>
+          <td colspan="9" class="empty-cell">
+            {{ loading() ? 'Loading orders...' : 'No orders yet.' }}
+          </td>
         </tr>
-      </thead>
-      <tbody>
+      } @else {
         @for (order of orders(); track order.orderId) {
-          <tr>
+          <tr class="order-row" tabindex="0" (click)="openOrder(order)" (keydown.enter)="openOrder(order)">
             <td>{{ order.orderId.slice(0, 8) }}</td>
             <td>{{ order.customerName }}<br><span class="muted">{{ order.customerEmail }}</span></td>
             <td><span class="status">{{ order.status }}</span></td>
             <td>
-              <span class="payment-status" [class.unpaid]="order.paymentStatus !== 'PaymentRecevied'">
+              <span
+                class="payment-status"
+                [class.unpaid]="order.paymentStatus !== 'PaymentRecevied' && order.paymentStatus !== 'Refunded'"
+                [class.refunded]="order.paymentStatus === 'Refunded'">
                 {{ order.paymentStatus || '—' }}
               </span>
             </td>
@@ -53,7 +58,7 @@
             </td>
             <td>{{ order.total | currency:'USD':'symbol' }}</td>
             <td>{{ order.createdAt | date:'short' }}</td>
-            <td>
+            <td (click)="$event.stopPropagation()">
               <div class="row-actions">
                 <button
                   type="button"
@@ -75,7 +80,7 @@
             </td>
           </tr>
         }
-      </tbody>
-    </table>
-  </div>
-}
+      }
+    </tbody>
+  </table>
+</div>

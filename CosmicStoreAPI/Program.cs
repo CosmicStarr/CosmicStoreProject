@@ -1,6 +1,7 @@
 using StackExchange.Redis;
 using CosmicStoreAPI.Error;
 using CosmicStoreAPI.Middleware;
+using CosmicStoreAPI.Util;
 using Data;
 using Data.Classes;
 using Data.Interfaces;
@@ -12,6 +13,7 @@ using Data.Util;
 using Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Identity.UI.Services;
 
@@ -54,6 +56,7 @@ builder.Services.AddIdentity<AppUser, IdentityRole>(opt =>
     opt.User.RequireUniqueEmail = true;
     opt.Password.RequireUppercase = true;
     opt.Password.RequiredLength = 8; // Fixed: Swapped back to RequiredLength
+    opt.Lockout.AllowedForNewUsers = true;
 })
 .AddEntityFrameworkStores<ApplicationDbStoreContext>()
 .AddDefaultTokenProviders();
@@ -80,6 +83,30 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = builder.Configuration["JWT:ValidAudience"],
         ValidIssuer = builder.Configuration["JWT:ValidIssuer"],
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JWT:SecretKey"]!))
+    };
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = async context =>
+        {
+            if (context.Principal is null || GuestPrincipal.IsGuest(context.Principal))
+            {
+                return;
+            }
+
+            var userId = context.Principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                context.Fail("Invalid token");
+                return;
+            }
+
+            var userManager = context.HttpContext.RequestServices.GetRequiredService<UserManager<AppUser>>();
+            var user = await userManager.FindByIdAsync(userId);
+            if (user == null || await userManager.IsLockedOutAsync(user))
+            {
+                context.Fail("Account locked");
+            }
+        }
     };
 });
 
@@ -113,6 +140,7 @@ builder.Services.AddHttpClient<ICJDropshippingService, CJDropshippingService>();
 //builder.Services.AddHostedService<CJProductSyncWorker>();
 //builder.Services.AddHostedService<CjOrderStatusWorker>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IEmailChangeService, EmailChangeService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IStoreUnitOfWork, StoreUnitOfWork>();
 builder.Services.AddScoped<IEditCjProducts, EditCjProducts>();

@@ -1,6 +1,6 @@
 import { afterNextRender, Component, ElementRef, inject, Injector, OnInit, signal, viewChild } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AccountService } from '../../../core/services/account-service';
 
 @Component({
@@ -13,12 +13,14 @@ export class RegisterComponent implements OnInit {
   private accountService = inject(AccountService);
   private fb = inject(FormBuilder);
   private injector = inject(Injector);
+  private route = inject(ActivatedRoute);
   private readonly confirmHeading = viewChild<ElementRef<HTMLHeadingElement>>('confirmHeading');
 
   registerForm!: FormGroup;
   errors: string[] = [];
   protected readonly registeredEmail = signal<string | null>(null);
   protected readonly submitting = signal(false);
+  protected readonly fromMissingAccount = signal(false);
 
   ngOnInit(): void {
     this.registerForm = this.fb.group({
@@ -32,6 +34,12 @@ export class RegisterComponent implements OnInit {
       ]],
       confirmPassword: ['', [Validators.required]]
     }, { validators: this.passwordMatchValidator });
+
+    const email = this.route.snapshot.queryParamMap.get('email')?.trim();
+    if (email) {
+      this.registerForm.patchValue({ email });
+    }
+    this.fromMissingAccount.set(this.route.snapshot.queryParamMap.get('reason') === 'no-account');
   }
 
   passwordMatchValidator(control: AbstractControl) {

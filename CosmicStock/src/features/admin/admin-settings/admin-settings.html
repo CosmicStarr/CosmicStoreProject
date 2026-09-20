@@ -23,7 +23,8 @@
 <section class="settings-card">
   <h2>CJ Wallet</h2>
   <p class="muted">
-    Orders are paid from this balance. Fulfilment stalls once it runs out.
+    Customers always pay with Stripe. We only send an order to CJ when this wallet can cover product cost and freight.
+    Paid orders stay marked paid; use Sync on the Orders page after you top up.
   </p>
 
   @if (balance(); as wallet) {

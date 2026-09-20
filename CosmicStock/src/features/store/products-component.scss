@@ -618,7 +618,8 @@
 .toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .sort-wrapper {
@@ -659,21 +660,22 @@
   color: #ffffff;
 }
 
-/* 3-Column Catalog Layout Matrix Configuration */
+/* 4-Column Catalog Layout Matrix Configuration */
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
 }
 
 .product-card {
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  padding: 20px;
+  padding: 14px;
   position: relative;
   text-align: center;
   background-color: #ffffff;
   transition: transform 0.2s, box-shadow 0.2s;
+  min-width: 0;
 }
 
 .product-card:hover {
@@ -696,11 +698,11 @@
 }
 
 .product-img {
-  height: 180px;
+  height: 150px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 15px;
+  margin-bottom: 12px;
 }
 
 .product-img img {
@@ -718,11 +720,15 @@
 }
 
 .product-name {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: #444;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* Dual Prices Layout Component Block */
@@ -892,8 +898,8 @@
 }
 
 @media (max-width: 768px) {
-  .category-filter {
-    display: none;
+  .sidebar {
+    gap: 20px;
   }
 }
 

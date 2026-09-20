@@ -1,0 +1,23 @@
+<div class="account-wrapper">
+  <div class="account-container confirmation-panel">
+    @if (loading()) {
+      <h2>Confirming your new email</h2>
+      <p class="muted" role="status">Please wait while we verify the new address.</p>
+    } @else if (isError()) {
+      <h2 id="confirm-email-change-heading" tabindex="-1" #confirmHeading>Email not updated</h2>
+      <p class="error-text" role="status">{{ message() }}</p>
+      <div class="confirmation-actions">
+        <a routerLink="/account/profile" class="link-btn">Back to profile</a>
+        <a routerLink="/login" class="link-btn secondary">Go to login</a>
+      </div>
+    } @else {
+      <h2 id="confirm-email-change-heading" tabindex="-1" #confirmHeading>Email updated</h2>
+      <p class="success-text" role="status">{{ message() }}</p>
+      <p class="muted">Use your new email the next time you sign in.</p>
+      <div class="confirmation-actions">
+        <a routerLink="/login" class="link-btn">Go to login</a>
+        <a routerLink="/store" class="link-btn secondary">Continue shopping</a>
+      </div>
+    }
+  </div>
+</div>
