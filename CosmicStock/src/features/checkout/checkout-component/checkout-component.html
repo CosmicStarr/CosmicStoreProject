@@ -6,7 +6,7 @@
     </header>
 
     <form [formGroup]="checkoutForm" (ngSubmit)="onSubmit()">
-      @if (savedAddresses().length) {
+      @if (savedAddresses().length && !registryWishlistId()) {
         <section class="form-section">
           <h3>Saved Addresses</h3>
           <div class="address-picker">
@@ -31,34 +31,41 @@
 
       <section class="form-section">
         <h3>Shipping Information</h3>
-        <div class="form-group">
-          <label for="fullName">Full Name</label>
-          <input id="fullName" type="text" formControlName="fullName" placeholder="John Doe">
-        </div>
-        <div class="form-group">
-          <label for="streetAddress">Street Address</label>
-          <input id="streetAddress" type="text" formControlName="streetAddress" placeholder="123 Main St">
-        </div>
-        <div class="form-row">
+        @if (registryWishlistId()) {
+          <div class="locked-shipping" role="status">
+            <p class="locked-label">{{ maskedShippingLabel() }}</p>
+            <p class="muted">This gift is locked to the registry destination. The street address stays hidden and is applied on our servers after payment.</p>
+          </div>
+        } @else {
           <div class="form-group">
-            <label for="city">City</label>
-            <input id="city" type="text" formControlName="city" autocomplete="address-level2">
+            <label for="fullName">Full Name</label>
+            <input id="fullName" type="text" formControlName="fullName" placeholder="John Doe">
           </div>
           <div class="form-group">
-            <label for="provinceOrState">State / Province</label>
-            <input id="provinceOrState" type="text" formControlName="provinceOrState" autocomplete="address-level1">
+            <label for="streetAddress">Street Address</label>
+            <input id="streetAddress" type="text" formControlName="streetAddress" placeholder="123 Main St">
           </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="zipCode">ZIP / Postal code</label>
-            <input id="zipCode" type="text" formControlName="zipCode" placeholder="12345" autocomplete="postal-code">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="city">City</label>
+              <input id="city" type="text" formControlName="city" autocomplete="address-level2">
+            </div>
+            <div class="form-group">
+              <label for="provinceOrState">State / Province</label>
+              <input id="provinceOrState" type="text" formControlName="provinceOrState" autocomplete="address-level1">
+            </div>
           </div>
-          <div class="form-group">
-            <label for="countryCode">Country Code</label>
-            <input id="countryCode" type="text" formControlName="countryCode" placeholder="US" autocomplete="country">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="zipCode">ZIP / Postal code</label>
+              <input id="zipCode" type="text" formControlName="zipCode" placeholder="12345" autocomplete="postal-code">
+            </div>
+            <div class="form-group">
+              <label for="countryCode">Country Code</label>
+              <input id="countryCode" type="text" formControlName="countryCode" placeholder="US" autocomplete="country">
+            </div>
           </div>
-        </div>
+        }
       </section>
 
       <section class="form-section">
@@ -87,8 +94,15 @@
                 <span class="shipping-price">{{ option.freightCost | currency:'USD':'symbol' }}</span>
               </label>
             }
-          </fieldset>
+            </fieldset>
         }
+        <p class="shipping-policy-note">
+          Processing can take up to {{ processingDays }} business days. After that, standard shipping typically takes
+          {{ transitMin }} to {{ transitMax }} business days. Carrier quotes above are estimates, not guaranteed delivery dates.
+          If we cannot ship within the estimate shown here (or within 30 days if none is shown), we will email you with a
+          revised date and the option to cancel for a full refund. You are the importer of record for overseas shipments.
+          <a routerLink="/shipping">Read Shipping &amp; Delivery</a>
+        </p>
       </section>
 
       <section class="form-section">
@@ -119,6 +133,18 @@
           <label for="cardElement">Card details</label>
           <div id="cardElement" #cardElement class="card-element"></div>
         </div>
+        @if (registryWishlistId()) {
+          <div class="form-group">
+            <label for="billingPostalCode">Card ZIP / postal code</label>
+            <input
+              id="billingPostalCode"
+              type="text"
+              formControlName="billingPostalCode"
+              placeholder="12345"
+              autocomplete="postal-code">
+            <p class="field-hint">Used by Stripe to verify your card. This is not the registry delivery address.</p>
+          </div>
+        }
         @if (cardError()) {
           <p class="card-error" role="alert">{{ cardError() }}</p>
         }
@@ -126,6 +152,17 @@
           Card details go straight to Stripe and never reach our servers.
           Stripe uses your ZIP / postal code to verify the card.
         </p>
+        <label class="terms-check">
+          <input id="acceptedTerms" type="checkbox" formControlName="acceptedTerms">
+          <span>
+            I agree to the
+            <a routerLink="/terms" target="_blank" rel="noopener noreferrer">Terms &amp; Conditions<span class="visually-hidden"> (opens in a new tab)</span></a>,
+            <a routerLink="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy<span class="visually-hidden"> (opens in a new tab)</span></a>,
+            <a routerLink="/shipping" target="_blank" rel="noopener noreferrer">Shipping &amp; Delivery<span class="visually-hidden"> (opens in a new tab)</span></a>,
+            and
+            <a routerLink="/returns" target="_blank" rel="noopener noreferrer">Returns &amp; Refunds<span class="visually-hidden"> (opens in a new tab)</span></a>.
+          </span>
+        </label>
       </section>
 
       @if (error) {

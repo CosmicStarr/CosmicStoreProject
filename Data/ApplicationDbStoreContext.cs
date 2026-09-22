@@ -29,9 +29,29 @@ public class ApplicationDbStoreContext(DbContextOptions<ApplicationDbStoreContex
             .Property(i => i.PriceAtPurchase)
             .HasColumnType("decimal(18,2)");
 
+        modelBuilder.Entity<Wishlist>()
+            .HasIndex(w => w.PublicId)
+            .IsUnique();
+
+        modelBuilder.Entity<Wishlist>()
+            .HasIndex(w => w.AppUserId)
+            .IsUnique();
+
+        modelBuilder.Entity<Wishlist>()
+            .HasOne(w => w.ShippingAddress)
+            .WithMany()
+            .HasForeignKey(w => w.ShippingAddressId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         modelBuilder.Entity<WishlistItem>()
             .HasIndex(w => new { w.AppUserId, w.ProductId })
             .IsUnique();
+
+        modelBuilder.Entity<WishlistItem>()
+            .HasOne(w => w.Wishlist)
+            .WithMany(list => list.Items)
+            .HasForeignKey(w => w.WishlistId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<ProductVariant>()
             .HasIndex(v => new { v.ProductId, v.CjVariantId })
@@ -60,17 +80,50 @@ public class ApplicationDbStoreContext(DbContextOptions<ApplicationDbStoreContex
             .HasForeignKey(image => image.ProductId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        modelBuilder.Entity<ProductType>()
+            .HasOne(type => type.Product)
+            .WithMany(product => product.ProductTypes)
+            .HasForeignKey(type => type.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ProductImage>()
+            .HasOne(image => image.ProductType)
+            .WithMany(type => type.Images)
+            .HasForeignKey(image => image.ProductTypeId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ProductType>()
+            .HasIndex(type => type.ProductId);
+
+        modelBuilder.Entity<ProductType>()
+            .Property(type => type.Price)
+            .HasColumnType("decimal(18,2)");
+
+        modelBuilder.Entity<StoreRuntimeSettings>()
+            .Property(settings => settings.DefaultMarkup)
+            .HasColumnType("decimal(18,2)");
+
+        modelBuilder.Entity<StoreRuntimeSettings>()
+            .Property(settings => settings.Id)
+            .ValueGeneratedNever();
+
+        modelBuilder.Entity<StoreRuntimeSettings>()
+            .ToTable("StoreRuntimeSettings", "store");
+
         // Tell EF Core this doesn't have a primary key and isn't a real table
         modelBuilder.Entity<ProductWithPictureDto>().HasNoKey();
     }
 
     public DbSet<Products> GetProducts { get; set; }
     public DbSet<ProductImage> GetProductImages { get; set; }
+    public DbSet<ProductType> ProductTypes { get; set; }
     public DbSet<AppUser> GetAppUsers { get; set; }
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<ShoppingCartSessionId> ShoppingCartSessions { get; set; }
     public DbSet<UserAddress> UserAddresses { get; set; }
+    public DbSet<Wishlist> Wishlists { get; set; }
     public DbSet<WishlistItem> WishlistItems { get; set; }
     public DbSet<ProductVariant> ProductVariants { get; set; }
+    public DbSet<StoreRuntimeSettings> StoreRuntimeSettings { get; set; }
 }

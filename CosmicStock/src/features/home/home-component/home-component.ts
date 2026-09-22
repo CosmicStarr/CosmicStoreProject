@@ -5,6 +5,12 @@ import { StoreProductsService } from '../../../core/services/store-products';
 import { ICategorySummary, IProductResponse } from '../../models/productResponse';
 import { SiteNavbarComponent } from '../../../core/components/site-navbar/site-navbar';
 import { SiteFooterComponent } from '../../../core/components/site-footer/site-footer';
+import {
+  SHIPPING_PROCESSING_BUSINESS_DAYS,
+  SHIPPING_TRANSIT_BUSINESS_DAYS_MAX,
+  SHIPPING_TRANSIT_BUSINESS_DAYS_MIN,
+} from '../../../core/legal/shipping-policy';
+import { REFUND_QUALITY_DAYS_AFTER_DELIVERY } from '../../../core/legal/refund-policy';
 
 @Component({
   imports: [RouterLink, SiteNavbarComponent, SiteFooterComponent, CurrencyPipe],
@@ -22,6 +28,10 @@ export class HomeComponent implements OnInit {
   protected readonly heroProduct = computed(() => this.products()[0] ?? null);
   protected readonly campaignCategories = computed(() => this.categories().slice(0, 2));
   protected readonly overflowProducts = computed(() => this.products().slice(2, 6));
+  protected readonly processingDays = SHIPPING_PROCESSING_BUSINESS_DAYS;
+  protected readonly transitMin = SHIPPING_TRANSIT_BUSINESS_DAYS_MIN;
+  protected readonly transitMax = SHIPPING_TRANSIT_BUSINESS_DAYS_MAX;
+  protected readonly qualityDays = REFUND_QUALITY_DAYS_AFTER_DELIVERY;
 
   ngOnInit(): void {
     this.productService.getCategories().subscribe({

@@ -1,0 +1,96 @@
+<app-legal-shell>
+  <article class="legal-article">
+    <h1>Terms &amp; Conditions</h1>
+    <p class="updated">Last updated September 21, 2026 · Version {{ LEGAL_TERMS_VERSION }}</p>
+
+    <p>
+      These terms apply when you use CosmicStore, including browsing, creating an account, checking out as a guest,
+      paying for an order, or buying from a gift registry. You must agree to this page and to our
+      <a routerLink="/privacy">Privacy Policy</a> before we create a Stripe payment or an account.
+      We record the version and the time you agreed.
+    </p>
+
+    <h2>The store</h2>
+    <p>
+      CosmicStore is a dropshipping catalog. Most items are fulfilled by overseas suppliers and logistics partners,
+      including CJ Dropshipping, often from warehouses in China or other countries. Descriptions, images, prices, and stock
+      can change as the supplier catalog changes. A listing is not a guaranteed offer until payment is accepted and the order
+      is confirmed by email.
+    </p>
+
+    <h2>Accounts and guests</h2>
+    <ul>
+      <li>You may check out as a guest. Guest checkout does not create a stored customer account.</li>
+      <li>Registered accounts are for the email you confirm. Keep your password confidential.</li>
+      <li>You are responsible for orders placed with your signed-in session or with a guest checkout you started.</li>
+    </ul>
+
+    <h2>Orders, payment, and pricing</h2>
+    <ul>
+      <li>Payment is processed by Stripe. CosmicStore does not store raw credit card data.</li>
+      <li>The amount charged is the catalog total plus the shipping method you select at checkout, recomputed on our servers.</li>
+      <li>An order is placed only after Stripe confirms payment. We then email a confirmation to the address you provided.</li>
+      <li>
+        Because supplier catalogs can change faster than our API can sync, we may cancel an order (or individual lines)
+        and refund the amount charged if the supplier’s price jumps, the item goes out of stock, or we cannot fulfill after payment.
+        If the whole order is cancelled, shipping is refunded as well.
+      </li>
+    </ul>
+
+    <app-shipping-policy-content />
+    <p>
+      Shipping options and partner transit times shown at checkout are estimates only.
+      Overseas shipping is unpredictable; weather, customs, peak season, and carrier delays can add days or weeks.
+      A fallback shipping charge may be shown when a live quote is not available.
+      The same rules appear on our <a routerLink="/shipping">Shipping &amp; Delivery</a> page.
+    </p>
+
+    <h2>Gift registries</h2>
+    <p>
+      A public gift registry hides the recipient’s street, city, and ZIP from buyers. Checkout for those items locks shipping
+      to the registry destination. The address is still stored in our database and is still shared with CosmicStore and with
+      logistics partners, including CJ Dropshipping, so the gift can be delivered.
+      Do not share a registry if you are not willing to have that address used for fulfillment.
+    </p>
+
+    <h2>Cancellations before shipment</h2>
+    <p>
+      You may request cancellation before the supplier ships. If the supplier can cancel the unshipped order,
+      we refund the Stripe payment. Refunds typically appear on the original payment method in 3–5 business days.
+    </p>
+
+    <app-refund-policy-content />
+    <p>
+      The same rules are on our <a routerLink="/returns">Returns &amp; Refunds</a> page.
+      Guest shoppers use the private management link in the confirmation email, then confirm with the checkout email
+      (and the shipping ZIP for a standard order). Registry purchases do not use the recipient ZIP as that buyer check.
+      After a successful refund, that guest access link is invalidated.
+    </p>
+
+    <h2>Acceptable use</h2>
+    <p>
+      Do not misuse the storefront, attempt to access another customer’s orders, or place orders with payment or address information
+      you are not authorized to use. We may refuse or cancel an order when payment fails, stock cannot be fulfilled, or we reasonably
+      believe the request is fraudulent or unlawful.
+    </p>
+
+    <h2>Limitation of liability</h2>
+    <p>
+      To the extent allowed by law, CosmicStore is not liable for delays or loss caused by carriers, customs, supplier stock,
+      import assessments, or events outside our reasonable control. Catalog content is provided for shopping on this site.
+      These terms do not limit rights that cannot be waived under applicable consumer law.
+    </p>
+
+    <h2>Changes</h2>
+    <p>
+      We may update these terms. The version and “Last updated” date at the top will change when we do.
+      Checkout and registration require agreement to the version then in effect.
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      For an existing order, use <a routerLink="/orders">order history</a> if you are signed in, or
+      <a routerLink="/order/manage">guest order management</a> with the link from your confirmation email.
+    </p>
+  </article>
+</app-legal-shell>

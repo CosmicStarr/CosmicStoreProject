@@ -10,9 +10,10 @@ namespace CosmicStoreAPI.Controllers;
 /// <summary>
 /// Home-page storefront reads: highlighted product strips and a single product card.
 /// </summary>
-public class HomeController(IStoreUnitOfWork storeUnitOfWork) : BaseController
+public class HomeController(IStoreUnitOfWork storeUnitOfWork, IEditCjProducts editCjProducts) : BaseController
 {
     private readonly IStoreUnitOfWork _storeUnitOfWork = storeUnitOfWork;
+    private readonly IEditCjProducts _editCjProducts = editCjProducts;
 
     /// <summary>
     /// Returns featured, new-arrival, or top-selling storefront products for the home sections.
@@ -21,6 +22,8 @@ public class HomeController(IStoreUnitOfWork storeUnitOfWork) : BaseController
     [HttpGet("highlighted/{highlightType}")]
     public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetHighlightedProducts(string highlightType)
     {
+        await _editCjProducts.ExpireStaleNewArrivalsAsync();
+
         System.Linq.Expressions.Expression<Func<Products, bool>>? filter = highlightType.ToLowerInvariant() switch
         {
             "featured" => product => product.IsFeatured,

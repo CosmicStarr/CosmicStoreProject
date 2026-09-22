@@ -52,7 +52,8 @@ public class AccountController : ControllerBase
     }
 
     /// <summary>
-    /// Creates an Identity user, emails a confirmation link, and returns a JWT. A hardcoded admin email is granted the Admin role.
+    /// Creates an Identity user, emails a confirmation link, and returns a JWT.
+    /// Emails listed in Store:AdminEmails are granted the Admin role on register.
     /// </summary>
     [HttpPost("register")]
     public async Task<ActionResult<RegisterDto>> Register(RegisterDto registerDto)
@@ -74,63 +75,42 @@ public class AccountController : ControllerBase
                 return BadRequest(new { message = "Username is already in use" });
             }
 
+            DateTime acceptedTermsAt;
+            try
+            {
+                acceptedTermsAt = LegalTerms.RequireAcceptance(
+                    registerDto.AcceptedTermsVersion,
+                    registerDto.AcceptedTermsAt);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+
             // 2. Create the AppUser instance
             var user = new AppUser
             {
                 UserName = userName,
-                Email = registerDto.Email
+                Email = registerDto.Email,
+                AcceptedTermsAt = acceptedTermsAt,
+                AcceptedTermsVersion = LegalTerms.CurrentVersion
             };
 
             // 3. Save user via UserManager (handles hashing the password securely)
             var result = await _userManager.CreateAsync(user, registerDto.Password);
+            var confirmationEmailSent = false;
 
             if (result.Succeeded)
             {
-                if (user.Email == "NormandJ85@outlook.com")
-                {         
-                    await _roleManager.CreateAsync(new IdentityRole(StaticInfo.AdminRole));
-                    await _userManager.AddToRolesAsync(user, new[] { StaticInfo.AdminRole });
+                if (AdminBootstrap.IsBootstrapAdmin(_configuration, user.Email))
+                {
+                    await AdminBootstrap.AssignBootstrapAdminAsync(_userManager, _roleManager, user);
                     var claim = new Claim("JobDepartment", StaticInfo.Job);
                     await _userManager.AddClaimAsync(user, claim);
                 }
 
                 user = await _userManager.FindByEmailAsync(user.Email);
-                var tokenToGenerate = await _userManager.GenerateEmailConfirmationTokenAsync(user!);
-                
-                var urlMessage = BuildReturnUrl(
-                    "ReturnPath:confirmEmail",
-                    tokenToGenerate,
-                    user!.Id,
-                    user.Email!);
-
-             // ==========================================
-             // LOAD HTML TEMPLATE FROM WWWROOT
-             // ==========================================
-             // Create a folder in wwwroot named 'templates' and add 'ConfirmEmail.html'
-                var filePath = Path.Combine(_env.WebRootPath, "templates", "ConfirmEmail.html");
-                
-                string htmlTemplate = string.Empty;
-                if (System.IO.File.Exists(filePath)) 
-                {
-                    htmlTemplate = await System.IO.File.ReadAllTextAsync(filePath);
-                }
-                else
-                {
-                    // Fallback inline template if file is missing so app doesn't crash
-                    htmlTemplate = "<div>Please confirm your email: <a href='{{URL}}'>Confirm</a></div>";
-                }
-
-                // Replace placeholders in your HTML file
-                string text = htmlTemplate.Replace("{{URL}}", urlMessage);
-
-                try
-                {
-                    await _emailSender.SendEmailAsync(user.Email!, "Confirm your email!", text);
-                }
-                catch (Exception)
-                {
-                    // The account already exists; do not fail signup because confirmation mail could not send.
-                }
+                confirmationEmailSent = await TrySendConfirmationEmailAsync(user!);
             }
             else
             {
@@ -141,11 +121,12 @@ public class AccountController : ControllerBase
 #pragma warning disable CS8601 // Possible null reference assignment.
         return new RegisterDto
             {
-                Email = user.Email,
+                Email = user!.Email,
                 Token = await _tokenService.CreateToken(user),
                 UserName = user.UserName ?? userName,
                 EmailConfirmed = user.EmailConfirmed,
-                IsGuest = false
+                IsGuest = false,
+                ConfirmationEmailSent = confirmationEmailSent
             };
 #pragma warning restore CS8601 // Possible null reference assignment.
     }
@@ -156,9 +137,6 @@ public class AccountController : ControllerBase
     [HttpPost("login")]
     public async Task<ActionResult<UserDto>> Login(LoginDto loginDto)
     {
-        // 1. Find user by email using _userManager
-        // 2. Check password using _signInManager.CheckPasswordSignInAsync()
-        // 3. If successful, return UserDto with a JWT from _tokenService
         var user = await _userManager.FindByEmailAsync(loginDto.Email);
 
             if (user == null)
@@ -170,12 +148,26 @@ public class AccountController : ControllerBase
                 });
             }
 
-            if (await _userManager.IsLockedOutAsync(user))
+            var lockoutEnd = await _userManager.GetLockoutEndDateAsync(user);
+            if (AccountLockouts.IsPermanent(lockoutEnd))
             {
-                return Unauthorized(new { message = "This account is locked. Contact support if you need help recovering it." });
+                return Unauthorized(new
+                {
+                    message = "This account is locked for security. Contact support to recover it.",
+                    code = "lockoutPermanent"
+                });
             }
 
-            var result = await _signInManager.CheckPasswordSignInAsync(user, loginDto.Password, false);
+            var result = await _signInManager.CheckPasswordSignInAsync(user, loginDto.Password, lockoutOnFailure: true);
+
+            if (result.IsLockedOut)
+            {
+                return Unauthorized(new
+                {
+                    message = "Too many failed sign-in attempts. Try again in 15 minutes, or use Forgot password to unlock sooner.",
+                    code = "lockoutTemporary"
+                });
+            }
 
             if (!result.Succeeded) return Unauthorized(new { message = "Invalid email or password" });
 
@@ -222,10 +214,15 @@ public class AccountController : ControllerBase
     [HttpPost("confirm-email")]
     public async Task<IActionResult> ConfirmEmail(ConfirmEmailDto dto)
     {
-        var user = await _userManager.FindByIdAsync(dto.UserId);
+        var user = await FindUserForConfirmationAsync(dto.UserId, dto.Email);
         if (user == null)
         {
             return BadRequest(new { message = "Invalid confirmation link." });
+        }
+
+        if (user.EmailConfirmed)
+        {
+            return Ok(new { message = "Email confirmed successfully. You can now sign in." });
         }
 
         var confirmed = false;
@@ -245,6 +242,21 @@ public class AccountController : ControllerBase
         }
 
         return Ok(new { message = "Email confirmed successfully. You can now sign in." });
+    }
+
+    /// <summary>
+    /// Sends a fresh confirmation link. Always returns the same message so accounts cannot be enumerated.
+    /// </summary>
+    [HttpPost("resend-confirmation")]
+    public async Task<IActionResult> ResendConfirmation(ForgotPasswordDto dto)
+    {
+        var user = await _userManager.FindByEmailAsync(dto.Email);
+        if (user is not null && !user.EmailConfirmed)
+        {
+            await TrySendConfirmationEmailAsync(user);
+        }
+
+        return Ok(new { message = "If that email is registered and still unconfirmed, we sent a new confirmation link." });
     }
 
     /// <summary>
@@ -318,6 +330,23 @@ public class AccountController : ControllerBase
             {
                 message = "Password reset failed.",
                 errors = result.Errors.Select(e => e.Description)
+            });
+        }
+
+        // Temporary failed-password lockouts clear after a successful reset so users
+        // do not need an admin. Permanent security lockouts stay until an admin unlocks.
+        var lockoutEnd = await _userManager.GetLockoutEndDateAsync(user);
+        if (!AccountLockouts.IsPermanent(lockoutEnd))
+        {
+            await _userManager.SetLockoutEndDateAsync(user, null);
+            await _userManager.ResetAccessFailedCountAsync(user);
+        }
+
+        if (AccountLockouts.IsPermanent(lockoutEnd))
+        {
+            return Ok(new
+            {
+                message = "Password updated, but this account remains locked for security. Contact support so an admin can unlock it."
             });
         }
 
@@ -401,7 +430,17 @@ public class AccountController : ControllerBase
             return Unauthorized(new { message = "This account is locked." });
         }
 
-        var passwordCheck = await _signInManager.CheckPasswordSignInAsync(signedIn, dto.CurrentPassword, false);
+        var passwordCheck = await _signInManager.CheckPasswordSignInAsync(signedIn, dto.CurrentPassword, lockoutOnFailure: true);
+        if (passwordCheck.IsLockedOut)
+        {
+            return Unauthorized(new
+            {
+                message = AccountLockouts.IsPermanent(await _userManager.GetLockoutEndDateAsync(signedIn))
+                    ? "This account is locked for security. Contact support to recover it."
+                    : "Too many failed attempts. Try again in 15 minutes, or use Forgot password."
+            });
+        }
+
         if (!passwordCheck.Succeeded)
         {
             return Unauthorized(new { message = "Current password is incorrect." });
@@ -555,12 +594,54 @@ public class AccountController : ControllerBase
         }
 
         await _userManager.SetLockoutEnabledAsync(user, true);
-        await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddYears(100));
+        await _userManager.SetLockoutEndDateAsync(user, AccountLockouts.PermanentEnd);
         await _userManager.UpdateSecurityStampAsync(user);
         await _emailChangeService.RemovePendingChangeAsync(user.Id);
         await _emailChangeService.RemoveLockTokenAsync(user.Id);
 
         return Ok(new { message = "Your account has been locked. Sign-in is disabled. Contact support if you need help recovering it." });
+    }
+
+    private async Task<AppUser?> FindUserForConfirmationAsync(string? userId, string? email)
+    {
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            var byId = await _userManager.FindByIdAsync(userId.Trim());
+            if (byId is not null)
+            {
+                return byId;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            return await _userManager.FindByEmailAsync(email.Trim());
+        }
+
+        return null;
+    }
+
+    private async Task<bool> TrySendConfirmationEmailAsync(AppUser user)
+    {
+        if (string.IsNullOrWhiteSpace(user.Email))
+        {
+            return false;
+        }
+
+        var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+        var html = await LoadEmailTemplateAsync(
+            "ConfirmEmail.html",
+            BuildReturnUrl("ReturnPath:confirmEmail", token, user.Id, user.Email));
+
+        try
+        {
+            await _emailSender.SendEmailAsync(user.Email, "Confirm your email!", html);
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 
     /// <summary>Builds an Angular return URL with a URL-safe Identity token plus userId and email.</summary>
@@ -576,12 +657,17 @@ public class AccountController : ControllerBase
 
     private string BuildAppUrl(string configKey, Dictionary<string, string?> query)
     {
-        var baseUrl = _configuration[configKey];
-        if (string.IsNullOrWhiteSpace(baseUrl))
+        var fallback = configKey switch
         {
-            throw new InvalidOperationException($"{configKey} is not configured.");
-        }
+            "ReturnPath:resetPassword" => "/account/reset-password",
+            "ReturnPath:confirmEmail" => "/account/confirm-email",
+            "ReturnPath:confirmEmailChange" => "/account/confirm-email-change",
+            "ReturnPath:lockAccount" => "/account/lock-account",
+            "ReturnPath:requestEmailChange" => "/account/confirm-email-change",
+            _ => throw new InvalidOperationException($"{configKey} is not configured.")
+        };
 
+        var baseUrl = StoreUrls.Absolute(_configuration, configKey, fallback);
         return QueryHelpers.AddQueryString(baseUrl, query);
     }
 
@@ -655,7 +741,9 @@ public class AccountController : ControllerBase
             ? await System.IO.File.ReadAllTextAsync(filePath)
             : "<div><a href='{{URL}}'>Continue</a></div>";
 
-        return htmlTemplate.Replace("{{URL}}", url);
+        return htmlTemplate
+            .Replace("{{URL}}", url)
+            .Replace("{{LOGO_URL}}", StoreUrls.LogoUrl(_configuration));
     }
 
     private UserDto GuestUserDto(string guestId)

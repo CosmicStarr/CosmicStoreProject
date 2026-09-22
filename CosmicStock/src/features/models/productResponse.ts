@@ -1,4 +1,4 @@
-import { IPicture } from "./pictureResponse";
+import { IPicture, IProductType } from "./pictureResponse";
 
 export interface IProductResponse {
   id: string;
@@ -13,6 +13,7 @@ export interface IProductResponse {
   stockQuantity: number;
   bigImage: string;
   category: string;
+  types?: IProductType[];
   pictures: IPicture[];
 }
 

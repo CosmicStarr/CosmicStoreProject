@@ -2,6 +2,33 @@
   <h1>Users</h1>
 </header>
 
+@if (pending(); as action) {
+  <div
+    class="confirm-banner"
+    role="alertdialog"
+    aria-labelledby="user-confirm-title"
+    aria-describedby="user-confirm-text"
+  >
+    <div>
+      <p id="user-confirm-title" class="confirm-title">{{ pendingTitle() }}</p>
+      <p id="user-confirm-text" class="confirm-text">{{ pendingText() }}</p>
+    </div>
+    <div class="confirm-actions">
+      <button type="button" class="secondary-btn" (click)="cancelPending()" [disabled]="busyId() === action.user.id">
+        Cancel
+      </button>
+      <button
+        type="button"
+        class="danger-btn"
+        (click)="confirmPending()"
+        [disabled]="busyId() === action.user.id"
+      >
+        {{ pendingConfirmLabel() }}
+      </button>
+    </div>
+  </div>
+}
+
 @if (message()) {
   <p class="action-message" role="status">{{ message() }}</p>
 }
@@ -12,13 +39,16 @@
       <tr>
         <th>Email</th>
         <th>Username</th>
-        <th>User ID</th>
+        <th>Roles</th>
+        <th>Confirmed</th>
+        <th>Locked</th>
+        <th>Actions</th>
       </tr>
     </thead>
     <tbody>
       @if (!users().length) {
         <tr>
-          <td colspan="3" class="empty-cell">
+          <td colspan="6" class="empty-cell">
             {{ loading() ? 'Loading users...' : 'No users yet.' }}
           </td>
         </tr>
@@ -27,7 +57,68 @@
           <tr>
             <td>{{ user.email }}</td>
             <td>{{ user.userName }}</td>
-            <td class="muted">{{ user.id }}</td>
+            <td>{{ rolesLabel(user) }}</td>
+            <td>{{ user.emailConfirmed ? 'Yes' : 'No' }}</td>
+            <td>{{ lockedLabel(user) }}</td>
+            <td class="actions">
+              @if (isAdmin(user)) {
+                <button
+                  type="button"
+                  class="secondary-btn"
+                  [disabled]="busyId() === user.id"
+                  (click)="askRevoke(user)"
+                >
+                  Revoke Admin
+                </button>
+              } @else {
+                <button
+                  type="button"
+                  class="secondary-btn"
+                  [disabled]="busyId() === user.id"
+                  (click)="grantAdmin(user)"
+                >
+                  Grant Admin
+                </button>
+              }
+
+              @if (user.isLocked) {
+                <button
+                  type="button"
+                  class="secondary-btn"
+                  [disabled]="busyId() === user.id"
+                  (click)="askUnlock(user)"
+                >
+                  Unlock
+                </button>
+              } @else {
+                <button
+                  type="button"
+                  class="secondary-btn"
+                  [disabled]="busyId() === user.id"
+                  (click)="askLock(user)"
+                >
+                  Lock
+                </button>
+              }
+
+              <button
+                type="button"
+                class="secondary-btn"
+                [disabled]="busyId() === user.id"
+                (click)="askReset(user)"
+              >
+                Reset password
+              </button>
+
+              <button
+                type="button"
+                class="danger-btn"
+                [disabled]="busyId() === user.id"
+                (click)="askDelete(user)"
+              >
+                Delete
+              </button>
+            </td>
           </tr>
         }
       }

@@ -3,9 +3,7 @@ using CosmicStoreAPI.Error;
 using CosmicStoreAPI.Util;
 using Data.Interfaces;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Models;
 using Models.AngularDTOs;
 using Stripe;
 
@@ -18,20 +16,17 @@ public class PaymentController : BaseController
 {
     private readonly IPaymentService _paymentService;
     private readonly IOrderService _orderService;
-    private readonly UserManager<AppUser> _userManager;
     private readonly ILogger<PaymentController> _logger;
     private readonly string _webhookSecret;
 
     public PaymentController(
         IPaymentService paymentService,
         IOrderService orderService,
-        UserManager<AppUser> userManager,
         IConfiguration configuration,
         ILogger<PaymentController> logger)
     {
         _paymentService = paymentService;
         _orderService = orderService;
-        _userManager = userManager;
         _logger = logger;
         _webhookSecret = configuration["Stripe:WebhookSecret"] ?? string.Empty;
     }
@@ -45,9 +40,6 @@ public class PaymentController : BaseController
         string cartId,
         PaymentIntentRequest request)
     {
-        var blocked = await ConfirmedEmailGate.UnconfirmedMessageAsync(_userManager, User);
-        if (blocked is not null) return StatusCode(403, new { message = blocked });
-
         var isGuest = User.Identity?.IsAuthenticated != true || GuestPrincipal.IsGuest(User);
         var userId = isGuest ? null : User.FindFirstValue(ClaimTypes.NameIdentifier);
 
@@ -61,6 +53,10 @@ public class PaymentController : BaseController
             }
 
             return Ok(payment);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiErrorResponse(400, ex.Message));
         }
         catch (StripeException ex)
         {
@@ -78,6 +74,18 @@ public class PaymentController : BaseController
     {
         var jsonData = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
 
+        if (string.IsNullOrWhiteSpace(_webhookSecret))
+        {
+            _logger.LogWarning("Stripe:WebhookSecret is not configured. The webhook cannot verify events.");
+            return StatusCode(503, new ApiErrorResponse(503, "Stripe webhook is not configured."));
+        }
+
+        var signature = Request.Headers["Stripe-Signature"].ToString();
+        if (string.IsNullOrWhiteSpace(signature))
+        {
+            return BadRequest(new ApiErrorResponse(400, "Invalid Stripe signature."));
+        }
+
         Event stripeEvent;
 
         try
@@ -86,11 +94,11 @@ public class PaymentController : BaseController
             // must not cause us to drop otherwise-valid events.
             stripeEvent = EventUtility.ConstructEvent(
                 jsonData,
-                Request.Headers["Stripe-Signature"],
+                signature,
                 _webhookSecret,
                 throwOnApiVersionMismatch: false);
         }
-        catch (StripeException ex)
+        catch (Exception ex)
         {
             _logger.LogWarning(ex, "Rejected a Stripe webhook: {Reason}", ex.Message);
             return BadRequest(new ApiErrorResponse(400, "Invalid Stripe signature."));

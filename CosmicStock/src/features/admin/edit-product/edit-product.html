@@ -2,7 +2,9 @@
   <div class="edit-container">
     <header class="edit-header">
       <h2>{{ isCreate() ? 'Add Product' : 'Edit Product' }}</h2>
-      <p>{{ isCreate() ? 'Add a product to the admin catalog. Publish it from the dashboard when you want it on the storefront.' : 'Update product details, pricing, and media. Unpublished items stay in the admin catalog until you publish.' }}</p>
+      <p>{{ isCreate()
+        ? 'Add a product to the admin catalog. Publish it from the dashboard when you want it on the storefront.'
+        : 'Update name, price, types, and images, then save or publish. A variant refresh does not put new options on the storefront.' }}</p>
     </header>
 
     @if (saveMessage()) {
@@ -31,35 +33,36 @@
     }
 
     <form [formGroup]="productForm" (ngSubmit)="onSubmit()" class="cosmic-form">
-      @if (isCreate()) {
-        <section class="form-section">
-          <h3>Import from CJ</h3>
-          <p id="cj-pid-hint" class="section-hint">Enter a CJ product id (pid), product SKU, or variant SKU. Load fills name, price, images, and variant vids.</p>
-          <div class="form-group">
-            <label for="cjProductId">CJ product id or SKU</label>
-            <div class="add-image-bar">
-              <input
-                id="cjProductId"
-                type="text"
-                class="custom-input"
-                formControlName="cjProductId"
-                placeholder="pid or SKU, e.g. CJJJJTJT05843-Black"
-                autocomplete="off"
-                aria-describedby="cj-pid-hint">
-              <button
-                type="button"
-                class="btn-secondary"
-                (click)="loadFromCj()"
-                [disabled]="loadingFromCj() || !productForm.get('cjProductId')?.value">
-                {{ loadingFromCj() ? 'Loading...' : 'Load from CJ' }}
-              </button>
-            </div>
+      <section class="form-section">
+        <h3>Import from CJ</h3>
+        <p id="cj-pid-hint" class="section-hint">
+          Enter a CJ product id (pid), product SKU, or variant SKU. Load fills name, price, images, and types so you can
+          edit them. Nothing new appears on the storefront until you save or publish.
+        </p>
+        <div class="form-group">
+          <label for="cjProductId">CJ product id or SKU</label>
+          <div class="add-image-bar">
+            <input
+              id="cjProductId"
+              type="text"
+              class="custom-input"
+              formControlName="cjProductId"
+              placeholder="pid or SKU, e.g. CJJJJTJT05843-Black"
+              autocomplete="off"
+              aria-describedby="cj-pid-hint">
+            <button
+              type="button"
+              class="btn-secondary"
+              (click)="loadFromCj()"
+              [disabled]="loadingFromCj() || !productForm.get('cjProductId')?.value">
+              {{ loadingFromCj() ? 'Loading...' : 'Load from CJ' }}
+            </button>
           </div>
-          @if (cjVariants().length) {
-            <p class="variant-summary" role="status">{{ cjVariants().length }} variants loaded. Images and types are listed in the gallery below.</p>
-          }
-        </section>
-      }
+        </div>
+        @if (cjVariants().length) {
+          <p class="variant-summary" role="status">{{ cjVariants().length }} variants loaded. Edit images and types below, then save or publish.</p>
+        }
+      </section>
 
       <!-- Section 1: General Info -->
       <section class="form-section">
@@ -161,6 +164,7 @@
       <!-- Section 3: Dynamic Image Gallery -->
       <section class="form-section gallery-section">
         <h3>Image Gallery</h3>
+        <p class="section-hint">Cards marked “Not on storefront” came from a CJ refresh. Edit them, then save or publish to make them live.</p>
         
         <!-- Add Image Bar -->
         <div class="add-image-bar">
@@ -178,10 +182,15 @@
           @for (group of productImagesArray.controls; track $index) {
             <div [formGroupName]="$index" class="gallery-card">
               <input type="hidden" formControlName="productId">
+              <input type="hidden" formControlName="skuPhoto">
+              <input type="hidden" formControlName="productTypeId">
               <div class="card-header">
                 <span class="badge">Image #{{$index + 1}}</span>
-                @if (group.get('type')?.value) {
-                  <span class="type-badge">{{ group.get('type')?.value }}</span>
+                @if (group.get('productType')?.get('name')?.value) {
+                  <span class="type-badge">{{ group.get('productType')?.get('name')?.value }}</span>
+                }
+                @if (group.get('isStorefrontDraft')?.value) {
+                  <span class="draft-badge">Not on storefront</span>
                 }
                 <button
                   type="button"
@@ -211,14 +220,19 @@
                       <input [id]="'photoUrl-' + $index" formControlName="photoUrl" type="text" placeholder="Image URL">
                     </div>
 
-                    <div class="form-grid compact-grid mt-12">
+                    <div class="form-grid compact-grid mt-12" formGroupName="productType">
+                      <input type="hidden" formControlName="id">
                       <div class="form-group">
-                        <label [attr.for]="'skuPhoto-' + $index">SKU Value</label>
-                        <input [id]="'skuPhoto-' + $index" formControlName="skuPhoto" type="text" placeholder="e.g. RED-S">
+                        <label [attr.for]="'type-name-' + $index">Type name</label>
+                        <input [id]="'type-name-' + $index" formControlName="name" type="text" placeholder="Color, size, etc.">
                       </div>
                       <div class="form-group">
-                        <label [attr.for]="'type-' + $index">Type</label>
-                        <input [id]="'type-' + $index" formControlName="type" type="text" placeholder="Color, size, etc.">
+                        <label [attr.for]="'type-sku-' + $index">Type SKU</label>
+                        <input [id]="'type-sku-' + $index" formControlName="sku" type="text" placeholder="e.g. RED-S">
+                      </div>
+                      <div class="form-group full-width">
+                        <label [attr.for]="'type-price-' + $index">Type price ($)</label>
+                        <input [id]="'type-price-' + $index" formControlName="price" type="number" min="0" step="0.01" placeholder="0.00">
                       </div>
                     </div>
                   </div>

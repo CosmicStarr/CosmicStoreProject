@@ -12,11 +12,12 @@ public class AngularCheckoutRequest
     public string City { get; set; } = string.Empty;
     public string ProvinceOrState { get; set; } = string.Empty;
 
-    [Required]
     [MaxLength(20)]
     public string ZipCode { get; set; } = string.Empty;
 
     public string CountryCode { get; set; } = string.Empty;
+
+    public int? WishlistId { get; set; }
 
     public string StripePaymentMethodId { get; set; } = string.Empty;
 
@@ -24,4 +25,7 @@ public class AngularCheckoutRequest
     public decimal ShippingCost { get; set; }
 
     public List<CartItems> Items { get; set; } = new();
+
+    public string? AcceptedTermsVersion { get; set; }
+    public DateTimeOffset? AcceptedTermsAt { get; set; }
 }

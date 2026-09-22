@@ -45,12 +45,13 @@ export class CartService {
     });
   }
 
-  addItem(productId: string, quantity = 1, sku?: string) {
+  addItem(productId: string, quantity = 1, sku?: string, wishlistId?: number) {
     const payload: IAddCartItem = {
       productId,
       quantity,
       sku,
       cartId: this.getCartId() ?? undefined,
+      wishlistId,
     };
 
     return this.http.post<IShoppingCart>(`${this.apiUrl}Cart/items`, payload).pipe(

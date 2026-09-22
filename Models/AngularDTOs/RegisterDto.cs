@@ -29,6 +29,10 @@ namespace Models.AngularDTOs
         public string Token { get; set; } = string.Empty;
         public bool EmailConfirmed { get; set; }
         public bool IsGuest { get; set; }
+        public bool ConfirmationEmailSent { get; set; }
+
+        public string? AcceptedTermsVersion { get; set; }
+        public DateTimeOffset? AcceptedTermsAt { get; set; }
 
     }
 }

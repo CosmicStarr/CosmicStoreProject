@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Data.Interfaces;
+using Data.Util;
 using Models;
 using StackExchange.Redis;
 
@@ -13,6 +14,7 @@ public class ShoppingCartService : IShoppingCartService
 {
     private readonly IDatabase _database;
     private readonly IStoreUnitOfWork _storeUnitOfWork;
+    private readonly IWishlistRegistryService _registryService;
     private static readonly TimeSpan CartExpiry = TimeSpan.FromDays(30);
     private static readonly JsonSerializerOptions CartJson = new()
     {
@@ -21,10 +23,11 @@ public class ShoppingCartService : IShoppingCartService
         ReferenceHandler = ReferenceHandler.IgnoreCycles,
     };
 
-    public ShoppingCartService(IDatabase database, IStoreUnitOfWork storeUnitOfWork)
+    public ShoppingCartService(IDatabase database, IStoreUnitOfWork storeUnitOfWork, IWishlistRegistryService registryService)
     {
         _database = database;
         _storeUnitOfWork = storeUnitOfWork;
+        _registryService = registryService;
     }
 
     /// <summary>Loads the guest or user cart from Redis. Signed-in requests with a guest cart id merge first.</summary>
@@ -47,7 +50,9 @@ public class ShoppingCartService : IShoppingCartService
             return new ShoppingCart { Id = requestedId ?? string.Empty };
         }
 
-        return await ReadCartAsync(storageId) ?? new ShoppingCart { Id = storageId };
+        var cart = await ReadCartAsync(storageId) ?? new ShoppingCart { Id = storageId };
+        await AnnotateRegistryAsync(cart);
+        return cart;
     }
 
     /// <summary>Writes the full cart JSON to Redis (30-day TTL) and links it to the user when signed in.</summary>
@@ -69,7 +74,7 @@ public class ShoppingCartService : IShoppingCartService
     /// <summary>
     /// Adds a storefront product line. Quantity merges onto an existing line with the same resolved SKU.
     /// </summary>
-    public async Task<ShoppingCart?> AddItemAsync(string? cartId, string productId, int quantity, string? userId, string? sku = null)
+    public async Task<ShoppingCart?> AddItemAsync(string? cartId, string productId, int quantity, string? userId, string? sku = null, int? wishlistId = null)
     {
         if (quantity < 1) return null;
 
@@ -81,21 +86,30 @@ public class ShoppingCartService : IShoppingCartService
         var lineSku = await ResolveLineSkuAsync(product, sku) ?? product.Sku;
         if (string.IsNullOrWhiteSpace(lineSku)) return null;
 
+        if (wishlistId is int registryId)
+        {
+            await _registryService.RequirePublicRegistryAsync(registryId);
+        }
+
         product.ProductImages = null;
+        var linePrice = await ResolveLinePriceAsync(product, lineSku);
 
         var storageId = await ResolveStorageIdAsync(cartId, userId)
             ?? NormalizeId(cartId)
             ?? Guid.NewGuid().ToString();
 
         var cart = await ReadCartAsync(storageId) ?? new ShoppingCart { Id = storageId };
+        EnsureCompatibleRegistry(cart, wishlistId);
 
         var existing = cart.ShoppingCartItems.FirstOrDefault(i =>
-            string.Equals(i.Sku, lineSku, StringComparison.OrdinalIgnoreCase));
+            string.Equals(i.Sku, lineSku, StringComparison.OrdinalIgnoreCase)
+            && i.WishlistId == wishlistId);
         if (existing is not null)
         {
             existing.Amount += quantity;
-            existing.price = product.SellPrice;
+            existing.price = linePrice;
             existing.Name = product.NameEn;
+            existing.WishlistId = wishlistId;
         }
         else
         {
@@ -103,12 +117,19 @@ public class ShoppingCartService : IShoppingCartService
             {
                 Name = product.NameEn,
                 Sku = lineSku,
-                price = product.SellPrice,
-                Amount = quantity
+                price = linePrice,
+                Amount = quantity,
+                WishlistId = wishlistId
             });
         }
 
-        return await UpdateShoppingCartAsync(cart, userId);
+        var saved = await UpdateShoppingCartAsync(cart, userId);
+        if (saved is not null)
+        {
+            await AnnotateRegistryAsync(saved);
+        }
+
+        return saved;
     }
 
     /// <summary>Removes one cart line by SKU.</summary>
@@ -119,7 +140,13 @@ public class ShoppingCartService : IShoppingCartService
 
         var cart = await ReadCartAsync(storageId) ?? new ShoppingCart { Id = storageId };
         cart.ShoppingCartItems.RemoveAll(i => i.Sku == sku);
-        return await UpdateShoppingCartAsync(cart, userId);
+        var saved = await UpdateShoppingCartAsync(cart, userId);
+        if (saved is not null)
+        {
+            await AnnotateRegistryAsync(saved);
+        }
+
+        return saved;
     }
 
     /// <summary>Merges a guest Redis cart into the signed-in user's cart after login (same SKUs add quantities).</summary>
@@ -133,7 +160,9 @@ public class ShoppingCartService : IShoppingCartService
         if (guestId is not null && userCartId is not null
             && string.Equals(guestId, userCartId, StringComparison.OrdinalIgnoreCase))
         {
-            return await ReadCartAsync(guestId) ?? new ShoppingCart { Id = guestId };
+            var mergedSame = await ReadCartAsync(guestId) ?? new ShoppingCart { Id = guestId };
+            await AnnotateRegistryAsync(mergedSame);
+            return mergedSame;
         }
 
         var guestCart = guestId is null ? null : await ReadCartAsync(guestId);
@@ -143,6 +172,7 @@ public class ShoppingCartService : IShoppingCartService
         {
             if (userCart is not null)
             {
+                await AnnotateRegistryAsync(userCart);
                 return userCart;
             }
 
@@ -154,13 +184,15 @@ public class ShoppingCartService : IShoppingCartService
         if (userCart is null)
         {
             await LinkCartToUserAsync(guestCart.Id, userId);
+            await AnnotateRegistryAsync(guestCart);
             return guestCart;
         }
 
         foreach (var item in guestCart.ShoppingCartItems)
         {
             var existing = userCart.ShoppingCartItems.FirstOrDefault(i =>
-                string.Equals(i.Sku, item.Sku, StringComparison.OrdinalIgnoreCase));
+                string.Equals(i.Sku, item.Sku, StringComparison.OrdinalIgnoreCase)
+                && i.WishlistId == item.WishlistId);
             if (existing is not null)
             {
                 existing.Amount += item.Amount;
@@ -177,7 +209,9 @@ public class ShoppingCartService : IShoppingCartService
             await _database.KeyDeleteAsync(guestId);
         }
 
-        return await UpdateShoppingCartAsync(userCart, userId) ?? userCart;
+        var merged = await UpdateShoppingCartAsync(userCart, userId) ?? userCart;
+        await AnnotateRegistryAsync(merged);
+        return merged;
     }
 
     /// <summary>Deletes the Redis cart and the SQL session row that points at it.</summary>
@@ -197,7 +231,8 @@ public class ShoppingCartService : IShoppingCartService
     }
 
     /// <summary>
-    /// Accepts the parent SKU, a gallery skuPhoto, or a ProductVariant SKU. Returns null if the SKU is not on this product.
+    /// Accepts the parent SKU, a saved gallery skuPhoto, or a saved product-type SKU.
+    /// Refreshed CJ variants are not purchasable until they are saved on the product.
     /// </summary>
     private async Task<string?> ResolveLineSkuAsync(Products product, string? requestedSku)
     {
@@ -215,14 +250,22 @@ public class ShoppingCartService : IShoppingCartService
             return image.SkuPhoto;
         }
 
-        var variant = await _storeUnitOfWork.Repository<Models.ProductVariant>()
-            .GetFirstOrDefault(v => v.ProductId == product.Id && v.Sku == requested);
-        if (variant is not null && !string.IsNullOrWhiteSpace(variant.Sku))
+        var productType = await _storeUnitOfWork.Repository<ProductType>()
+            .GetFirstOrDefault(type => type.ProductId == product.Id && type.Sku == requested);
+        if (productType is not null && !string.IsNullOrWhiteSpace(productType.Sku))
         {
-            return variant.Sku;
+            return productType.Sku;
         }
 
         return null;
+    }
+
+    /// <summary>Uses the type price when the line SKU matches a priced product type; otherwise the product sell price.</summary>
+    private async Task<decimal> ResolveLinePriceAsync(Products product, string sku)
+    {
+        var productType = await _storeUnitOfWork.Repository<ProductType>()
+            .GetFirstOrDefault(type => type.ProductId == product.Id && type.Sku == sku);
+        return productType is { Price: > 0 } ? productType.Price : product.SellPrice;
     }
 
     /// <summary>Loads the cart linked to a signed-in user via ShoppingCartSessionId.</summary>
@@ -288,6 +331,47 @@ public class ShoppingCartService : IShoppingCartService
         catch (JsonException)
         {
             return null;
+        }
+    }
+
+    /// <summary>Rejects mixing a gift registry with other destinations in the same cart.</summary>
+    private static void EnsureCompatibleRegistry(ShoppingCart cart, int? wishlistId)
+    {
+        if (cart.ShoppingCartItems.Count == 0)
+        {
+            return;
+        }
+
+        var bound = WishlistRegistryService.BoundWishlistId(cart.ShoppingCartItems);
+        if (bound != wishlistId)
+        {
+            throw new InvalidOperationException(
+                "Your cart mixes a gift registry with other items. Check out registry gifts separately from other products.");
+        }
+    }
+
+    /// <summary>Attaches the masked registry label so checkout can lock shipping without leaking an address.</summary>
+    private async Task AnnotateRegistryAsync(ShoppingCart cart)
+    {
+        try
+        {
+            var bound = WishlistRegistryService.BoundWishlistId(cart.ShoppingCartItems);
+            cart.WishlistId = bound;
+            if (bound is not int wishlistId)
+            {
+                cart.MaskedShippingLabel = null;
+                return;
+            }
+
+            var list = await _registryService.GetByIdAsync(wishlistId, includeAddress: true);
+            cart.MaskedShippingLabel = list?.ShippingAddress is null
+                ? null
+                : WishlistPrivacy.MaskedShippingLabel(list.ShippingAddress.FullName);
+        }
+        catch (InvalidOperationException)
+        {
+            cart.WishlistId = null;
+            cart.MaskedShippingLabel = null;
         }
     }
 

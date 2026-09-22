@@ -18,13 +18,13 @@ public class EditProductsController(
     IStoreUnitOfWork storeUnitOfWork,
     IEditCjProducts editCjProducts,
     ICacheService cacheService,
-    IConfiguration configuration) : BaseController
+    IStoreSettingsService storeSettingsService) : BaseController
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IStoreUnitOfWork _storeUnitOfWork = storeUnitOfWork;
     private readonly IEditCjProducts _editCjProducts = editCjProducts;
     private readonly ICacheService _cacheService = cacheService;
-    private readonly IConfiguration _configuration = configuration;
+    private readonly IStoreSettingsService _storeSettingsService = storeSettingsService;
 
     /// <summary>
     /// Paged CJ staging catalog (dbo.FlatProducts) for the admin dashboard grid.
@@ -91,14 +91,14 @@ public class EditProductsController(
     public async Task<ActionResult<ProductResponseDto>> GetProduct(string id)
     {
         var storeProduct = await _storeUnitOfWork.Repository<Products>()
-            .GetFirstOrDefault(item => item.Id == id, "ProductImages");
+            .GetFirstOrDefault(item => item.Id == id, "ProductImages.ProductType,ProductTypes");
 
         if (storeProduct is not null)
         {
             var response = EditCjProducts.ToResponse(storeProduct);
             var variants = await _storeUnitOfWork.Repository<ProductVariant>()
                 .GetAllParams(new PageParams { PageNumber = 1, PageSize = 50 }, variant => variant.ProductId == id);
-            EditCjProducts.MergeVariantPictures(response, variants);
+            EditCjProducts.MergeVariantPictures(response, variants, addMissingPictures: true);
             return Ok(response);
         }
 
@@ -192,7 +192,7 @@ public class EditProductsController(
     [HttpPost("Publish/{id}")]
     public async Task<ActionResult<Products>> PublishProduct(string id, [FromQuery] decimal? markup, [FromBody] EditProductInfo? overlay)
     {
-        var multiplier = markup ?? _configuration.GetValue("StoreSettings:DefaultMarkup", 1.4m);
+        var multiplier = markup ?? await _storeSettingsService.GetDefaultMarkupAsync();
         var data = await _editCjProducts.PublishFlatProductAsync(id, multiplier, overlay);
         await InvalidateProductCacheAsync();
         return Ok(EditCjProducts.ToResponse(data));
@@ -206,7 +206,7 @@ public class EditProductsController(
     {
         var multiplier = request.MarkupMultiplier > 0
             ? request.MarkupMultiplier
-            : _configuration.GetValue("StoreSettings:DefaultMarkup", 1.4m);
+            : await _storeSettingsService.GetDefaultMarkupAsync();
 
         var data = await _editCjProducts.PublishBulkAsync(request.ProductIds, multiplier);
         await InvalidateProductCacheAsync();
@@ -214,15 +214,28 @@ public class EditProductsController(
     }
 
     /// <summary>
-    /// Returns the configured default markup used when publishing from the CJ catalog.
+    /// Returns runtime store settings (markup, catalog sync interval) plus CJ sync last-run times.
     /// </summary>
     [HttpGet("settings")]
-    public ActionResult<StoreSettingsDto> GetSettings()
+    public async Task<ActionResult<StoreRuntimeSettingsDto>> GetSettings()
     {
-        return Ok(new StoreSettingsDto
+        return Ok(await _storeSettingsService.GetSettingsAsync());
+    }
+
+    /// <summary>
+    /// Updates publish markup and catalog sync interval (6 or 12 hours).
+    /// </summary>
+    [HttpPut("settings")]
+    public async Task<ActionResult<StoreRuntimeSettingsDto>> UpdateSettings([FromBody] UpdateStoreRuntimeSettingsRequest request)
+    {
+        try
         {
-            DefaultMarkup = _configuration.GetValue("StoreSettings:DefaultMarkup", 1.4m)
-        });
+            return Ok(await _storeSettingsService.UpdateSettingsAsync(request));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     /// <summary>Drops the cached storefront product list so publish/create/edit show up immediately.</summary>

@@ -29,7 +29,7 @@ public class AdminOrdersController(IOrderService orderService) : BaseController
     [HttpGet("{orderId}")]
     public async Task<ActionResult<OrderDto>> GetOrder(string orderId)
     {
-        var order = await _orderService.GetOrderAsync(orderId);
+        var order = await _orderService.RefreshReturnDisputeAsync(orderId);
         if (order is null) return NotFound();
         return Ok(order);
     }

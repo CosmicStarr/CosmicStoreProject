@@ -41,4 +41,15 @@ export class AdminCjService {
   refundOrder(orderId: string): Observable<IOrder> {
     return this.http.post<IOrder>(`${this.apiUrl}/orders/${orderId}/refund`, {});
   }
+
+  openReturnDispute(orderId: string, returnTrackingNumber: string, message?: string): Observable<IOrder> {
+    return this.http.post<IOrder>(`${this.apiUrl}/orders/${orderId}/return-dispute`, {
+      returnTrackingNumber,
+      message,
+    });
+  }
+
+  refreshReturnDispute(orderId: string): Observable<IOrder> {
+    return this.http.post<IOrder>(`${this.apiUrl}/orders/${orderId}/return-dispute/refresh`, {});
+  }
 }

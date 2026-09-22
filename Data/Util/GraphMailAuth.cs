@@ -78,6 +78,32 @@ public static class GraphMailAuth
         return new GraphServiceClient(new MsalSilentTokenCredential(configuration), DelegatedScopes);
     }
 
+    public static async Task AssertDelegatedSessionAsync(
+        IConfiguration configuration,
+        CancellationToken cancellationToken = default)
+    {
+        if (IsClientCredentials(configuration))
+        {
+            return;
+        }
+
+        if (!File.Exists(TokenCachePath) || !File.Exists(AccountIdPath))
+        {
+            throw new InvalidOperationException(
+                "Microsoft Graph is not signed in. From the repo root run: .\\Scripts\\connect-outlook-graph.ps1");
+        }
+
+        var app = GetPublicApp(configuration);
+        var accountId = (await File.ReadAllTextAsync(AccountIdPath, cancellationToken)).Trim();
+        var account = await app.GetAccountAsync(accountId)
+            ?? throw new InvalidOperationException(
+                "Microsoft Graph login expired. From the repo root run: .\\Scripts\\connect-outlook-graph.ps1");
+
+        await app.AcquireTokenSilent(DelegatedScopes, account)
+            .ExecuteAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     private static IPublicClientApplication GetPublicApp(IConfiguration configuration)
     {
         var clientId = Required(configuration, "Graph:ClientId");
@@ -138,7 +164,7 @@ public static class GraphMailAuth
         }
 
         throw new InvalidOperationException(
-            $"{key} is not configured. Store it with: dotnet user-secrets set \"{key}\" \"<value>\"");
+            $"{key} is not configured. Locally: dotnet user-secrets set \"{key}\" \"<value>\". On the host: set the matching environment variable (colons become double underscores, e.g. Graph__ClientId).");
     }
 
     private sealed class MsalSilentTokenCredential(IConfiguration configuration) : TokenCredential

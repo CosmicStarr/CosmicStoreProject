@@ -22,4 +22,18 @@
     <ProjectReference Include="..\Data\Data.csproj" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <AngularBrowserDist>$(MSBuildThisFileDirectory)..\CosmicStock\dist\CosmicStock\browser</AngularBrowserDist>
+  </PropertyGroup>
+
+  <Target Name="IncludeAngularDist" AfterTargets="ComputeFilesToPublish" Condition="Exists('$(AngularBrowserDist)\index.html')">
+    <ItemGroup>
+      <AngularDistFiles Include="$(AngularBrowserDist)\**\*" />
+      <ResolvedFileToPublish Include="@(AngularDistFiles)" Exclude="@(ResolvedFileToPublish)">
+        <RelativePath>wwwroot\%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
 </Project>

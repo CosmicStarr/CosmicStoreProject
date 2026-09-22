@@ -9,6 +9,13 @@
           We sent a confirmation with these details to
           <strong>{{ placed.customerEmail }}</strong>.
         </p>
+        @if (placed.guestManageUrl) {
+          <p class="muted">
+            Guests can cancel or request a refund from the confirmation email, or
+            <a [href]="placed.guestManageUrl">manage this order</a>
+            after confirming the email used at checkout.
+          </p>
+        }
       </header>
 
       <section class="detail-card">
@@ -19,11 +26,21 @@
 
       <section class="detail-card">
         <h2>Shipping</h2>
-        <p>{{ placed.customerName }}</p>
-        <p>{{ placed.shippingAddress }}</p>
-        <p>{{ placed.city }}, {{ placed.state }} {{ placed.zipCode }} {{ placed.country }}</p>
+        @if (placed.maskedShippingLabel) {
+          <p>{{ placed.maskedShippingLabel }}</p>
+        } @else {
+          <p>{{ placed.customerName }}</p>
+          <p>{{ placed.shippingAddress }}</p>
+          <p>{{ placed.city }}, {{ placed.state }} {{ placed.zipCode }} {{ placed.country }}</p>
+        }
         <p class="muted">
           {{ placed.logisticName }} — {{ placed.shippingCost | currency:'USD':'symbol' }}
+        </p>
+        <p class="muted">
+          Processing can take up to {{ processingDays }} business days. Standard shipping then typically takes
+          {{ transitMin }} to {{ transitMax }} business days. Delivery dates are not guaranteed; we send tracking when the
+          supplier dispatches. If shipment is delayed, we email you with a revised date and the option to cancel for a full refund.
+          <a routerLink="/shipping">Shipping &amp; Delivery</a>
         </p>
       </section>
 
@@ -46,6 +63,9 @@
       </section>
 
       <div class="confirmation-actions">
+        @if (placed.guestManageUrl) {
+          <a [href]="placed.guestManageUrl" class="secondary-btn">Manage this order</a>
+        }
         <a routerLink="/store" class="primary-btn">Continue shopping</a>
       </div>
     } @else {

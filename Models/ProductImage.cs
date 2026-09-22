@@ -19,6 +19,10 @@ namespace Models
 
         public required string PhotoUrl { get; set; }
         public required string SkuPhoto { get; set; }
-        public string? Type { get; set; }
+
+        public int? ProductTypeId { get; set; }
+
+        [ForeignKey(nameof(ProductTypeId))]
+        public ProductType? ProductType { get; set; }
     }
 }

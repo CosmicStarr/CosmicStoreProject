@@ -37,6 +37,8 @@ public static class ConfirmedEmailGate
             return null;
         }
 
-        return RequiredMessage;
+        // Signed-in accounts may still check out. The order is attached to the user
+        // even when the confirmation email is outstanding.
+        return null;
     }
 }

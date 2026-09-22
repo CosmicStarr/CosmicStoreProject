@@ -17,6 +17,21 @@ public interface ICJDropshippingService
     /// <summary>Fetches the current fulfilment status and tracking number for a shipment order.</summary>
     Task<CjOrderStatusDto?> GetOrderStatusAsync(string shipmentOrderId);
 
+    /// <summary>Lists CJ line items that can be included in a dispute for a shipment order.</summary>
+    Task<IReadOnlyList<CjDisputeProduct>> GetDisputeProductsAsync(string cjOrderId);
+
+    /// <summary>Confirms dispute amounts and available reasons for selected line items.</summary>
+    Task<CjDisputeConfirmInfo?> ConfirmDisputeInfoAsync(string cjOrderId, IReadOnlyList<CjDisputeProduct> products);
+
+    /// <summary>Opens a CJ dispute for an API-created shipment order. Null means success.</summary>
+    Task<string?> CreateDisputeAsync(CjCreateDisputeRequest request);
+
+    /// <summary>Lists disputes for a CJ order id and/or our store order number.</summary>
+    Task<IReadOnlyList<CjDisputeDto>> GetDisputesAsync(string? cjOrderId, string? orderNumber = null);
+
+    /// <summary>Reads one CJ dispute by id.</summary>
+    Task<CjDisputeDto?> GetDisputeDetailAsync(string disputeId);
+
     /// <summary>Requests cancellation of an unshipped CJ order.</summary>
     Task<bool> CancelOrderAsync(string shipmentOrderId);
 

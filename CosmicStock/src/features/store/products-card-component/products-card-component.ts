@@ -2,6 +2,7 @@ import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { excerptProductDescription } from '../../../core/utils/product-text';
 import { IProductResponse } from '../../models/productResponse';
+import { IPicture } from '../../models/pictureResponse';
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { StoreProductsService } from '../../../core/services/store-products';
 import { CurrencyPipe } from '@angular/common';
@@ -31,6 +32,7 @@ export class ProductDetailComponent implements OnInit {
   featuredProducts = signal<IProductResponse[]>([]);
   quantity = signal(1);
   selectedImageIndex = signal(0);
+  selectedTypeKey = signal<string | null>(null);
   isZooming = signal(false);
   zoomOrigin = signal('center center');
   activeTab = signal<'description' | 'reviews'>('description');
@@ -48,28 +50,88 @@ export class ProductDetailComponent implements OnInit {
     const product = this.product();
     if (!product) return [];
 
-    const images: { url: string; sku: string; type?: string }[] = [];
-    const addImage = (url: string | undefined, sku: string | undefined, type?: string) => {
+    const images: { url: string; sku: string; typeName?: string; typeKey?: string; typePrice?: number }[] = [];
+    const addImage = (
+      url: string | undefined,
+      sku: string | undefined,
+      typeName?: string,
+      typePrice?: number,
+    ) => {
       const trimmedUrl = url?.trim();
       if (!trimmedUrl || images.some((image) => image.url === trimmedUrl)) {
         return;
       }
 
+      const name = typeName?.trim() || undefined;
+      const lineSku = sku?.trim() || product.sku;
       images.push({
         url: trimmedUrl,
-        sku: sku?.trim() || product.sku,
-        type: type?.trim() || undefined,
+        sku: lineSku,
+        typeName: name,
+        typeKey: this.typeKey(name, lineSku),
+        typePrice: typePrice && typePrice > 0 ? typePrice : undefined,
       });
     };
 
     const pictures = product.pictures ?? [];
+    const typeFor = (picture?: IPicture) =>
+      picture?.productType
+      ?? product.types?.find((item) => !!item.id && item.id === picture?.productTypeId)
+      ?? product.types?.find((item) => !!item.sku && item.sku === picture?.skuPhoto);
+
     const heroPicture = pictures.find((picture) => picture.photoUrl?.trim() === product.bigImage?.trim());
-    addImage(product.bigImage, heroPicture?.skuPhoto ?? product.sku, heroPicture?.type);
+    const heroType = typeFor(heroPicture);
+    addImage(
+      product.bigImage,
+      heroType?.sku ?? heroPicture?.skuPhoto ?? product.sku,
+      heroType?.name ?? heroPicture?.type,
+      heroType?.price,
+    );
     for (const picture of pictures) {
-      addImage(picture.photoUrl, picture.skuPhoto, picture.type);
+      const type = typeFor(picture);
+      addImage(
+        picture.photoUrl,
+        type?.sku ?? picture.skuPhoto,
+        type?.name ?? picture.type,
+        type?.price,
+      );
     }
 
     return images;
+  });
+
+  availableTypes = computed(() => {
+    const product = this.product();
+    const types: { key: string; name: string; sku: string; price: number }[] = [];
+    const add = (name?: string, sku?: string, price?: number) => {
+      const trimmedName = name?.trim() ?? '';
+      if (!trimmedName) return;
+      const trimmedSku = sku?.trim() ?? '';
+      const key = this.typeKey(trimmedName, trimmedSku);
+      if (!key) return;
+      const priced = price && price > 0 ? price : 0;
+      const existing = types.find((item) => item.key === key);
+      if (existing) {
+        if (priced > existing.price) existing.price = priced;
+        if (!existing.sku && trimmedSku) existing.sku = trimmedSku;
+        return;
+      }
+      types.push({
+        key,
+        name: trimmedName,
+        sku: trimmedSku,
+        price: priced,
+      });
+    };
+
+    for (const type of product?.types ?? []) {
+      add(type.name, type.sku, type.price);
+    }
+    for (const image of this.galleryImages()) {
+      add(image.typeName, image.sku, image.typePrice);
+    }
+
+    return types;
   });
 
   selectedImageUrl = computed(() => {
@@ -81,6 +143,9 @@ export class ProductDetailComponent implements OnInit {
 
   selectedSku = computed(() => {
     const product = this.product();
+    const selected = this.selectedTypeOption();
+    if (selected?.sku) return selected.sku;
+
     const images = this.galleryImages();
     if (!images.length) {
       return product?.sku ?? '';
@@ -90,11 +155,13 @@ export class ProductDetailComponent implements OnInit {
     return images[index].sku || product?.sku || '';
   });
 
-  selectedType = computed(() => {
-    const images = this.galleryImages();
-    if (!images.length) return '';
-    const index = Math.min(this.selectedImageIndex(), images.length - 1);
-    return images[index].type ?? '';
+  selectedType = computed(() => this.selectedTypeOption()?.name ?? '');
+
+  selectedPrice = computed(() => {
+    const product = this.product();
+    const typePrice = this.selectedTypeOption()?.price ?? 0;
+    if (typePrice > 0) return typePrice;
+    return product?.sellPrice ?? 0;
   });
 
   inStock = computed(() => (this.product()?.stockQuantity ?? 0) > 0);
@@ -184,6 +251,16 @@ export class ProductDetailComponent implements OnInit {
   selectImage(index: number) {
     if (index >= 0 && index < this.galleryImages().length) {
       this.selectedImageIndex.set(index);
+      this.selectedTypeKey.set(this.galleryImages()[index]?.typeKey ?? this.selectedTypeKey());
+      this.endZoom();
+    }
+  }
+
+  selectType(key: string) {
+    this.selectedTypeKey.set(key);
+    const index = this.galleryImages().findIndex((image) => image.typeKey === key);
+    if (index >= 0) {
+      this.selectedImageIndex.set(index);
       this.endZoom();
     }
   }
@@ -192,6 +269,7 @@ export class ProductDetailComponent implements OnInit {
     const count = this.galleryImages().length;
     if (count <= 1) return;
     this.selectedImageIndex.update((index) => (index - 1 + count) % count);
+    this.selectedTypeKey.set(this.galleryImages()[this.selectedImageIndex()]?.typeKey ?? this.selectedTypeKey());
     this.endZoom();
   }
 
@@ -199,6 +277,7 @@ export class ProductDetailComponent implements OnInit {
     const count = this.galleryImages().length;
     if (count <= 1) return;
     this.selectedImageIndex.update((index) => (index + 1) % count);
+    this.selectedTypeKey.set(this.galleryImages()[this.selectedImageIndex()]?.typeKey ?? this.selectedTypeKey());
     this.endZoom();
   }
 
@@ -227,6 +306,7 @@ export class ProductDetailComponent implements OnInit {
       next: (productDetails) => {
         this.product.set(productDetails);
         this.selectedImageIndex.set(0);
+        this.selectedTypeKey.set(this.galleryImages()[0]?.typeKey ?? this.availableTypes()[0]?.key ?? null);
         this.endZoom();
         this.quantity.set(1);
         this.activeTab.set('description');
@@ -247,8 +327,8 @@ export class ProductDetailComponent implements OnInit {
   }
 
   loadRelatedProducts(productId: string) {
-    this.productService.getRelatedProducts(productId).subscribe({
-      next: (items) => this.relatedProducts.set(items),
+    this.productService.getRelatedProducts(productId, 4).subscribe({
+      next: (items) => this.relatedProducts.set((items ?? []).slice(0, 4)),
     });
   }
 
@@ -344,6 +424,33 @@ export class ProductDetailComponent implements OnInit {
   private canUseWishlist(): boolean {
     const user = this.accountService.currentUserValue;
     return !!user && user.isGuest !== true;
+  }
+
+  private selectedTypeOption(): { key: string; name: string; sku: string; price: number } | undefined {
+    const types = this.availableTypes();
+    const key = this.selectedTypeKey();
+    if (key) {
+      const match = types.find((type) => type.key === key);
+      if (match) return match;
+    }
+
+    const images = this.galleryImages();
+    if (images.length) {
+      const index = Math.min(this.selectedImageIndex(), images.length - 1);
+      const imageKey = images[index]?.typeKey;
+      if (imageKey) {
+        return types.find((type) => type.key === imageKey);
+      }
+    }
+
+    return types[0];
+  }
+
+  private typeKey(name?: string, sku?: string): string {
+    const trimmedName = name?.trim() ?? '';
+    const trimmedSku = sku?.trim() ?? '';
+    if (!trimmedName && !trimmedSku) return '';
+    return `${trimmedName}\u001f${trimmedSku}`;
   }
 
   private pageUrl(): string {

@@ -2,12 +2,18 @@
    CSS VARIABLE DECLARATIONS & RESET PROTOCOLS
    ========================================================================== */
 :root {
-  --primary-orange: #ff9100;
-  --dark-blue-bg: #0f172a;
-  --text-dark: #1e293b;
+  /* CosmicStore brand — navy, gold, burnt orange (logo palette) */
+  --brand-navy: #0b1f3a;
+  --brand-blue: #1a3a6b;
+  --brand-orange: #c45c12;
+  --brand-orange-hover: #a34b0f;
+  --brand-gold: #c9a227;
+  --primary-orange: #c45c12;
+  --dark-blue-bg: #0b1f3a;
+  --text-dark: #0f172a;
   --text-muted: #64748b;
   --border-light: #e2e8f0;
-  --bg-light: #f8fafc;
+  --bg-light: #f1f5f9;
   --font-stack: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
@@ -63,7 +69,7 @@ a {
 }
 
 .top-bar a:hover {
-  color: #2563eb;
+  color: #1a3a6b;
 }
 
 .separator {
@@ -118,7 +124,7 @@ a {
 
 .dropdown-menu a:hover {
   background-color: #f8fafc;
-  color: #2563eb;
+  color: #1a3a6b;
 }
 
 .dropdown-header-mobile {
@@ -144,19 +150,20 @@ a {
 .logo {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-right: 60px;
+  gap: 10px;
+  margin-right: 40px;
 }
 
-.logo-icon {
-  font-size: 2rem;
-  color: var(--primary-orange);
+.logo-mark {
+  width: 76px;
+  height: 76px;
+  object-fit: contain;
 }
 
 .logo-text {
-  font-size: 2.2rem;
+  font-size: 1.85rem;
   font-weight: 800;
-  color: var(--primary-orange);
+  color: #0b1f3a;
   letter-spacing: -0.03em;
 }
 
@@ -254,7 +261,7 @@ a {
 }
 
 .shop-now-btn:hover {
-  background-color: #e68200;
+  background-color: #a34b0f;
   transform: translateY(-2px);
 }
 
@@ -266,13 +273,29 @@ a {
 /* ==========================================================================
    RESPONSIVE DESIGN BREAKPOINTS
    ========================================================================== */
-@media (max-width: 992px) {
+@media (max-width: 992px) and (min-width: 768px) {
+  .hero-banner {
+    grid-template-columns: 1.1fr 1fr;
+    padding: 16px 20px;
+    min-height: 180px;
+  }
+
+  .hero-text-side {
+    padding-left: 24px;
+  }
+
+  .hero-text-side h1 {
+    font-size: 2.2rem;
+  }
+}
+
+@media (max-width: 767px) {
   .hero-banner {
     grid-template-columns: 1fr;
     text-align: center;
     padding: 40px 20px;
   }
-  
+
   .hero-text-side {
     padding-left: 0;
     margin-top: 40px;
@@ -301,21 +324,24 @@ a {
 /* Add these rules to your global template stylesheet */
 
 /* ==========================================================================
-   6-COLUMN VALUE STRIP LAYOUT
+   VALUE STRIP — trust row under the hero
    ========================================================================== */
 .value-strip {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 28px;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
   border: 1px solid #e2e8f0;
-  background-color: #ffffff;
-  margin: 20px 4%;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .value-box {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
-  padding: 20px 14px;
+  padding: 18px 20px;
   border-right: 1px solid #e2e8f0;
 }
 
@@ -324,23 +350,44 @@ a {
 }
 
 .val-icon {
-  font-size: 1.8rem;
-  color: #ff9100;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  margin-top: 2px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #c45c12;
+  background: #fff7ed;
+  border-radius: 6px;
 }
 
 .val-text h4 {
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  color: #1e293b;
-  margin-bottom: 2px;
-  letter-spacing: 0.02em;
+  color: #0b1f3a;
+  margin: 0 0 4px;
+  letter-spacing: 0.01em;
 }
 
 .val-text p {
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   color: #64748b;
-  line-height: 1.2;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.val-text a {
+  color: #9a3412;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.val-text a:focus-visible {
+  outline: 3px solid #c45c12;
+  outline-offset: 2px;
 }
 
 /* ==========================================================================
@@ -386,7 +433,7 @@ a {
 .discount-pill {
   font-size: 2.2rem;
   font-weight: 800;
-  color: #ff9100;
+  color: #c45c12;
 }
 
 .promo-media {
@@ -447,7 +494,7 @@ a {
 }
 
 .tab-btn.active {
-  background-color: #ff9100;
+  background-color: #c45c12;
   color: #ffffff;
 }
 
@@ -469,7 +516,7 @@ a {
 }
 
 .item-card:hover {
-  border-color: #ff9100;
+  border-color: #c45c12;
   box-shadow: 0 10px 20px rgba(0,0,0,0.04);
 }
 
@@ -488,7 +535,7 @@ a {
 .item-price {
   margin-top: 6px;
   font-weight: 700;
-  color: #ff9100;
+  color: #c45c12;
 }
 
 .catalog-empty {
@@ -526,7 +573,7 @@ a {
   border-radius: 20px;
 }
 
-.status-new { background-color: #ff9100; }
+.status-new { background-color: #c45c12; }
 .status-sale { background-color: #ef4444; }
 
 /* ==========================================================================
@@ -536,7 +583,7 @@ a {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  background-color: #ff9100;
+  background-color: #c45c12;
   color: #ffffff;
   border: none;
   width: 44px;
@@ -557,14 +604,21 @@ a {
    ========================================================================== */
 @media (max-width: 1200px) {
   .value-strip {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .value-box:nth-child(3) { border-right: none; }
+
+  .value-box:nth-child(2n) {
+    border-right: none;
+  }
+
+  .value-box:nth-child(-n + 2) {
+    border-bottom: 1px solid #e2e8f0;
+  }
 }
 
 @media (max-width: 992px) {
   .campaign-split {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
   .catalog-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -580,11 +634,24 @@ a {
   .value-strip {
     grid-template-columns: 1fr;
   }
+
   .value-box {
     border-right: none;
     border-bottom: 1px solid #e2e8f0;
   }
+
+  .value-box:last-child {
+    border-bottom: none;
+  }
+
+  .value-box:nth-child(-n + 2) {
+    border-bottom: 1px solid #e2e8f0;
+  }
+
   .catalog-grid {
+    grid-template-columns: 1fr;
+  }
+  .campaign-split {
     grid-template-columns: 1fr;
   }
 }
@@ -669,7 +736,7 @@ a {
 }
 
 .sale-price {
-  color: #ff9100;
+  color: #c45c12;
   font-weight: 700;
 }
 
@@ -730,7 +797,7 @@ a {
 .promo-heading {
   font-size: 2.4rem;
   font-weight: 800;
-  color: #ff9100;
+  color: #c45c12;
   line-height: 1.15;
   margin-bottom: 12px;
 }
@@ -748,7 +815,7 @@ a {
 
 .round-shop-btn {
   display: inline-block;
-  background-color: #ff9100;
+  background-color: #c45c12;
   color: #ffffff;
   padding: 10px 28px;
   border-radius: 20px;
@@ -758,13 +825,13 @@ a {
 }
 
 .round-shop-btn:hover {
-  background-color: #e28100;
+  background-color: #a34b0f;
   transform: scale(1.03);
 }
 
 .white-btn {
   background-color: #ffffff !important;
-  color: #ff9100 !important;
+  color: #c45c12 !important;
 }
 
 .white-btn:hover {
@@ -859,7 +926,7 @@ a {
 }
 
 .site-footer a:hover {
-  color: #ff9100; /* Subtle brand feedback hover state */
+  color: #c45c12; /* Subtle brand feedback hover state */
 }
 
 /* ==========================================================================
@@ -886,7 +953,7 @@ a {
 .icon-circle {
   width: 48px;
   height: 48px;
-  background-color: #ff9100; /* Deep template orange accent circle */
+  background-color: #c45c12; /* Deep template orange accent circle */
   color: #ffffff;
   border-radius: 50%;
   display: flex;
@@ -920,7 +987,7 @@ a {
 .directory-column h2 {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #ff9100; /* Heading highlighted via brand accent styling */
+  color: #c45c12; /* Heading highlighted via brand accent styling */
   margin-bottom: 24px;
 }
 
@@ -949,7 +1016,7 @@ a {
 }
 
 .signup-btn {
-  background-color: #ff9100;
+  background-color: #c45c12;
   color: #ffffff;
   border: none;
   padding: 0 22px;
@@ -961,7 +1028,7 @@ a {
 }
 
 .signup-btn:hover {
-  background-color: #e28100;
+  background-color: #a34b0f;
 }
 
 /* Bullet list custom bullet replacement formatting */
@@ -990,7 +1057,7 @@ a {
    BOTTOM COPYRIGHT SUB-BAR
    ========================================================================== */
 .footer-copyright-bar {
-  background-color: #ff9100;
+  background-color: #c45c12;
   color: #ffffff;
   display: flex;
   justify-content: space-between;

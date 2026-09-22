@@ -25,9 +25,25 @@
         <button type="button" class="secondary-btn" [disabled]="busyOrder()" (click)="refundOrder()">
           Refund remaining
         </button>
+      } @else if (waitingForReturn()) {
+        <p class="refund-lock" role="status">Refund locked until CJ receives the return</p>
       }
     </div>
   </header>
+  @if (detail.hasRefundRequest) {
+    <p class="refund-alert" role="status">
+      This customer requested a refund on {{ requestedRefundItems().length }}
+      {{ requestedRefundItems().length === 1 ? 'item' : 'items' }}. Review the per-item details below.
+    </p>
+  }
+
+  @if (detail.needsFtcShipAttention) {
+    <p class="ftc-alert" role="status">
+      FTC attention: this paid order has been awaiting CJ fulfillment for
+      {{ detail.daysAwaitingFulfillment }} days (flagged at 20; notify and offer a refund by day 30
+      if it still cannot ship).
+    </p>
+  }
 
   <section class="detail-grid">
     <article class="detail-card">
@@ -60,6 +76,97 @@
         {{ detail.logisticName }} — {{ detail.shippingCost | currency:'USD':'symbol' }}
       </p>
     </article>
+
+    @if (showReturnPanel()) {
+      <article class="detail-card">
+        <h2>Return &amp; CJ dispute</h2>
+        @if (detail.returnReceived) {
+          <p class="receipt-ok" role="status">
+            CJ confirmed the returned merchandise was received. This customer qualifies for a refund.
+          </p>
+        } @else {
+          <p class="muted">
+            File a CJ dispute with the customer’s photos or video for damage, wrong items, or missing parts.
+            Use return tracking only if we asked them to ship to a domestic address. Do not send customers to a China warehouse.
+            A Stripe refund follows CJ’s decision on the dispute.
+          </p>
+        }
+
+        @if (requestedRefundItems().length) {
+          <ul class="request-list">
+            @for (item of requestedRefundItems(); track item.id || item.sku) {
+              <li>
+                <strong>{{ item.name || item.sku }}</strong>
+                @if (item.refundRequestedAt) {
+                  <span class="muted"> — {{ item.refundRequestedAt | date:'medium' }}</span>
+                }
+                @if (item.returnTrackingNumber) {
+                  <p>
+                    Return tracking: <code>{{ item.returnTrackingNumber }}</code>
+                    <button
+                      type="button"
+                      class="row-btn"
+                      [disabled]="busyOrder()"
+                      (click)="useReturnTracking(item)">
+                      Use for CJ dispute
+                    </button>
+                  </p>
+                }
+                @if (item.refundRequestReason) {
+                  <p class="muted">Reason: {{ item.refundRequestReason }}</p>
+                }
+              </li>
+            }
+          </ul>
+        }
+
+        <label class="field-label" for="return-tracking">Return tracking number</label>
+        <input
+          id="return-tracking"
+          class="text-input"
+          type="text"
+          autocomplete="off"
+          [value]="returnTracking()"
+          [disabled]="busyOrder()"
+          (input)="onReturnTrackingInput($event)" />
+
+        <div class="header-actions">
+          <button
+            type="button"
+            class="secondary-btn"
+            [disabled]="busyOrder() || !returnTracking().trim() || !detail.cjShipmentOrderId"
+            (click)="openReturnDispute()">
+            Open CJ dispute
+          </button>
+          <button
+            type="button"
+            class="secondary-btn"
+            [disabled]="busyOrder()"
+            (click)="refreshReturnDispute()">
+            Check CJ receipt
+          </button>
+        </div>
+
+        @if (detail.cjDisputeId || detail.cjDisputeStatus) {
+          <p>
+            Dispute
+            @if (detail.cjDisputeId) {
+              <code>{{ detail.cjDisputeId }}</code>
+            }
+            — {{ detail.cjDisputeStatus || 'Opened' }}
+          </p>
+        }
+        @if (detail.dispute?.finallyDealLabel) {
+          <p>CJ decision: {{ detail.dispute?.finallyDealLabel }}</p>
+        }
+        @if (detail.returnTrackingNumber) {
+          <p class="muted">Saved return tracking: <code>{{ detail.returnTrackingNumber }}</code></p>
+        }
+        @if (!detail.cjShipmentOrderId) {
+          <p class="muted">This order has no CJ shipment yet, so a return dispute cannot be opened.</p>
+        }
+      </article>
+    }
   </section>
 
   <section class="detail-card items-card">
@@ -74,6 +181,7 @@
             <th>Price</th>
             <th>Line total</th>
             <th>Status</th>
+            <th>Refund request</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -85,7 +193,25 @@
               <td>{{ item.quantity }}</td>
               <td>{{ item.priceAtPurchase | currency:'USD':'symbol' }}</td>
               <td>{{ lineTotal(item) | currency:'USD':'symbol' }}</td>
-              <td><span class="status">{{ item.status || 'Ordered' }}</span></td>
+              <td><span class="status">{{ itemStatusLabel(item) }}</span></td>
+              <td>
+                @if (itemHasRefundRequest(item)) {
+                  <div class="item-refund">
+                    <span class="refund-flag">Requested</span>
+                    @if (item.refundRequestedAt) {
+                      <p class="muted">{{ item.refundRequestedAt | date:'short' }}</p>
+                    }
+                    @if (item.returnTrackingNumber) {
+                      <p>Return: <code>{{ item.returnTrackingNumber }}</code></p>
+                    }
+                    @if (item.refundRequestReason) {
+                      <p class="muted">{{ item.refundRequestReason }}</p>
+                    }
+                  </div>
+                } @else {
+                  <span class="muted">—</span>
+                }
+              </td>
               <td>
                 @if (canCancelItem(item)) {
                   <button

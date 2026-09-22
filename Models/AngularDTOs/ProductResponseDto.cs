@@ -14,7 +14,9 @@ public class ProductResponseDto
     public bool IsNewArrival { get; set;}
     public bool IsTopSelling { get; set; }
     public int StockQuantity { get; set; }
-    
+
+    public List<ProductTypeDto> Types { get; set; } = new();
+
     // Here is the one-to-many relationship recreated as an array
     public List<PictureDto> Pictures { get; set; } = new List<PictureDto>();
 }

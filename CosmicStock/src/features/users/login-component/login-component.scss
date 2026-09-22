@@ -1,5 +1,5 @@
 :root {
-  --primary-orange: #ff9100;
+  --primary-orange: #c45c12;
   --dark-blue-bg: #0f172a;
   --text-dark: #1e293b;
   --text-muted: #64748b;
@@ -30,6 +30,11 @@
 .login-header {
   text-align: center;
   margin-bottom: 32px;
+}
+
+.login-header app-brand-logo {
+  display: inline-flex;
+  margin-bottom: 12px;
 }
 
 .login-header h2 {

@@ -1,0 +1,56 @@
+<app-site-navbar />
+<div class="wishlist-page">
+  @if (loading()) {
+    <p class="muted" role="status">Loading gift registry...</p>
+  } @else if (!list()) {
+    <header class="page-header">
+      <div>
+        <h1>Gift registry</h1>
+        <p class="error-text" role="alert">{{ message() || 'That gift registry was not found.' }}</p>
+      </div>
+      <a routerLink="/store" class="secondary-btn">Continue shopping</a>
+    </header>
+  } @else {
+    <header class="page-header">
+      <div>
+        <h1>{{ list()!.name }}</h1>
+        <p class="masked" role="status">{{ list()!.maskedShippingLabel }}</p>
+        <p class="disclaimer">{{ list()!.fulfillmentDisclaimer }}</p>
+      </div>
+      <a routerLink="/store" class="secondary-btn">Continue shopping</a>
+    </header>
+
+    @if (message()) {
+      <p [class.error-text]="isError()" [class.success-text]="!isError()" role="status">{{ message() }}</p>
+    }
+
+    @if (!list()!.items.length) {
+      <p class="muted">This registry does not have any products yet.</p>
+    } @else {
+      <div class="wishlist-grid">
+        @for (item of list()!.items; track item.id) {
+          <article class="wishlist-card">
+            <a [routerLink]="['/store', item.productId]" class="image-link">
+              <img [src]="item.bigImage" [alt]="item.nameEn">
+            </a>
+            <div class="card-body">
+              <h2><a [routerLink]="['/store', item.productId]">{{ item.nameEn }}</a></h2>
+              <p class="sku">SKU: {{ item.sku }}</p>
+              <p class="price">{{ item.sellPrice | currency:'USD':'symbol' }}</p>
+              <div class="card-actions">
+                <button
+                  type="button"
+                  class="add-btn"
+                  (click)="addToCart(item)"
+                  [disabled]="addingProductId() === item.productId">
+                  {{ addingProductId() === item.productId ? 'Adding…' : 'Add to cart' }}
+                </button>
+              </div>
+            </div>
+          </article>
+        }
+      </div>
+    }
+  }
+</div>
+<app-site-footer />

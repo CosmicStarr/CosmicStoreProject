@@ -7,6 +7,10 @@ public class WishlistItem
     [Key]
     public int Id { get; set; }
 
+    public int WishlistId { get; set; }
+
+    public Wishlist? Wishlist { get; set; }
+
     public string AppUserId { get; set; } = string.Empty;
 
     public string ProductId { get; set; } = string.Empty;

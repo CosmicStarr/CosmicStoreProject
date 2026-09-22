@@ -1,4 +1,5 @@
 using Data.Interfaces;
+using Data.Util;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Models.AngularDTOs;
@@ -13,12 +14,12 @@ public class AdminCjController(
     ICJDropshippingService cjService,
     ICjCatalogSyncService catalogSyncService,
     IOrderService orderService,
-    IConfiguration configuration) : BaseController
+    IStoreSettingsService storeSettingsService) : BaseController
 {
     private readonly ICJDropshippingService _cjService = cjService;
     private readonly ICjCatalogSyncService _catalogSyncService = catalogSyncService;
     private readonly IOrderService _orderService = orderService;
-    private readonly IConfiguration _configuration = configuration;
+    private readonly IStoreSettingsService _storeSettingsService = storeSettingsService;
 
     /// <summary>
     /// Loads CJ product metadata and variants from a pid, product SKU, or variant SKU.
@@ -43,7 +44,7 @@ public class AdminCjController(
         var pid = FirstNonEmpty(lookup.Pid, details?.Pid, key);
         var matchedVariant = variants.FirstOrDefault(variant =>
             string.Equals(variant.Sku, key, StringComparison.OrdinalIgnoreCase));
-        var markup = _configuration.GetValue("StoreSettings:DefaultMarkup", 2.0m);
+        var markup = await _storeSettingsService.GetDefaultMarkupAsync();
         var cjPrice = matchedVariant?.SellPrice ?? variants[0].SellPrice;
 
         return Ok(new CjProductImportDto
@@ -77,11 +78,13 @@ public class AdminCjController(
 
     /// <summary>
     /// Pulls CJ variants for every storefront product whose id is a CJ pid.
+    /// Maps vids for fulfillment only. New options stay off the storefront until you edit and save.
     /// </summary>
     [HttpPost("sync/variants")]
     public async Task<ActionResult<object>> SyncAllVariants(CancellationToken cancellationToken)
     {
         var count = await _catalogSyncService.SyncAllVariantsAsync(cancellationToken);
+        await _storeSettingsService.MarkSyncCompletedAsync(CjSyncCacheKeys.VariantsLastSync);
         return Ok(new { mappedVariants = count });
     }
 
@@ -92,6 +95,7 @@ public class AdminCjController(
     public async Task<ActionResult<object>> SyncProductVariants(string productId)
     {
         var count = await _catalogSyncService.SyncVariantsForProductAsync(productId);
+        await _storeSettingsService.MarkSyncCompletedAsync(CjSyncCacheKeys.VariantsLastSync);
         return Ok(new { mappedVariants = count });
     }
 
@@ -102,6 +106,7 @@ public class AdminCjController(
     public async Task<ActionResult<object>> SyncStock(CancellationToken cancellationToken)
     {
         var count = await _catalogSyncService.SyncStockAsync(cancellationToken);
+        await _storeSettingsService.MarkSyncCompletedAsync(CjSyncCacheKeys.StockLastSync);
         return Ok(new { updatedVariants = count });
     }
 
@@ -112,6 +117,7 @@ public class AdminCjController(
     public async Task<ActionResult<object>> SyncPendingOrders(CancellationToken cancellationToken)
     {
         var count = await _orderService.SyncPendingOrdersAsync(cancellationToken);
+        await _storeSettingsService.MarkSyncCompletedAsync(CjSyncCacheKeys.OrdersLastSync);
         return Ok(new { updatedOrders = count });
     }
 
@@ -143,7 +149,8 @@ public class AdminCjController(
     }
 
     /// <summary>
-    /// Refunds the Stripe PaymentIntent and marks the order Refunded.
+    /// Refunds the Stripe PaymentIntent after CJ confirms a shipped return was received.
+    /// Unshipped orders are cancelled with CJ, then refunded.
     /// </summary>
     [HttpPost("orders/{orderId}/refund")]
     public async Task<ActionResult<OrderDto>> RefundOrder(string orderId)
@@ -151,6 +158,40 @@ public class AdminCjController(
         try
         {
             var order = await _orderService.RefundOrderAsync(orderId);
+            return order is null ? NotFound() : Ok(order);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Opens a CJ return dispute using the customer's return tracking number.
+    /// </summary>
+    [HttpPost("orders/{orderId}/return-dispute")]
+    public async Task<ActionResult<OrderDto>> OpenReturnDispute(string orderId, [FromBody] OpenReturnDisputeRequest request)
+    {
+        try
+        {
+            var order = await _orderService.OpenReturnDisputeAsync(orderId, request);
+            return order is null ? NotFound() : Ok(order);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Reloads the CJ dispute and qualifies the customer for a refund only after warehouse receipt.
+    /// </summary>
+    [HttpPost("orders/{orderId}/return-dispute/refresh")]
+    public async Task<ActionResult<OrderDto>> RefreshReturnDispute(string orderId)
+    {
+        try
+        {
+            var order = await _orderService.RefreshReturnDisputeAsync(orderId);
             return order is null ? NotFound() : Ok(order);
         }
         catch (InvalidOperationException ex)

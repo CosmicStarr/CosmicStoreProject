@@ -41,10 +41,7 @@
   </div>
 
   <header class="main-header">
-    <a routerLink="/" class="logo" aria-label="CosmicStore home">
-      <span class="logo-icon" aria-hidden="true">🛍️</span>
-      <span class="logo-text">CosmicStore</span>
-    </a>
+    <app-brand-logo [priority]="true" />
 
     <form class="search-container" (ngSubmit)="submitSearch($event)">
       <label for="global-search" class="visually-hidden">Search products</label>

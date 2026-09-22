@@ -16,9 +16,9 @@ public interface IPaymentService
 
     /// <summary>
     /// Refunds a PaymentIntent. Pass amountCents for a partial refund; omit it to return the
-    /// remaining balance. No-ops when Stripe already shows a full refund.
+    /// remaining balance. Returns the cents Stripe accepted, or 0 when already fully refunded.
     /// </summary>
-    Task RefundPaymentAsync(string paymentIntentId, long? amountCents = null, string? idempotencyKey = null);
+    Task<long> RefundPaymentAsync(string paymentIntentId, long? amountCents = null, string? idempotencyKey = null);
 
     Task<Order?> MarkPaymentSucceededAsync(string paymentIntentId);
 

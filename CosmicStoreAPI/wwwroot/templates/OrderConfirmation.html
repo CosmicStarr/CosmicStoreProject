@@ -4,41 +4,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Your CosmicStore order</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f4f6f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f6f8; padding: 40px 0;">
+<body style="margin: 0; padding: 0; background-color: #eef2f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #eef2f6; padding: 40px 0;">
         <tr>
             <td align="center">
-                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden;">
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #dbe3ec;">
                     <tr>
-                        <td align="center" style="background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%); padding: 36px 20px;">
-                            <h1 style="color: #ffffff; font-size: 24px; font-weight: 700; margin: 0;">CosmicStore</h1>
+                        <td align="center" style="background-color: #0b1f3a; padding: 28px 24px;">
+                            <img src="{{LOGO_URL}}" width="72" height="72" alt="CosmicStore" style="display:block;margin:0 auto 12px;border:0;outline:none;text-decoration:none;" />
+                            <p style="margin: 0 0 6px; font-size: 12px; letter-spacing: 0.14em; color: #c9a227; font-weight: 700;">COSMICSTORE</p>
+                            <h1 style="color: #ffffff; font-size: 22px; font-weight: 700; margin: 0;">Order confirmation</h1>
+                            <p style="margin: 10px auto 0; height: 3px; width: 56px; background: linear-gradient(90deg, #c9a227 0%, #c45c12 100%); border: 0;"></p>
                         </td>
                     </tr>
                     <tr>
-                        <td style="padding: 40px 32px;">
-                            <h2 style="color: #1e293b; font-size: 20px; font-weight: 600; margin-top: 0; margin-bottom: 16px;">Thanks for your order, {{NAME}}</h2>
+                        <td style="padding: 36px 32px;">
+                            <h2 style="color: #0b1f3a; font-size: 20px; font-weight: 600; margin-top: 0; margin-bottom: 16px;">Thanks for your order, {{NAME}}</h2>
                             <p style="color: #475569; font-size: 16px; line-height: 24px; margin-top: 0; margin-bottom: 16px;">
-                                We received your order <strong>{{ORDER_ID}}</strong>. A confirmation was sent to {{EMAIL}}.
+                                We received your order <strong style="color: #0b1f3a;">{{ORDER_ID}}</strong>. A copy of these details was sent to {{EMAIL}}.
                             </p>
                             <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 24px;">
                                 {{ITEMS}}
                                 <tr>
-                                    <td style="padding: 8px 0; color: #64748b;">Shipping</td>
-                                    <td style="padding: 8px 0; text-align: right; color: #64748b;">{{SHIPPING}}</td>
+                                    <td style="padding: 10px 0; color: #64748b; border-bottom: 1px solid #e2e8f0;">Shipping</td>
+                                    <td style="padding: 10px 0; text-align: right; color: #64748b; border-bottom: 1px solid #e2e8f0;">{{SHIPPING}}</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding: 12px 0 0; font-weight: 700; color: #1e293b;">Total</td>
-                                    <td style="padding: 12px 0 0; text-align: right; font-weight: 700; color: #1e293b;">{{TOTAL}}</td>
+                                    <td style="padding: 14px 0 0; font-weight: 700; color: #0b1f3a;">Total</td>
+                                    <td style="padding: 14px 0 0; text-align: right; font-weight: 700; color: #c45c12; font-size: 18px;">{{TOTAL}}</td>
                                 </tr>
                             </table>
+                            <p style="color: #475569; font-size: 15px; line-height: 22px; margin: 0 0 8px; font-weight: 600; color: #0b1f3a;">Ships to</p>
                             <p style="color: #475569; font-size: 15px; line-height: 22px; margin: 0;">
-                                Ships to:<br>
                                 {{ADDRESS}}
                             </p>
+                            {{MANAGE_BLOCK}}
                         </td>
                     </tr>
                     <tr>
-                        <td style="background-color: #f8fafc; padding: 20px 32px; text-align: center; border-top: 1px solid #f1f5f9;">
+                        <td style="background-color: #0b1f3a; padding: 20px 32px; text-align: center;">
+                            <p style="color: #c9a227; font-size: 12px; margin: 0 0 6px; letter-spacing: 0.08em;">COSMICSTORE</p>
                             <p style="color: #94a3b8; font-size: 12px; margin: 0;">
                                 &copy; 2026 CosmicStore. All rights reserved.
                             </p>

@@ -31,6 +31,11 @@ dist/
 npm-debug.log*
 yarn-error.log*
 
+# Angular files copied into the API wwwroot at publish time (keep email templates)
+CosmicStoreAPI/wwwroot/**
+!CosmicStoreAPI/wwwroot/templates/
+!CosmicStoreAPI/wwwroot/templates/**
+
 # Local database exports taken before destructive maintenance
 db-backups/
 

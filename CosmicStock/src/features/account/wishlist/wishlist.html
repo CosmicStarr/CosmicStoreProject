@@ -3,7 +3,7 @@
   <header class="page-header">
     <div>
       <h1>My Wishlist</h1>
-      <p class="muted">Saved products you can add to your cart anytime.</p>
+      <p class="muted">Saved products you can add to your cart anytime. Share as a gift registry to hide your delivery address from buyers.</p>
     </div>
     <a routerLink="/store" class="secondary-btn">Continue shopping</a>
   </header>
@@ -14,34 +14,84 @@
 
   @if (loading()) {
     <p class="muted" role="status">Loading wishlist...</p>
-  } @else if (!items().length) {
-    <p class="muted">Your wishlist is empty.</p>
-    <a routerLink="/store" class="link-btn">Browse Products</a>
   } @else {
-    <div class="wishlist-grid">
-      @for (item of items(); track item.id) {
-        <article class="wishlist-card">
-          <a [routerLink]="['/store', item.productId]" class="image-link">
-            <img [src]="item.bigImage" [alt]="item.nameEn">
-          </a>
-          <div class="card-body">
-            <h2><a [routerLink]="['/store', item.productId]">{{ item.nameEn }}</a></h2>
-            <p class="sku">SKU: {{ item.sku }}</p>
-            <p class="price">{{ item.sellPrice | currency:'USD':'symbol' }}</p>
-            <div class="card-actions">
-              <button
-                type="button"
-                class="add-btn"
-                (click)="addToCart(item)"
-                [disabled]="addingProductId() === item.productId">
-                {{ addingProductId() === item.productId ? 'Adding…' : 'Add to cart' }}
-              </button>
-              <button type="button" class="danger-btn" (click)="removeItem(item.productId)">Remove</button>
-            </div>
+    <section class="registry-card" aria-labelledby="registry-heading">
+      <h2 id="registry-heading">Gift registry</h2>
+      <form [formGroup]="settingsForm" (ngSubmit)="saveSettings()">
+        <div class="form-group">
+          <label for="wishlistName">List name</label>
+          <input id="wishlistName" type="text" formControlName="name" maxlength="80">
+        </div>
+        <div class="form-group">
+          <label for="shippingAddressId">Delivery address</label>
+          @if (addresses().length) {
+            <select id="shippingAddressId" formControlName="shippingAddressId">
+              <option [ngValue]="null">Select a saved address</option>
+              @for (address of addresses(); track address.id) {
+                <option [ngValue]="address.id">{{ address.label }} — {{ address.city }}, {{ address.countryCode }}</option>
+              }
+            </select>
+          } @else {
+            <p class="muted">
+              Save an address on your
+              <a routerLink="/account/profile">profile</a>
+              before sharing a registry. Buyers will never see the street, city, or ZIP.
+            </p>
+          }
+        </div>
+        <label class="checkbox">
+          <input type="checkbox" formControlName="isGiftRegistry">
+          Share this list as a gift registry (hide my address from buyers)
+        </label>
+        <p class="disclaimer">{{ wishlist()?.fulfillmentDisclaimer }}</p>
+        <button type="submit" class="add-btn settings-btn" [disabled]="savingSettings()">
+          {{ savingSettings() ? 'Saving…' : 'Save registry settings' }}
+        </button>
+      </form>
+
+      @if (wishlist()?.isGiftRegistry && wishlist()?.shareUrl) {
+        <div class="share-box">
+          <p class="masked">{{ wishlist()?.maskedShippingLabel }}</p>
+          <label for="shareUrl">Share link</label>
+          <div class="share-row">
+            <input id="shareUrl" type="text" [value]="wishlist()?.shareUrl" readonly>
+            <button type="button" class="secondary-btn" (click)="copyShareLink()">
+              {{ copied() ? 'Copied' : 'Copy link' }}
+            </button>
           </div>
-        </article>
+        </div>
       }
-    </div>
+    </section>
+
+    @if (!items().length) {
+      <p class="muted">Your wishlist is empty.</p>
+      <a routerLink="/store" class="link-btn">Browse Products</a>
+    } @else {
+      <div class="wishlist-grid">
+        @for (item of items(); track item.id) {
+          <article class="wishlist-card">
+            <a [routerLink]="['/store', item.productId]" class="image-link">
+              <img [src]="item.bigImage" [alt]="item.nameEn">
+            </a>
+            <div class="card-body">
+              <h2><a [routerLink]="['/store', item.productId]">{{ item.nameEn }}</a></h2>
+              <p class="sku">SKU: {{ item.sku }}</p>
+              <p class="price">{{ item.sellPrice | currency:'USD':'symbol' }}</p>
+              <div class="card-actions">
+                <button
+                  type="button"
+                  class="add-btn"
+                  (click)="addToCart(item)"
+                  [disabled]="addingProductId() === item.productId">
+                  {{ addingProductId() === item.productId ? 'Adding…' : 'Add to cart' }}
+                </button>
+                <button type="button" class="danger-btn" (click)="removeItem(item.productId)">Remove</button>
+              </div>
+            </div>
+          </article>
+        }
+      </div>
+    }
   }
 </div>
 <app-site-footer />

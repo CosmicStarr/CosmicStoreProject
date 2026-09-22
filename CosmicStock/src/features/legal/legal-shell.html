@@ -1,0 +1,14 @@
+<app-site-navbar />
+<div class="legal-layout">
+  <nav class="legal-nav" aria-label="About and policies">
+    <a routerLink="/about" routerLinkActive="active">About</a>
+    <a routerLink="/shipping" routerLinkActive="active">Shipping &amp; Delivery</a>
+    <a routerLink="/returns" routerLinkActive="active">Returns &amp; Refunds</a>
+    <a routerLink="/privacy" routerLinkActive="active">Privacy Policy</a>
+    <a routerLink="/terms" routerLinkActive="active">Terms &amp; Conditions</a>
+  </nav>
+  <main>
+    <ng-content />
+  </main>
+</div>
+<app-site-footer />

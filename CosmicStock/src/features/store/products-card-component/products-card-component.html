@@ -4,15 +4,8 @@
     <!-- LEFT SIDEBAR -->
     <aside class="sidebar">
       
-      <form class="sidebar-search" (ngSubmit)="searchStore()">
-        <label class="visually-hidden" for="detail-search">Search products</label>
-        <input id="detail-search" type="search" placeholder="Search products" [(ngModel)]="sidebarSearch" name="detailSearch">
-        <button type="submit" class="sidebar-search-btn" aria-label="Search products">
-          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-        </button>
-      </form>
 
-      <div class="filter-group">
+      <div class="filter-group featured-section">
         <h2 class="filter-title">Featured products</h2>
         <div class="featured-column">
           @if (!featuredProducts().length) {
@@ -99,8 +92,28 @@
         <div class="purchase-details">
           <h1 class="main-product-title">{{ product()?.nameEn }}</h1>
           <p class="category-meta">Category: <span>{{ product()?.category }}</span></p>
+
+          @if (availableTypes().length) {
+            <div class="type-options" role="listbox" aria-label="Product types">
+              @for (type of availableTypes(); track type.key) {
+                <button
+                  type="button"
+                  class="type-option"
+                  role="option"
+                  [class.active]="selectedTypeKey() === type.key"
+                  [attr.aria-selected]="selectedTypeKey() === type.key"
+                  [attr.aria-label]="type.price > 0 ? type.name + ', ' + (type.price | currency:'USD':'symbol') : type.name"
+                  (click)="selectType(type.key)">
+                  <span class="type-option-name">{{ type.name }}</span>
+                  @if (type.price > 0) {
+                    <span class="type-option-price">{{ type.price | currency:'USD':'symbol' }}</span>
+                  }
+                </button>
+              }
+            </div>
+          }
           
-          <div class="main-price">{{product()?.sellPrice|currency:'USD':'symbol'}}</div>
+          <div class="main-price">{{ selectedPrice() | currency:'USD':'symbol' }}</div>
 
           <div class="stock-status">
             <p>Product SKU: <span>{{ selectedSku() }}</span></p>

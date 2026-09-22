@@ -37,13 +37,20 @@ public class CartController(IShoppingCartService cartService) : BaseController
         }
 
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        var cart = await _cartService.AddItemAsync(dto.CartId, dto.ProductId, dto.Quantity, userId, dto.Sku);
-        if (cart is null)
+        try
         {
-            return BadRequest(new { message = "That product or SKU is not on the storefront, or the cart could not be saved." });
-        }
+            var cart = await _cartService.AddItemAsync(dto.CartId, dto.ProductId, dto.Quantity, userId, dto.Sku, dto.WishlistId);
+            if (cart is null)
+            {
+                return BadRequest(new { message = "That product or SKU is not on the storefront, or the cart could not be saved." });
+            }
 
-        return Ok(cart);
+            return Ok(cart);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     /// <summary>

@@ -1,5 +1,5 @@
 :root {
-  --primary-orange: #ff9100;
+  --primary-orange: #c45c12;
   --text-muted: #64748b;
   --border-light: #e2e8f0;
   --bg-light: #f8fafc;
@@ -34,6 +34,21 @@
   margin: 0 0 12px;
 }
 
+.item-hint {
+  margin: -4px 0 12px;
+}
+
+.refund-flag {
+  display: inline-block;
+  margin: 8px 0 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .status {
   color: var(--primary-orange);
   font-weight: 600;
@@ -46,19 +61,132 @@
 .item-row, .total-row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  gap: 12px;
   padding: 8px 0;
   border-bottom: 1px solid var(--border-light);
+}
+
+.item-copy,
+.item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.item-actions {
+  justify-content: flex-end;
+}
+
+.inactive-row {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.inactive-row .row-btn,
+.inactive-row .muted {
+  text-decoration: none;
+}
+
+.item-block {
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.item-block .item-row {
+  border-bottom: none;
+}
+
+.refund-help {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  background: var(--bg-light);
+  border-radius: 8px;
+}
+
+.refund-help h4 {
+  margin: 0 0 8px;
+}
+
+.refund-help ol {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.refund-help li {
+  margin: 4px 0;
+}
+
+.refund-help a {
+  color: #9a3412;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.refund-help a:focus-visible {
+  outline: 3px solid #c45c12;
+  outline-offset: 2px;
+}
+
+.refund-status,
+.refund-form {
+  margin: 0 0 8px 0;
+  padding: 10px 12px;
+  background: var(--bg-light);
+  border-radius: 8px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.form-group label {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.form-group input,
+.form-group textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  font: inherit;
+}
+
+.form-group input:focus-visible,
+.form-group textarea:focus-visible,
+.row-btn:focus-visible {
+  outline: 2px solid var(--primary-orange);
+  outline-offset: 2px;
+}
+
+.row-btn {
+  padding: 6px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: #fff;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover:not([disabled]) {
+    border-color: var(--primary-orange);
+  }
+
+  &[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 }
 
 .total-row {
   border-bottom: none;
   margin-top: 8px;
   font-size: 18px;
-}
-
-.inactive-row {
-  color: var(--text-muted);
-  text-decoration: line-through;
 }
 
 .tracking code {

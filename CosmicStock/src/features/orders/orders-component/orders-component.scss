@@ -1,5 +1,5 @@
 :root {
-  --primary-orange: #ff9100;
+  --primary-orange: #c45c12;
   --text-dark: #1e293b;
   --text-muted: #64748b;
   --border-light: #e2e8f0;
@@ -58,6 +58,17 @@
   color: var(--primary-orange);
   font-size: 13px;
   margin-bottom: 4px;
+}
+
+.refund-flag {
+  display: block;
+  margin: 0 0 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .empty {

@@ -3,19 +3,53 @@
 </header>
 
 <section class="settings-card">
-  <h2>Publish Markup</h2>
+  <h2>Publish &amp; catalog sync</h2>
   <p class="muted">
-    CJ cost is multiplied by this value when publishing products to the storefront.
-    Configure the server default in <code>StoreSettings:DefaultMarkup</code>.
+    CJ cost is multiplied by the markup when publishing products. Catalog sync interval applies to the background worker without a restart.
   </p>
 
-  @if (settings()) {
-    <div class="setting-row">
-      <span>Current server markup</span>
-      <strong>{{ settings()!.defaultMarkup }}×</strong>
+  <form class="settings-form" (ngSubmit)="saveSettings()">
+    <div class="form-group">
+      <label for="defaultMarkup">Default markup</label>
+      <input
+        id="defaultMarkup"
+        type="number"
+        min="0.01"
+        step="0.01"
+        class="settings-input"
+        [ngModel]="markupDraft()"
+        (ngModelChange)="markupDraft.set($event)"
+        name="defaultMarkup"
+        required
+      />
     </div>
+
+    <div class="form-group">
+      <label for="catalogSyncHours">Catalog sync interval</label>
+      <select
+        id="catalogSyncHours"
+        class="settings-input"
+        [ngModel]="syncHoursDraft()"
+        (ngModelChange)="syncHoursDraft.set(+$event === 12 ? 12 : 6)"
+        name="catalogSyncHours"
+      >
+        <option [ngValue]="6">Every 6 hours</option>
+        <option [ngValue]="12">Every 12 hours</option>
+      </select>
+    </div>
+
+    <button type="submit" class="primary-btn" [disabled]="saving()">
+      {{ saving() ? 'Saving...' : 'Save settings' }}
+    </button>
+  </form>
+
+  @if (saveMessage()) {
+    <p class="sync-message" role="status">{{ saveMessage() }}</p>
+  }
+
+  @if (settings(); as current) {
     <p class="example">
-      Example: a $10 CJ product publishes at {{ 10 * settings()!.defaultMarkup | currency:'USD':'symbol' }}
+      Example: a $10 CJ product publishes at {{ 10 * current.defaultMarkup | currency:'USD':'symbol' }}
     </p>
   }
 </section>
@@ -52,7 +86,54 @@
   <h2>CJ Sync</h2>
   <p class="muted">
     Background workers run these on a schedule. Use the buttons to force a run now.
+    Mapping variants stores CJ vids for fulfillment only. New options stay off the storefront until you
+    edit their properties and save or publish the product.
   </p>
+
+  @if (settings(); as current) {
+    <ul class="sync-status">
+      <li>
+        <span>Catalog</span>
+        <strong>
+          @if (current.catalogLastSyncAt) {
+            {{ current.catalogLastSyncAt | date:'medium' }}
+          } @else {
+            Never
+          }
+        </strong>
+      </li>
+      <li>
+        <span>Variants</span>
+        <strong>
+          @if (current.variantsLastSyncAt) {
+            {{ current.variantsLastSyncAt | date:'medium' }}
+          } @else {
+            Never
+          }
+        </strong>
+      </li>
+      <li>
+        <span>Stock</span>
+        <strong>
+          @if (current.stockLastSyncAt) {
+            {{ current.stockLastSyncAt | date:'medium' }}
+          } @else {
+            Never
+          }
+        </strong>
+      </li>
+      <li>
+        <span>Orders</span>
+        <strong>
+          @if (current.ordersLastSyncAt) {
+            {{ current.ordersLastSyncAt | date:'medium' }}
+          } @else {
+            Never
+          }
+        </strong>
+      </li>
+    </ul>
+  }
 
   <div class="sync-actions">
     <button type="button" class="secondary-btn" [disabled]="syncing()" (click)="syncVariants()">

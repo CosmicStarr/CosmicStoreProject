@@ -18,5 +18,8 @@ public class ProductWithPictureDto
     public string? PictureId { get; set; }
     public string? PhotoUrl { get; set; }
     public string? SkuPhoto { get; set; }
-    public string? Type { get; set; }
+    public int? ProductTypeId { get; set; }
+    public string? TypeName { get; set; }
+    public string? TypeSku { get; set; }
+    public decimal TypePrice { get; set; }
 }

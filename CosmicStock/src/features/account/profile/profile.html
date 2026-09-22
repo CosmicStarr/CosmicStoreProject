@@ -11,7 +11,7 @@
 
   <section class="card orders-card">
     <h2>Orders</h2>
-    <p class="muted">Click an order to see details or request a cancellation.</p>
+    <p class="muted">Orders from the last 3 months. Click one to see details, cancel an unshipped item, or request a refund.</p>
 
     @if (ordersMessage()) {
       <p class="error-text" role="status">{{ ordersMessage() }}</p>
@@ -33,7 +33,7 @@
           @if (!orders().length) {
             <tr>
               <td colspan="6" class="empty-cell">
-                {{ ordersLoading() ? 'Loading orders...' : 'You have not placed any orders yet.' }}
+                {{ ordersLoading() ? 'Loading orders...' : 'You have no orders from the last 3 months.' }}
               </td>
             </tr>
           } @else {
@@ -45,7 +45,12 @@
                 (keydown.enter)="openOrder(order)">
                 <td>{{ order.orderId.slice(0, 8) }}</td>
                 <td>{{ order.createdAt | date:'short' }}</td>
-                <td><span class="status">{{ order.status }}</span></td>
+                <td>
+                  <span class="status">{{ order.status }}</span>
+                  @if (order.hasRefundRequest) {
+                    <span class="refund-flag">Refund requested</span>
+                  }
+                </td>
                 <td>{{ order.paymentStatus || '—' }}</td>
                 <td>{{ itemCount(order) }}</td>
                 <td>{{ order.total | currency:'USD':'symbol' }}</td>

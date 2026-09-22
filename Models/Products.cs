@@ -13,6 +13,8 @@ public class Products
     public string? ShortDescription { get; set; }
     public bool IsFeatured { get; set; }
     public bool IsNewArrival { get; set;}
+    /// <summary>UTC time when New Arrival was last turned on. Cleared when the flag expires or is turned off.</summary>
+    public DateTime? NewArrivalMarkedAt { get; set; }
     public bool IsTopSelling { get; set; }
     public string Sku { get; set; } = string.Empty;
     /// <summary>CJ Dropshipping variant ID used when placing orders.</summary>
@@ -29,4 +31,7 @@ public class Products
     // If you added these earlier, make sure they are nullable too
     [JsonIgnore]
     public IList<ProductImage>? ProductImages { get; set; }
+
+    [JsonIgnore]
+    public IList<ProductType>? ProductTypes { get; set; }
 }

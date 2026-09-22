@@ -166,6 +166,167 @@ public class CJDropshippingService : ICJDropshippingService
         }
     }
 
+    /// <summary>Lists line items CJ will accept on a dispute for this shipment.</summary>
+    public async Task<IReadOnlyList<CjDisputeProduct>> GetDisputeProductsAsync(string cjOrderId)
+    {
+        try
+        {
+            var jsonResponse = await GetAsync($"/v1/disputes/disputeProducts?orderId={Uri.EscapeDataString(cjOrderId)}");
+            using var document = JsonDocument.Parse(jsonResponse);
+            var data = GetDataObject(document.RootElement);
+            if (data is null)
+            {
+                return Array.Empty<CjDisputeProduct>();
+            }
+
+            return ReadDisputeProducts(data.Value);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to read CJ dispute products for {OrderId}.", cjOrderId);
+            return Array.Empty<CjDisputeProduct>();
+        }
+    }
+
+    /// <summary>Asks CJ which refund reasons apply to the selected dispute lines.</summary>
+    public async Task<CjDisputeConfirmInfo?> ConfirmDisputeInfoAsync(string cjOrderId, IReadOnlyList<CjDisputeProduct> products)
+    {
+        try
+        {
+            var jsonResponse = await PostAsync("/v1/disputes/disputeConfirmInfo", new
+            {
+                orderId = cjOrderId,
+                productInfoList = products.Select(product => new
+                {
+                    lineItemId = product.LineItemId,
+                    quantity = product.Quantity.ToString(),
+                    price = product.Price
+                }).ToList()
+            });
+
+            using var document = JsonDocument.Parse(jsonResponse);
+            var data = GetDataObject(document.RootElement);
+            if (data is null)
+            {
+                return null;
+            }
+
+            return new CjDisputeConfirmInfo
+            {
+                Products = ReadDisputeProducts(data.Value).ToList(),
+                Reasons = ReadDisputeReasons(data.Value).ToList()
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to confirm CJ dispute info for {OrderId}.", cjOrderId);
+            return null;
+        }
+    }
+
+    /// <summary>Creates a CJ dispute. Null means CJ accepted it; otherwise the error text.</summary>
+    public async Task<string?> CreateDisputeAsync(CjCreateDisputeRequest request)
+    {
+        try
+        {
+            var jsonResponse = await PostAsync("/v1/disputes/create", new
+            {
+                orderId = request.OrderId,
+                businessDisputeId = request.BusinessDisputeId,
+                disputeReasonId = request.DisputeReasonId,
+                expectType = request.ExpectType,
+                refundType = request.RefundType,
+                messageText = request.MessageText,
+                imageUrl = Array.Empty<string>(),
+                productInfoList = request.Products.Select(product => new
+                {
+                    lineItemId = product.LineItemId,
+                    quantity = product.Quantity.ToString(),
+                    price = product.Price
+                }).ToList()
+            });
+
+            using var document = JsonDocument.Parse(jsonResponse);
+            var root = document.RootElement;
+            if (root.TryGetProperty("result", out var result) && result.ValueKind == JsonValueKind.True)
+            {
+                return null;
+            }
+
+            var message = ReadString(root, "message") ?? "CJ did not open the dispute.";
+            _logger.LogWarning("CJ create dispute failed: {Response}", jsonResponse);
+            return message;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create CJ dispute for {OrderId}.", request.OrderId);
+            return "Could not reach CJ to open the dispute.";
+        }
+    }
+
+    /// <summary>Lists disputes for a CJ shipment id and/or CosmicStore order number.</summary>
+    public async Task<IReadOnlyList<CjDisputeDto>> GetDisputesAsync(string? cjOrderId, string? orderNumber = null)
+    {
+        try
+        {
+            var query = new List<string> { "pageNum=1", "pageSize=20" };
+            if (!string.IsNullOrWhiteSpace(cjOrderId))
+            {
+                query.Add($"orderId={Uri.EscapeDataString(cjOrderId)}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(orderNumber))
+            {
+                query.Add($"orderNumber={Uri.EscapeDataString(orderNumber)}");
+            }
+
+            var jsonResponse = await GetAsync($"/v1/disputes/getDisputeList?{string.Join("&", query)}");
+            using var document = JsonDocument.Parse(jsonResponse);
+            if (!IsSuccess(document.RootElement) || !document.RootElement.TryGetProperty("data", out var data))
+            {
+                return Array.Empty<CjDisputeDto>();
+            }
+
+            JsonElement list = data;
+            if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("list", out var nested))
+            {
+                list = nested;
+            }
+
+            if (list.ValueKind != JsonValueKind.Array)
+            {
+                return Array.Empty<CjDisputeDto>();
+            }
+
+            return list.EnumerateArray()
+                .Select(MapDispute)
+                .Where(dispute => !string.IsNullOrWhiteSpace(dispute.DisputeId) || !string.IsNullOrWhiteSpace(dispute.Status))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to list CJ disputes for {OrderId}.", cjOrderId);
+            return Array.Empty<CjDisputeDto>();
+        }
+    }
+
+    /// <summary>Reads one dispute, including final deal and refund amount.</summary>
+    public async Task<CjDisputeDto?> GetDisputeDetailAsync(string disputeId)
+    {
+        try
+        {
+            var jsonResponse = await GetAsync($"/v1/disputes/getDisputeDetail?disputeId={Uri.EscapeDataString(disputeId)}");
+            using var document = JsonDocument.Parse(jsonResponse);
+            var data = GetDataObject(document.RootElement);
+            return data is null ? null : MapDispute(data.Value);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to read CJ dispute {DisputeId}.", disputeId);
+            return null;
+        }
+    }
+
     /// <summary>Lists variants (vid, SKU, price, image) for a CJ pid.</summary>
     public async Task<IReadOnlyList<CjVariantDto>> GetProductVariantsAsync(string cjProductId)
     {
@@ -448,5 +609,119 @@ public class CJDropshippingService : ICJDropshippingService
             JsonValueKind.Null or JsonValueKind.Undefined => null,
             _ => property.ToString()
         };
+    }
+
+    private static bool IsSuccess(JsonElement root) =>
+        root.TryGetProperty("result", out var result) && result.ValueKind == JsonValueKind.True;
+
+    private static JsonElement? GetDataObject(JsonElement root)
+    {
+        if (!IsSuccess(root) || !root.TryGetProperty("data", out var data))
+        {
+            return null;
+        }
+
+        return data.ValueKind == JsonValueKind.Object ? data : null;
+    }
+
+    private static IReadOnlyList<CjDisputeProduct> ReadDisputeProducts(JsonElement data)
+    {
+        if (!data.TryGetProperty("productInfoList", out var list) || list.ValueKind != JsonValueKind.Array)
+        {
+            return Array.Empty<CjDisputeProduct>();
+        }
+
+        return list.EnumerateArray().Select(item => new CjDisputeProduct
+        {
+            LineItemId = ReadString(item, "lineItemId"),
+            Sku = ReadString(item, "sku"),
+            Quantity = (int)ReadDecimal(item, "quantity"),
+            Price = ReadDecimal(item, "price"),
+            CanChoose = item.TryGetProperty("canChoose", out var canChoose)
+                && canChoose.ValueKind is JsonValueKind.True or JsonValueKind.False
+                && canChoose.GetBoolean()
+        }).ToList();
+    }
+
+    private static IReadOnlyList<CjDisputeReason> ReadDisputeReasons(JsonElement data)
+    {
+        if (!data.TryGetProperty("disputeReasonList", out var list) || list.ValueKind != JsonValueKind.Array)
+        {
+            return Array.Empty<CjDisputeReason>();
+        }
+
+        return list.EnumerateArray().Select(item => new CjDisputeReason
+        {
+            DisputeReasonId = (int)ReadDecimal(item, "disputeReasonId"),
+            ReasonName = ReadString(item, "reasonName")
+        }).ToList();
+    }
+
+    private static CjDisputeDto MapDispute(JsonElement item)
+    {
+        int? finallyDeal = null;
+        if (item.TryGetProperty("finallyDeal", out var deal)
+            && deal.ValueKind is not JsonValueKind.Null and not JsonValueKind.Undefined)
+        {
+            if (deal.ValueKind == JsonValueKind.Number && deal.TryGetInt32(out var numberDeal))
+            {
+                finallyDeal = numberDeal;
+            }
+            else if (int.TryParse(deal.ToString(), out var parsedDeal))
+            {
+                finallyDeal = parsedDeal;
+            }
+        }
+
+        var status = ReadString(item, "status");
+        var money = ReadDecimal(item, "money");
+        if (money == 0m)
+        {
+            money = ReadDecimal(item, "refundAmount");
+        }
+
+        return new CjDisputeDto
+        {
+            DisputeId = ReadString(item, "id") ?? ReadString(item, "disputeId"),
+            Status = status,
+            DisputeReason = ReadString(item, "disputeReason"),
+            Money = money,
+            FinallyDeal = finallyDeal,
+            FinallyDealLabel = finallyDeal switch
+            {
+                1 => "Refund",
+                2 => "Reissue",
+                3 => "Rejected",
+                _ => null
+            },
+            ReturnReceived = IsReturnReceived(status, finallyDeal, money),
+            CreateDate = ReadString(item, "createDate")
+        };
+    }
+
+    private static bool IsReturnReceived(string? status, int? finallyDeal, decimal money)
+    {
+        if (finallyDeal is 2 or 3)
+        {
+            return false;
+        }
+
+        if (finallyDeal == 1)
+        {
+            return true;
+        }
+
+        var normalized = (status ?? string.Empty)
+            .Replace(" ", string.Empty)
+            .Replace("_", string.Empty)
+            .Replace("-", string.Empty)
+            .ToUpperInvariant();
+
+        if (normalized is "REFUNDCOMPLETE" or "RETURNRECEIVED" or "WAREHOUSERECEIVED" or "RECEIVED" or "RETURNED")
+        {
+            return true;
+        }
+
+        return normalized is "COMPLETED" or "COMPLETE" or "CLOSED" && money > 0m;
     }
 }

@@ -20,4 +20,8 @@ public class OrderItem
     
     [Column(TypeName = "decimal(18,2)")]
     public decimal PriceAtPurchase { get; set; } // Always lock in the price they paid!
+
+    public DateTime? RefundRequestedAt { get; set; }
+    public string? RefundRequestReason { get; set; }
+    public string? ReturnTrackingNumber { get; set; }
 }

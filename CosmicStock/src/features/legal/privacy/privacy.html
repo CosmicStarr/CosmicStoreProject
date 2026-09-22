@@ -1,0 +1,96 @@
+<app-legal-shell>
+  <article class="legal-article">
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated September 21, 2026 · Version {{ LEGAL_TERMS_VERSION }}</p>
+
+    <p>
+      This policy explains what CosmicStore collects when you browse, check out, create an account, or share a gift registry,
+      and how that information moves through our custom API, database, payment processor, and fulfillment partners.
+    </p>
+
+    <h2>Information we collect</h2>
+    <ul>
+      <li>
+        <strong>Account.</strong> If you register, we store your email, display name, hashed password, saved delivery addresses,
+        wishlist, order history, and the Terms version and timestamp you accepted.
+      </li>
+      <li>
+        <strong>Guest checkout.</strong> We do not create a stored customer account. We still need the email and shipping details
+        you enter so we can place the order, send confirmation mail, and let you manage the order from the private link we send.
+      </li>
+      <li>
+        <strong>Orders.</strong> Recipient name, email, delivery address, product lines, amounts, shipping method,
+        payment status, supplier shipment identifiers, and your Terms acceptance timestamp for that order.
+      </li>
+      <li>
+        <strong>Cart.</strong> A cart identifier is stored in your browser so the cart can be restored.
+        Cart contents are held in Redis on our servers, not in the browser.
+      </li>
+      <li>
+        <strong>Session and security.</strong> If you sign in, a session record is stored in your browser so we can keep you signed in.
+        Guest checkout sessions are not persisted that way. We may use IP address with Redis to rate-limit guest order lookups
+        and reduce abuse.
+      </li>
+    </ul>
+
+    <h2>Payment processing</h2>
+    <p>
+      CosmicStore does not store raw credit card numbers, CVV codes, or full card PAN data on our servers.
+      Card details are entered in Stripe’s payment form and sent directly to Stripe. Stripe may use a billing ZIP or postal code
+      to verify the card. That billing ZIP is not used as a gift-registry delivery address.
+    </p>
+
+    <h2>Data storage and security</h2>
+    <p>
+      Account, address, wishlist, and order records are stored in our SQL Server database.
+      Passwords are stored as one-way hashes by ASP.NET Identity, not as plain text.
+      Traffic to the storefront and API uses HTTPS. Redis holds short-lived operational data: shopping carts,
+      catalog-sync markers, and security throttles (including guest-order verification limits keyed by IP address).
+    </p>
+
+    <h2>Third-party fulfillment sharing</h2>
+    <p>
+      CosmicStore is a dropshipping storefront. To fulfill an order we share shipping information with third-party logistics
+      partners and overseas suppliers, including CJ Dropshipping. That typically includes the recipient’s name, delivery address,
+      contact email, and the products purchased. We do not currently collect a phone number at checkout. If a supplier later
+      requires a contact number and you have provided one on your account, that number may also be shared so the shipment can be delivered.
+    </p>
+
+    <h2>Gift registry privacy</h2>
+    <p>
+      If you share a wishlist as a gift registry, the public page and the buyer’s checkout show only a masked label
+      (for example, “Ship to Alex’s Registry Address”). Street, city, and ZIP are hidden from the buyer.
+      The real registry address is still stored in our SQL Server database, applied on our servers after payment,
+      and shared with CosmicStore staff and with fulfillment partners (including CJ Dropshipping) so the gift can be delivered.
+    </p>
+
+    <h2>Email</h2>
+    <p>
+      We send transactional mail only: order confirmation, guest order-management links, password reset, email confirmation,
+      email-change alerts, and cancellation or refund notices. We do not sell your email address.
+    </p>
+
+    <h2>How long we keep it</h2>
+    <p>
+      Order, fulfillment, and Terms-acceptance records are kept as long as we need them to complete shipping, cancellations,
+      refunds, accounting, and payment disputes. Guest access links are invalidated after a successful Stripe refund for that guest order.
+      You can update or delete saved addresses from your profile while signed in, unless an address is still tied to an active gift registry.
+    </p>
+
+    <h2>Your choices</h2>
+    <ul>
+      <li>Shop as a guest without creating an account.</li>
+      <li>Change or confirm your account email from your profile.</li>
+      <li>Sign out to end the stored browser session.</li>
+      <li>Use the private guest-order link from your confirmation email to view or request cancellation or a refund when the order rules allow it.</li>
+    </ul>
+
+    <h2>Contact</h2>
+    <p>
+      For a privacy question about an order, reply using the email address on your confirmation message, or use
+      <a routerLink="/order/manage">guest order management</a> /
+      <a routerLink="/orders">signed-in order history</a>.
+      Related store rules are in the <a routerLink="/terms">Terms &amp; Conditions</a>.
+    </p>
+  </article>
+</app-legal-shell>

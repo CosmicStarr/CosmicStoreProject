@@ -15,6 +15,7 @@ public class EditCjProducts(
     ICacheService cacheService) : IEditCjProducts
 {
     private static readonly TimeSpan StagingOverlayTtl = TimeSpan.FromDays(30);
+    private const int NewArrivalDays = 7;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IStoreUnitOfWork _storeUnitOfWork = storeUnitOfWork;
     private readonly ICJDropshippingService _cjService = cjService;
@@ -145,7 +146,7 @@ public class EditCjProducts(
             existing.DescriptionEn = product.DescriptionEn ?? existing.DescriptionEn;
             existing.ShortDescription = NormalizeOptional(product.ShortDescription);
             existing.IsFeatured = product.IsFeatured;
-            existing.IsNewArrival = product.IsNewArrival;
+            ApplyNewArrivalFlag(existing, product.IsNewArrival);
             existing.IsTopSelling = product.IsTopSelling;
             existing.SellPrice = product.SellPrice;
             existing.BigImage = product.BigImage ?? existing.BigImage;
@@ -173,6 +174,7 @@ public class EditCjProducts(
                 ShortDescription = NormalizeOptional(product.ShortDescription),
                 IsFeatured = product.IsFeatured,
                 IsNewArrival = product.IsNewArrival,
+                NewArrivalMarkedAt = product.IsNewArrival ? DateTime.UtcNow : null,
                 IsTopSelling = product.IsTopSelling,
                 CjVariantId = id,
                 StockQuantity = product.StockQuantity > 0 ? product.StockQuantity : 50
@@ -181,10 +183,10 @@ public class EditCjProducts(
             _storeUnitOfWork.Repository<Products>().Add(storeProduct);
         }
 
-        await ReplaceProductImagesAsync(id, product.ProductImages);
+        await ReplaceProductTypesAndImagesAsync(id, product.ProductImages);
         await _storeUnitOfWork.Complete();
 
-        return storeProduct;
+        return await LoadStoreProductGraphAsync(id) ?? storeProduct;
     }
 
     /// <summary>Removes the storefront product if published, and the <c>dbo.FlatProducts</c> staging row.</summary>
@@ -258,10 +260,7 @@ public class EditCjProducts(
 
         await _storeUnitOfWork.Complete();
 
-        product.ProductImages = images
-            .Where(image => image.Id != match.Id)
-            .ToList();
-        return product;
+        return await LoadStoreProductGraphAsync(productId) ?? product;
     }
 
     /// <summary>Removes one overlay/gallery image from a staging product that is not on the storefront yet.</summary>
@@ -343,6 +342,35 @@ public class EditCjProducts(
     }
 
     /// <summary>
+    /// Turns off New Arrival for products marked more than 7 days ago (or with no mark date).
+    /// </summary>
+    public async Task<int> ExpireStaleNewArrivalsAsync()
+    {
+        var cutoff = DateTime.UtcNow.AddDays(-NewArrivalDays);
+        var stale = await _storeUnitOfWork.Repository<Products>()
+            .GetAllParams(
+                new PageParams { PageNumber = 1, PageSize = 500 },
+                product => product.IsNewArrival
+                    && (product.NewArrivalMarkedAt == null || product.NewArrivalMarkedAt < cutoff));
+
+        if (stale.Count == 0)
+        {
+            return 0;
+        }
+
+        foreach (var product in stale)
+        {
+            product.IsNewArrival = false;
+            product.NewArrivalMarkedAt = null;
+            _storeUnitOfWork.Repository<Products>().Update(product);
+        }
+
+        await _storeUnitOfWork.Complete();
+        await _cacheService.RemoveData("products_all");
+        return stale.Count;
+    }
+
+    /// <summary>
     /// Collapses stored-procedure rows (one row per picture) into one ProductResponseDto per product.
     /// </summary>
     public IEnumerable<ProductResponseDto> GroupData(IEnumerable<ProductWithPictureDto> flatData)
@@ -367,14 +395,21 @@ public class EditCjProducts(
                     .Where(x => !string.IsNullOrWhiteSpace(x.PhotoUrl))
                     .Select(x => new PictureDto
                     {
+                        Id = int.TryParse(x.PictureId, out var pictureId) ? pictureId : 0,
                         ProductId = group.Key,
                         PhotoUrl = x.PhotoUrl,
                         SkuPhoto = x.SkuPhoto,
-                        Type = x.Type
+                        ProductTypeId = x.ProductTypeId,
+                        ProductType = MapTypeDto(group.Key, x.ProductTypeId, x.TypeName, x.TypeSku, x.TypePrice)
                     })
                     .GroupBy(x => x.PhotoUrl)
                     .Select(x => x.First())
                     .ToList()
+            })
+            .Select(product =>
+            {
+                product.Types = DistinctTypes(product.Pictures);
+                return product;
             });
     }
 
@@ -389,11 +424,22 @@ public class EditCjProducts(
                 ProductId = product.Id,
                 PhotoUrl = image.PhotoUrl,
                 SkuPhoto = image.SkuPhoto,
-                Type = image.Type
+                ProductTypeId = image.ProductTypeId,
+                ProductType = MapTypeDto(product.Id, image.ProductType)
             })
             .GroupBy(image => image.PhotoUrl)
             .Select(group => group.First())
             .ToList();
+
+        var types = (product.ProductTypes ?? [])
+            .Select(type => MapTypeDto(product.Id, type))
+            .Where(type => type is not null)
+            .Select(type => type!)
+            .ToList();
+        if (types.Count == 0)
+        {
+            types = DistinctTypes(pictures);
+        }
 
         return new ProductResponseDto
         {
@@ -406,17 +452,23 @@ public class EditCjProducts(
             DescriptionEn = product.DescriptionEn,
             ShortDescription = NormalizeOptional(product.ShortDescription),
             IsFeatured = product.IsFeatured,
-            IsNewArrival = product.IsNewArrival,
+            IsNewArrival = IsActiveNewArrival(product),
             IsTopSelling = product.IsTopSelling,
             StockQuantity = product.StockQuantity,
+            Types = types,
             Pictures = pictures
         };
     }
 
     /// <summary>
-    /// Fills missing gallery rows and Type values from stored CJ variants (image + variant name).
+    /// Fills type/SKU on existing gallery rows from stored CJ variants.
+    /// New variant pictures are added only when <paramref name="addMissingPictures"/> is true (admin editor).
+    /// The public storefront never receives unsaved variants from a refresh.
     /// </summary>
-    public static void MergeVariantPictures(ProductResponseDto response, IEnumerable<ProductVariant> variants)
+    public static void MergeVariantPictures(
+        ProductResponseDto response,
+        IEnumerable<ProductVariant> variants,
+        bool addMissingPictures = false)
     {
         foreach (var variant in variants)
         {
@@ -431,11 +483,16 @@ public class EditCjProducts(
                 || (!string.IsNullOrWhiteSpace(variant.Sku)
                     && string.Equals(picture.SkuPhoto?.Trim(), variant.Sku.Trim(), StringComparison.OrdinalIgnoreCase)));
 
+            var type = MapTypeDto(response.Id, null, variant.VariantName, variant.Sku);
             if (existing is not null)
             {
-                if (string.IsNullOrWhiteSpace(existing.Type))
+                if (existing.ProductType is null && type is not null)
                 {
-                    existing.Type = variant.VariantName;
+                    existing.ProductType = type;
+                }
+                else if (existing.ProductType is not null && existing.ProductType.Price <= 0 && type is { Price: > 0 })
+                {
+                    existing.ProductType.Price = type.Price;
                 }
 
                 if (string.IsNullOrWhiteSpace(existing.SkuPhoto))
@@ -446,13 +503,24 @@ public class EditCjProducts(
                 continue;
             }
 
+            if (!addMissingPictures)
+            {
+                continue;
+            }
+
             response.Pictures.Add(new PictureDto
             {
                 ProductId = response.Id,
                 PhotoUrl = imageUrl,
                 SkuPhoto = variant.Sku,
-                Type = variant.VariantName
+                ProductType = type,
+                IsStorefrontDraft = true
             });
+        }
+
+        if (addMissingPictures)
+        {
+            response.Types = DistinctTypes(response.Pictures, response.Types);
         }
     }
 
@@ -542,6 +610,29 @@ public class EditCjProducts(
         }
     }
 
+    /// <summary>Sets or clears New Arrival and records when it was last turned on.</summary>
+    private static void ApplyNewArrivalFlag(Products product, bool isNewArrival)
+    {
+        if (isNewArrival)
+        {
+            if (!product.IsNewArrival || product.NewArrivalMarkedAt is null)
+            {
+                product.NewArrivalMarkedAt = DateTime.UtcNow;
+            }
+
+            product.IsNewArrival = true;
+            return;
+        }
+
+        product.IsNewArrival = false;
+        product.NewArrivalMarkedAt = null;
+    }
+
+    private static bool IsActiveNewArrival(Products product) =>
+        product.IsNewArrival
+        && product.NewArrivalMarkedAt is { } markedAt
+        && markedAt >= DateTime.UtcNow.AddDays(-NewArrivalDays);
+
     /// <summary>Returns the first non-blank string, trimmed.</summary>
     private static string? FirstNonEmpty(params string?[] values)
     {
@@ -592,7 +683,8 @@ public class EditCjProducts(
                 ProductId = productId,
                 PhotoUrl = image.PhotoUrl!.Trim(),
                 SkuPhoto = string.IsNullOrWhiteSpace(image.SkuPhoto) ? sku : image.SkuPhoto.Trim(),
-                Type = string.IsNullOrWhiteSpace(image.Type) ? null : image.Type.Trim()
+                ProductTypeId = image.ProductTypeId,
+                ProductType = ResolvePictureType(productId, image, sku)
             })
             .ToList();
 
@@ -608,7 +700,7 @@ public class EditCjProducts(
                 ProductId = productId,
                 PhotoUrl = variant.ImageUrl,
                 SkuPhoto = string.IsNullOrWhiteSpace(variant.Sku) ? sku : variant.Sku,
-                Type = variant.VariantName
+                ProductType = MapTypeDto(productId, null, variant.VariantName, string.IsNullOrWhiteSpace(variant.Sku) ? sku : variant.Sku)
             })
             .ToList();
     }
@@ -653,7 +745,8 @@ public class EditCjProducts(
                 ProductId = staging.Id,
                 PhotoUrl = image.PhotoUrl,
                 SkuPhoto = image.SkuPhoto,
-                Type = image.Type
+                ProductTypeId = image.ProductTypeId,
+                ProductType = ResolvePictureType(staging.Id, image, staging.Sku)
             })
             .ToList();
 
@@ -681,6 +774,7 @@ public class EditCjProducts(
             IsNewArrival = overlay?.IsNewArrival ?? false,
             IsTopSelling = overlay?.IsTopSelling ?? false,
             StockQuantity = overlay is { StockQuantity: > 0 } ? overlay.StockQuantity : 50,
+            Types = DistinctTypes(pictures),
             Pictures = pictures
         };
     }
@@ -714,30 +808,128 @@ public class EditCjProducts(
         };
     }
 
-    /// <summary>Deletes existing gallery rows for a product and inserts the new picture list.</summary>
-    private async Task ReplaceProductImagesAsync(string productId, IList<PictureDto>? productImages)
+    private async Task<Products?> LoadStoreProductGraphAsync(string id) =>
+        await _storeUnitOfWork.Repository<Products>()
+            .GetFirstOrDefault(item => item.Id == id, "ProductImages.ProductType,ProductTypes");
+
+    /// <summary>Deletes existing types and gallery rows for a product and inserts the new lists.</summary>
+    private async Task ReplaceProductTypesAndImagesAsync(string productId, IList<PictureDto>? productImages)
     {
         var pageParams = new PageParams { PageNumber = 1, PageSize = 500 };
         var existingImages = await _storeUnitOfWork.Repository<ProductImage>()
             .GetAllParams(pageParams, img => img.ProductId == productId);
-
         foreach (var image in existingImages)
         {
             _storeUnitOfWork.Repository<ProductImage>().Remove(image);
         }
 
+        var existingTypes = await _storeUnitOfWork.Repository<ProductType>()
+            .GetAllParams(pageParams, type => type.ProductId == productId);
+        foreach (var type in existingTypes)
+        {
+            _storeUnitOfWork.Repository<ProductType>().Remove(type);
+        }
+
+        var types = new Dictionary<string, ProductType>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in productImages ?? Array.Empty<PictureDto>())
         {
             if (string.IsNullOrWhiteSpace(item.PhotoUrl))
                 continue;
 
+            var skuPhoto = string.IsNullOrWhiteSpace(item.SkuPhoto) ? string.Empty : item.SkuPhoto.Trim();
+            var type = ResolvePictureType(productId, item, skuPhoto);
+            ProductType? typeEntity = null;
+            if (type is not null)
+            {
+                var key = $"{type.Name}\u001f{type.Sku}";
+                if (!types.TryGetValue(key, out typeEntity))
+                {
+                    typeEntity = new ProductType
+                    {
+                        ProductId = productId,
+                        Name = type.Name,
+                        Sku = type.Sku,
+                        Price = type.Price
+                    };
+                    types[key] = typeEntity;
+                    _storeUnitOfWork.Repository<ProductType>().Add(typeEntity);
+                }
+                else if (type.Price > typeEntity.Price)
+                {
+                    typeEntity.Price = type.Price;
+                }
+            }
+
             _storeUnitOfWork.Repository<ProductImage>().Add(new ProductImage
             {
                 ProductId = productId,
                 PhotoUrl = item.PhotoUrl.Trim(),
-                SkuPhoto = string.IsNullOrWhiteSpace(item.SkuPhoto) ? string.Empty : item.SkuPhoto,
-                Type = string.IsNullOrWhiteSpace(item.Type) ? null : item.Type.Trim()
+                SkuPhoto = skuPhoto,
+                ProductType = typeEntity
             });
         }
+    }
+
+    private static ProductTypeDto? ResolvePictureType(string? productId, PictureDto image, string? fallbackSku)
+    {
+        if (image.ProductType is not null
+            && (!string.IsNullOrWhiteSpace(image.ProductType.Name) || !string.IsNullOrWhiteSpace(image.ProductType.Sku)))
+        {
+            return MapTypeDto(
+                productId,
+                image.ProductType.Id == 0 ? image.ProductTypeId : image.ProductType.Id,
+                image.ProductType.Name,
+                string.IsNullOrWhiteSpace(image.ProductType.Sku) ? fallbackSku : image.ProductType.Sku,
+                image.ProductType.Price);
+        }
+
+        if (image.ProductTypeId is > 0)
+        {
+            return MapTypeDto(productId, image.ProductTypeId, null, fallbackSku);
+        }
+
+        return null;
+    }
+
+    private static List<ProductTypeDto> DistinctTypes(
+        IEnumerable<PictureDto> pictures,
+        IEnumerable<ProductTypeDto>? existing = null)
+    {
+        var types = (existing ?? [])
+            .Concat(pictures.Select(picture => picture.ProductType).Where(type => type is not null).Select(type => type!))
+            .Select(type => MapTypeDto(type.ProductId, type.Id, type.Name, type.Sku, type.Price))
+            .Where(type => type is not null)
+            .Select(type => type!)
+            .GroupBy(type => $"{type.Name}\u001f{type.Sku}", StringComparer.OrdinalIgnoreCase)
+            .Select(group =>
+            {
+                var type = group.First();
+                type.Price = group.Max(item => item.Price);
+                return type;
+            })
+            .ToList();
+        return types;
+    }
+
+    private static ProductTypeDto? MapTypeDto(string? productId, ProductType? type) =>
+        type is null ? null : MapTypeDto(productId ?? type.ProductId, type.Id, type.Name, type.Sku, type.Price);
+
+    private static ProductTypeDto? MapTypeDto(string? productId, int? id, string? name, string? sku, decimal? price = null)
+    {
+        var trimmedName = name?.Trim() ?? string.Empty;
+        var trimmedSku = sku?.Trim() ?? string.Empty;
+        if (id is null or 0 && string.IsNullOrWhiteSpace(trimmedName) && string.IsNullOrWhiteSpace(trimmedSku))
+        {
+            return null;
+        }
+
+        return new ProductTypeDto
+        {
+            Id = id ?? 0,
+            ProductId = productId,
+            Name = trimmedName,
+            Sku = trimmedSku,
+            Price = price is > 0 ? price.Value : 0
+        };
     }
 }

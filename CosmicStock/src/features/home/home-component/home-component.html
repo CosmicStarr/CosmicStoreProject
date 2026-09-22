@@ -13,52 +13,45 @@
       <a routerLink="/store" class="shop-now-btn">Shop Now</a>
     </div>
   </section>
-</main>
 
-<section class="value-strip">
-  <div class="value-box">
-    <div class="val-icon">🔄</div>
-    <div class="val-text">
-      <h4>FREE RETURN</h4>
-      <p>30 days money back guarantee</p>
+  <section class="value-strip" aria-label="Store policies">
+    <div class="value-box">
+      <div class="val-icon" aria-hidden="true">↺</div>
+      <div class="val-text">
+        <h4>Qualified refunds</h4>
+        <p>
+          Damaged, wrong, or lost items only.
+          <a routerLink="/returns">Refund policy</a>
+        </p>
+      </div>
     </div>
-  </div>
-  <div class="value-box">
-    <div class="val-icon">✈️</div>
-    <div class="val-text">
-      <h4>FREE SHIPPING</h4>
-      <p>Free shipping on all orders</p>
+    <div class="value-box">
+      <div class="val-icon" aria-hidden="true">✈</div>
+      <div class="val-text">
+        <h4>Overseas shipping</h4>
+        <p>
+          Typically {{ transitMin }}–{{ transitMax }} business days after processing
+          (up to {{ processingDays }} business days to process).
+          <a routerLink="/shipping">Shipping details</a>
+        </p>
+      </div>
     </div>
-  </div>
-  <div class="value-box">
-    <div class="val-icon">⚽</div>
-    <div class="val-text">
-      <h4>SUPPORT 24/7</h4>
-      <p>We support online 24 hours a day</p>
+    <div class="value-box">
+      <div class="val-icon" aria-hidden="true">◆</div>
+      <div class="val-text">
+        <h4>Secure checkout</h4>
+        <p>Card payments processed securely with Stripe</p>
+      </div>
     </div>
-  </div>
-  <div class="value-box">
-    <div class="val-icon">💳</div>
-    <div class="val-text">
-      <h4>SECURE CHECKOUT</h4>
-      <p>Pay safely with Stripe</p>
+    <div class="value-box">
+      <div class="val-icon" aria-hidden="true">●</div>
+      <div class="val-text">
+        <h4>Online service</h4>
+        <p>Quality claims within {{ qualityDays }} days of delivery — do not ship to China</p>
+      </div>
     </div>
-  </div>
-  <div class="value-box">
-    <div class="val-icon">🔒</div>
-    <div class="val-text">
-      <h4>SECURE PAYMENT</h4>
-      <p>We value your security</p>
-    </div>
-  </div>
-  <div class="value-box">
-    <div class="val-icon">📶</div>
-    <div class="val-text">
-      <h4>ONLINE SERVICE</h4>
-      <p>Free returns within 30 days</p>
-    </div>
-  </div>
-</section>
+  </section>
+</main>
 
 @if (campaignCategories().length) {
   <section class="campaign-split">

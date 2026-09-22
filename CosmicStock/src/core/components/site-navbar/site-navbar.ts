@@ -3,6 +3,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { filter } from 'rxjs';
+import { BrandLogoComponent } from '../brand-logo/brand-logo';
 import { OverflowRowComponent } from '../overflow-row/overflow-row';
 import { AccountService } from '../../services/account-service';
 import { CartService } from '../../services/cart-service';
@@ -12,7 +13,7 @@ import { isAdminUser } from '../../utils/auth-utils';
 
 @Component({
   selector: 'app-site-navbar',
-  imports: [RouterLink, RouterLinkActive, AsyncPipe, FormsModule, OverflowRowComponent],
+  imports: [RouterLink, RouterLinkActive, AsyncPipe, FormsModule, OverflowRowComponent, BrandLogoComponent],
   templateUrl: './site-navbar.html',
   styleUrl: './site-navbar.scss',
   host: {

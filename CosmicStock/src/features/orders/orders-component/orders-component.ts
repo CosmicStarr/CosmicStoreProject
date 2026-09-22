@@ -14,16 +14,17 @@ import { SiteNavbarComponent } from "../../../core/components/site-navbar/site-n
 export class OrdersComponent implements OnInit {
   private orderService = inject(OrderService);
   protected orders = signal<IOrder[]>([]);
-  loading = true;
+  protected loading = signal(true);
 
   ngOnInit(): void {
     this.orderService.getOrders().subscribe({
       next: (orders) => {
-        this.orders.set(orders);
-        this.loading = false;
+        this.orders.set(Array.isArray(orders) ? orders : []);
+        this.loading.set(false);
       },
       error: () => {
-        this.loading = false;
+        this.orders.set([]);
+        this.loading.set(false);
       },
     });
   }

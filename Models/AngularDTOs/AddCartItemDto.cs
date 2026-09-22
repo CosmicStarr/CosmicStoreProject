@@ -6,4 +6,5 @@ public class AddCartItemDto
     public string? Sku { get; set; }
     public int Quantity { get; set; } = 1;
     public string? CartId { get; set; }
+    public int? WishlistId { get; set; }
 }

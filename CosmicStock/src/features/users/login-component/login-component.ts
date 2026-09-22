@@ -2,10 +2,11 @@ import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AccountService } from '../../../core/services/account-service';
+import { BrandLogoComponent } from '../../../core/components/brand-logo/brand-logo';
 import { getRoleFromToken } from '../../../core/utils/auth-utils';
 
 @Component({
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, BrandLogoComponent],
   selector: 'app-login-component',
   styleUrl: './login-component.scss',
   templateUrl: './login-component.html',

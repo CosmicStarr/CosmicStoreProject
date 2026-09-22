@@ -70,7 +70,7 @@
 }
 
 .submit-btn {
-  background: #ff9100;
+  background: #c45c12;
   color: #fff;
 }
 
@@ -174,8 +174,20 @@ th {
 }
 
 .status {
-  color: #ff9100;
+  color: #c45c12;
   font-weight: 600;
+}
+
+.refund-flag {
+  display: block;
+  margin-top: 4px;
+  width: fit-content;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .error-text {
@@ -199,7 +211,7 @@ th {
 
 .notice-container {
   background-color: #fff7ed;
-  border-left: 4px solid #ff9100;
+  border-left: 4px solid #c45c12;
   padding: 12px;
   margin-bottom: 16px;
   border-radius: 4px;

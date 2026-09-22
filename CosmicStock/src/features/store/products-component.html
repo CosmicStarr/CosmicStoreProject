@@ -31,6 +31,25 @@
       </div>
       <button type="button" class="apply-filter-btn" (click)="applyFilters()">Apply Price Filter</button>
     </div>
+
+    @if (pastPurchases().length) {
+      <section class="filter-group past-purchases" aria-labelledby="past-purchases-title">
+        <h2 id="past-purchases-title" class="filter-title">Bought before</h2>
+        <ul class="past-purchase-list">
+          @for (product of pastPurchases(); track product.id) {
+            <li>
+              <a class="past-purchase-card" [routerLink]="['/store', product.id]">
+                <img [src]="product.bigImage" [alt]="product.nameEn">
+                <span class="past-purchase-copy">
+                  <span class="past-purchase-name">{{ product.nameEn }}</span>
+                  <span class="past-purchase-price">{{ product.sellPrice | currency:'USD':'symbol' }}</span>
+                </span>
+              </a>
+            </li>
+          }
+        </ul>
+      </section>
+    }
   </aside>
 
   <section class="main-content">

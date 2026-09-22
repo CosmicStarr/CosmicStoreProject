@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { Observable } from 'rxjs';
@@ -22,6 +22,9 @@ export class AdminOrdersComponent implements OnInit {
   protected busyOrderId = signal<string | null>(null);
   protected message = signal<string | null>(null);
   protected loading = signal(true);
+  protected ftcAttentionCount = computed(
+    () => this.orders().filter((o) => o.needsFtcShipAttention).length,
+  );
 
   ngOnInit(): void {
     this.load();
@@ -31,7 +34,10 @@ export class AdminOrdersComponent implements OnInit {
     this.loading.set(true);
     this.adminOrders.getOrders().subscribe({
       next: (orders) => {
-        this.orders.set(Array.isArray(orders) ? orders : []);
+        const list = Array.isArray(orders) ? orders : [];
+        // Surface FTC-attention orders first so ops can act before day 30.
+        list.sort((a, b) => Number(!!b.needsFtcShipAttention) - Number(!!a.needsFtcShipAttention));
+        this.orders.set(list);
         this.loading.set(false);
       },
       error: (err) => {
@@ -93,7 +99,27 @@ export class AdminOrdersComponent implements OnInit {
   }
 
   canRefund(order: IOrder) {
-    return order.paymentStatus === 'PaymentRecevied' || order.paymentStatus === 'Paid';
+    if (order.paymentStatus !== 'PaymentRecevied' && order.paymentStatus !== 'Paid') {
+      return false;
+    }
+    return !order.requiresReturnReceipt || !!order.returnReceived;
+  }
+
+  awaitingReturn(order: IOrder) {
+    if (order.paymentStatus !== 'PaymentRecevied' && order.paymentStatus !== 'Paid') {
+      return false;
+    }
+    return !!order.requiresReturnReceipt && !order.returnReceived;
+  }
+
+  refundRequestLabel(order: IOrder) {
+    const count = order.items?.filter((item) =>
+      item.status === 'RefundRequested' || !!item.refundRequestedAt || !!item.returnTrackingNumber,
+    ).length ?? 0;
+    if (count > 1) {
+      return `${count} items requested`;
+    }
+    return 'Requested';
   }
 
   private runOrderAction(

@@ -131,11 +131,24 @@ getAllProducts(sun: sunParams): Observable<PaginatedResults<IFlatProduct[]>> {
     }, this.httpOptions);
   }
 
-  getSettings(): Observable<{ defaultMarkup: number }> {
-    return this.http.get<{ defaultMarkup: number }>(`${this.apiUrl}EditProducts/settings`);
+  getSettings(): Observable<IStoreRuntimeSettings> {
+    return this.http.get<IStoreRuntimeSettings>(`${this.apiUrl}EditProducts/settings`);
+  }
+
+  updateSettings(payload: { defaultMarkup: number; catalogSyncHours: number }): Observable<IStoreRuntimeSettings> {
+    return this.http.put<IStoreRuntimeSettings>(`${this.apiUrl}EditProducts/settings`, payload, this.httpOptions);
   }
 
   getCategories(): Observable<string[]> {
     return this.http.get<string[]>(`${this.apiUrl}EditProducts/categories`);
   }
+}
+
+export interface IStoreRuntimeSettings {
+  defaultMarkup: number;
+  catalogSyncHours: number;
+  catalogLastSyncAt: string | null;
+  variantsLastSyncAt: string | null;
+  stockLastSyncAt: string | null;
+  ordersLastSyncAt: string | null;
 }

@@ -5,6 +5,7 @@ export interface IUser {
   emailConfirmed: boolean;
   isGuest?: boolean;
   pendingEmail?: string | null;
+  confirmationEmailSent?: boolean;
 }
 
 export interface ILoginValues {
@@ -15,6 +16,8 @@ export interface ILoginValues {
 export interface IRegisterValues extends ILoginValues {
   userName: string;
   confirmPassword: string;
+  acceptedTermsVersion: string;
+  acceptedTermsAt: string;
 }
 
 export interface IUserAddress {
@@ -37,4 +40,26 @@ export interface IWishlistItem {
   sellPrice: number;
   bigImage?: string;
   addedAt: string;
+}
+
+export interface IWishlist {
+  id: number;
+  publicId: string;
+  name: string;
+  shippingAddressId?: number | null;
+  isGiftRegistry: boolean;
+  isAddressPrivate: boolean;
+  maskedShippingLabel?: string | null;
+  shareUrl?: string | null;
+  fulfillmentDisclaimer: string;
+  items: IWishlistItem[];
+}
+
+export interface IPublicWishlist {
+  id: number;
+  publicId: string;
+  name: string;
+  maskedShippingLabel: string;
+  fulfillmentDisclaimer: string;
+  items: IWishlistItem[];
 }

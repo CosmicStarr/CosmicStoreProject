@@ -1,3 +1,5 @@
+import { IProductType } from './pictureResponse';
+
 export interface IEditProduct {
     id: string;
     nameEn: string;
@@ -21,7 +23,8 @@ export interface IProductImage {
     productId: string;
     photoUrl: string;
     skuPhoto: string;
-    type?: string;
+    productTypeId?: number;
+    productType?: IProductType;
 }
 
 export interface ICjVariant {

@@ -38,8 +38,10 @@ public class CjOrderStatusWorker : BackgroundService
             {
                 using var scope = _scopeFactory.CreateScope();
                 var orderService = scope.ServiceProvider.GetRequiredService<IOrderService>();
+                var storeSettings = scope.ServiceProvider.GetRequiredService<IStoreSettingsService>();
 
                 var updated = await orderService.SyncPendingOrdersAsync(stoppingToken);
+                await storeSettings.MarkSyncCompletedAsync(CjSyncCacheKeys.OrdersLastSync);
                 if (updated > 0)
                 {
                     _logger.LogInformation("Updated {Count} order(s) from CJ.", updated);
@@ -49,6 +51,13 @@ public class CjOrderStatusWorker : BackgroundService
                 {
                     var catalogSync = scope.ServiceProvider.GetRequiredService<ICjCatalogSyncService>();
                     await catalogSync.SyncStockAsync(stoppingToken);
+                }
+
+                var editProducts = scope.ServiceProvider.GetRequiredService<IEditCjProducts>();
+                var expired = await editProducts.ExpireStaleNewArrivalsAsync();
+                if (expired > 0)
+                {
+                    _logger.LogInformation("Cleared New Arrival on {Count} product(s) older than 7 days.", expired);
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

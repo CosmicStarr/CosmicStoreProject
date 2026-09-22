@@ -19,13 +19,17 @@
           <p class="muted">Supplier order: {{ order()!.cjShipmentOrderId }}</p>
         }
         @if (order()!.trackingNumber) {
-          <p class="tracking">Tracking number: <code>{{ order()!.trackingNumber }}</code></p>
+          <p class="tracking">Delivery tracking: <code>{{ order()!.trackingNumber }}</code></p>
+          <p class="muted">This is the original shipment tracking number. Do not use it when requesting a refund.</p>
+        }
+        @if (order()!.hasRefundRequest) {
+          <p class="refund-flag" role="status">A refund has been requested for one or more items on this order.</p>
         }
         @if (canCancel()) {
           <button
             type="button"
             class="secondary-btn"
-            [disabled]="cancelling()"
+            [disabled]="cancelling() || busyItemId() !== null"
             (click)="requestCancellation()">
             {{ cancelling() ? 'Checking fulfillment...' : 'Cancel order' }}
           </button>
@@ -34,9 +38,13 @@
 
       <section class="detail-card">
         <h3>Shipping</h3>
-        <p>{{ order()!.customerName }}</p>
-        <p>{{ order()!.shippingAddress }}</p>
-        <p>{{ order()!.city }}, {{ order()!.state }} {{ order()!.zipCode }} {{ order()!.country }}</p>
+        @if (order()!.maskedShippingLabel) {
+          <p>{{ order()!.maskedShippingLabel }}</p>
+        } @else {
+          <p>{{ order()!.customerName }}</p>
+          <p>{{ order()!.shippingAddress }}</p>
+          <p>{{ order()!.city }}, {{ order()!.state }} {{ order()!.zipCode }} {{ order()!.country }}</p>
+        }
         <p class="muted">
           {{ order()!.logisticName }} — {{ order()!.shippingCost | currency:'USD':'symbol' }}
         </p>
@@ -44,15 +52,118 @@
 
       <section class="detail-card">
         <h3>Items</h3>
-        @for (item of order()!.items; track item.id || item.sku) {
-          <div class="item-row" [class.inactive-row]="item.status === 'Cancelled' || item.status === 'Refunded'">
-            <span>
-              {{ item.name || item.sku }} × {{ item.quantity }}
-              @if (item.status && item.status !== 'Ordered') {
-                <span class="muted"> ({{ item.status }})</span>
+        @if (showRefundHelp()) {
+          <div class="refund-help">
+            <h4>Request a refund</h4>
+            @if (refundWindowEnded()) {
+              <p>
+                The claim window for this order has ended. See
+                <a routerLink="/returns">Returns &amp; Refunds</a>.
+              </p>
+            } @else {
+              <p>
+                After shipment, refunds are only for damaged, defective, wrong, or missing items, or for lost packages
+                under the supplier timelines. Do not ship anything back unless we email a domestic address.
+                <a routerLink="/returns">Read the refund policy</a>.
+              </p>
+              <ol>
+                <li>Describe the problem on the item below. We will email you if we need a photo, video, or a post-office non-delivery certificate.</li>
+                <li>Lost U.S. packages: wait 45 days from warehouse dispatch before claiming a loss.</li>
+                <li>Change of mind is not refundable after the supplier ships.</li>
+              </ol>
+              @if (order()!.refundWindowEndsAt) {
+                <p class="muted">Claim window ends {{ order()!.refundWindowEndsAt | date:'mediumDate' }}.</p>
               }
-            </span>
-            <span>{{ item.priceAtPurchase * item.quantity | currency:'USD':'symbol' }}</span>
+            }
+          </div>
+        } @else {
+          <p class="muted item-hint">If the order has not shipped, you can cancel one item and keep the rest.</p>
+        }
+        @for (item of order()!.items; track item.id || item.sku) {
+          <div class="item-block" [class.inactive-row]="item.status === 'Cancelled' || item.status === 'Refunded'">
+            <div class="item-row">
+              <div class="item-copy">
+                <span>{{ item.name || item.sku }} × {{ item.quantity }}</span>
+                @if (item.status && item.status !== 'Ordered') {
+                  <span class="muted">{{ item.status === 'RefundRequested' ? 'Refund requested' : item.status }}</span>
+                }
+              </div>
+              <div class="item-actions">
+                <span>{{ item.priceAtPurchase * item.quantity | currency:'USD':'symbol' }}</span>
+                @if (canCancelItem(item)) {
+                  <button
+                    type="button"
+                    class="row-btn"
+                    [disabled]="busyItemId() === item.id || cancelling()"
+                    (click)="cancelItem(item)">
+                    {{ busyItemId() === item.id ? 'Cancelling...' : 'Cancel item' }}
+                  </button>
+                }
+                @if (canRequestRefund(item) || canUpdateRefundRequest(item)) {
+                  <button
+                    type="button"
+                    class="row-btn"
+                    [disabled]="busyItemId() === item.id || cancelling()"
+                    (click)="startRefundRequest(item)">
+                    {{ isRefundRequested(item) ? 'Update refund request' : 'Request a refund' }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            @if (isRefundRequested(item) && refundItemId() !== item.id) {
+              <div class="refund-status">
+                <p>
+                  Refund requested
+                  @if (item.refundRequestedAt) {
+                    on {{ item.refundRequestedAt | date:'medium' }}
+                  }.
+                </p>
+                @if (item.returnTrackingNumber) {
+                  <p>Return tracking: <code>{{ item.returnTrackingNumber }}</code></p>
+                }
+                @if (item.refundRequestReason) {
+                  <p class="muted">Reason: {{ item.refundRequestReason }}</p>
+                }
+              </div>
+            }
+
+            @if (refundItemId() === item.id) {
+              <form class="refund-form" (submit)="$event.preventDefault(); submitRefundRequest(item)">
+                <p class="muted">
+                  Describe the damage, wrong item, missing part, or lost package. Leave return tracking blank unless we
+                  emailed you a domestic address.
+                </p>
+                <div class="form-group">
+                  <label [attr.for]="'refund-reason-' + item.id">What happened</label>
+                  <textarea
+                    [id]="'refund-reason-' + item.id"
+                    rows="3"
+                    maxlength="500"
+                    required
+                    [value]="refundReasonDraft()"
+                    (input)="onRefundReasonInput($event)"></textarea>
+                </div>
+                <div class="form-group">
+                  <label [attr.for]="'return-tracking-' + item.id">Return tracking number (only if we asked you to ship domestically)</label>
+                  <input
+                    [id]="'return-tracking-' + item.id"
+                    type="text"
+                    autocomplete="off"
+                    [value]="returnTrackingDraft()"
+                    (input)="onReturnTrackingInput($event)"
+                    maxlength="80">
+                </div>
+                <div class="item-actions">
+                  <button type="submit" class="row-btn" [disabled]="busyItemId() === item.id">
+                    {{ busyItemId() === item.id ? 'Submitting...' : (isRefundRequested(item) ? 'Save refund request' : 'Submit refund request') }}
+                  </button>
+                  <button type="button" class="row-btn" [disabled]="busyItemId() === item.id" (click)="cancelRefundForm()">
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            }
           </div>
         }
         <div class="item-row">

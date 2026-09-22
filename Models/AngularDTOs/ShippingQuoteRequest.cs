@@ -11,6 +11,9 @@ public class ShippingQuoteRequest
 
     public string? City { get; set; }
 
+    /// <summary>When set, freight is quoted to the registry address. Client destination fields are ignored.</summary>
+    public int? WishlistId { get; set; }
+
     public List<ShippingQuoteItem> Items { get; set; } = new();
 }
 

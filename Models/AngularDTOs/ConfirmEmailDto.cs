@@ -4,9 +4,11 @@ namespace Models.AngularDTOs;
 
 public class ConfirmEmailDto
 {
-    [Required]
-    public string UserId { get; set; } = string.Empty;
+    public string? UserId { get; set; }
 
     [Required]
     public string Token { get; set; } = string.Empty;
+
+    [EmailAddress]
+    public string? Email { get; set; }
 }

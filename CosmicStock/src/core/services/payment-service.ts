@@ -56,15 +56,17 @@ export class PaymentService {
     billing: {
       name: string;
       email?: string;
-      line1: string;
-      city: string;
-      state: string;
-      postalCode: string;
-      country: string;
+      line1?: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+      country?: string;
     },
   ) {
     const stripe = await this.getStripe();
     if (!stripe) throw new Error('Stripe failed to load.');
+
+    const country = billing.country?.trim().toUpperCase();
 
     return stripe.confirmCardPayment(clientSecret, {
       payment_method: {
@@ -73,11 +75,11 @@ export class PaymentService {
           name: billing.name,
           email: billing.email,
           address: {
-            line1: billing.line1,
-            city: billing.city,
-            state: billing.state,
-            postal_code: billing.postalCode,
-            country: billing.country.trim().toUpperCase(),
+            line1: billing.line1 || undefined,
+            city: billing.city || undefined,
+            state: billing.state || undefined,
+            postal_code: billing.postalCode || undefined,
+            country: country || undefined,
           },
         },
       },

@@ -127,6 +127,13 @@ public class UserAddressesController(IStoreUnitOfWork storeUnitOfWork) : BaseCon
 
         if (address is null) return NotFound();
 
+        var registry = await _storeUnitOfWork.Repository<Wishlist>()
+            .GetFirstOrDefault(list => list.AppUserId == userId && list.ShippingAddressId == id);
+        if (registry is not null)
+        {
+            return BadRequest(new { message = "This address is used by your gift registry. Choose a different registry address first, or turn the registry off." });
+        }
+
         repo.Remove(address);
         await _storeUnitOfWork.Complete();
 

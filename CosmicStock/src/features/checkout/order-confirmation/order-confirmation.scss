@@ -1,5 +1,5 @@
 :root {
-  --primary-orange: #ff9100;
+  --primary-orange: #c45c12;
   --text-dark: #1e293b;
   --text-muted: #64748b;
   --border-light: #e2e8f0;
@@ -33,6 +33,21 @@
 
 .muted {
   color: var(--text-muted);
+}
+
+.detail-card a,
+.confirmation-header a {
+  color: #9a3412;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.secondary-btn:focus-visible,
+.primary-btn:focus-visible,
+.detail-card a:focus-visible,
+.confirmation-header a:focus-visible {
+  outline: 3px solid var(--primary-orange);
+  outline-offset: 2px;
 }
 
 .detail-card {
@@ -69,8 +84,23 @@
 
 .confirmation-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 12px;
   margin-top: 24px;
+}
+
+.secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background: #fff;
+  color: var(--text-dark);
+  font-weight: 600;
+  text-decoration: none;
 }
 
 .primary-btn {

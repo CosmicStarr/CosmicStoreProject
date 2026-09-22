@@ -1,0 +1,46 @@
+<app-legal-shell>
+  <article class="legal-article">
+    <h1>About CosmicStore</h1>
+    <p class="updated">An online catalog for everyday products, shipped through our fulfillment partners.</p>
+
+    <p>
+      CosmicStore is a storefront where you can browse the catalog, save a wishlist, and check out as a guest or with an account.
+      Orders are paid with Stripe and fulfilled by third-party logistics partners, including CJ Dropshipping.
+    </p>
+
+    <h2>Shopping</h2>
+    <ul>
+      <li>Browse featured picks on the home page or search the full <a routerLink="/store">catalog</a>.</li>
+      <li>Keep items in your cart while you shop. Guest checkout does not require creating an account.</li>
+      <li>Signed-in shoppers can save addresses, view order history, and keep a wishlist.</li>
+    </ul>
+
+    <h2>Gift registries</h2>
+    <p>
+      Turn a wishlist into a gift registry so friends and family can buy from your list.
+      Buyers see a masked destination such as “Ship to Alex’s Registry Address,” not the street, city, or ZIP.
+      The delivery address is still used by CosmicStore and our fulfillment partners so the gift can arrive.
+    </p>
+
+    <h2>Shipping</h2>
+    <p>
+      Orders ship from overseas suppliers. Processing can take up to {{ processingDays }} business days, and standard delivery typically takes
+      {{ transitMin }} to {{ transitMax }} business days after that. Delivery dates are not guaranteed. Read
+      <a routerLink="/shipping">Shipping &amp; Delivery</a> for delay notices, FTC 30-day rule rights, and import-duty rules.
+    </p>
+
+    <h2>Orders and help</h2>
+    <p>
+      After you pay, we email a confirmation to the address you entered at checkout.
+      Signed-in customers can <a routerLink="/orders">track orders</a> from their account.
+      Guest shoppers can <a routerLink="/order/manage">manage an order</a> with the private link from that email.
+    </p>
+    <p>
+      Shipping quotes follow our <a routerLink="/shipping">Shipping &amp; Delivery</a> page.
+      Cancellations and refunds follow <a routerLink="/returns">Returns &amp; Refunds</a>
+      and the <a routerLink="/terms">Terms &amp; Conditions</a>.
+      How we handle personal information is described in the
+      <a routerLink="/privacy">Privacy Policy</a>.
+    </p>
+  </article>
+</app-legal-shell>

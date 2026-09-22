@@ -45,8 +45,19 @@ namespace Data.Classes
         /// <summary>Deletes one Redis key (used after publish/create/edit so the catalog refreshes).</summary>
         public async Task RemoveData(string key)
         {
-            // Deletes the specific key from Redis
             await _database.KeyDeleteAsync(key);
+        }
+
+        /// <summary>Increments a Redis counter and sets TTL on the first write.</summary>
+        public async Task<long> IncrementAsync(string key, TimeSpan timeToLive)
+        {
+            var value = await _database.StringIncrementAsync(key);
+            if (value == 1)
+            {
+                await _database.KeyExpireAsync(key, timeToLive);
+            }
+
+            return value;
         }
     }
 }

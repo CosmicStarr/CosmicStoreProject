@@ -60,9 +60,29 @@
   flex: 1;
   padding: 32px;
   overflow-y: auto;
+  min-width: 0;
 }
 
-@media (max-width: 768px) {
+/* Keep the side-nav + content layout through mid widths (e.g. 667–852). */
+@media (max-width: 900px) and (min-width: 641px) {
+  .admin-sidebar {
+    width: 200px;
+  }
+
+  .sidebar-header {
+    padding: 16px;
+  }
+
+  .sidebar-nav a {
+    padding: 12px 16px;
+  }
+
+  .admin-main {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 640px) {
   .admin-layout {
     flex-direction: column;
   }
@@ -87,5 +107,9 @@
   .sidebar-nav a.active {
     border-left: none;
     border-bottom-color: var(--primary-orange);
+  }
+
+  .admin-main {
+    padding: 16px;
   }
 }

@@ -9,15 +9,32 @@
             to verify your address.
           </p>
         </div>
-        <p class="success-hint">
-          You can keep shopping while you confirm. If you do not see the message, check your spam folder.
-        </p>
+        @if (confirmationEmailSent()) {
+          <p class="success-hint">
+            You can keep shopping while you confirm. If you do not see the message, check your spam folder.
+          </p>
+        } @else {
+          <p class="error-text" role="status">
+            Your account was created, but the confirmation email could not be sent. Use the button below after Graph mail is signed in.
+          </p>
+        }
+        @if (resendMessage(); as notice) {
+          <p class="success-hint" role="status">{{ notice }}</p>
+        }
         <div class="confirmation-actions">
+          <button
+            type="button"
+            class="submit-btn"
+            [disabled]="resending()"
+            (click)="resendConfirmation()">
+            {{ resending() ? 'Sending…' : 'Resend confirmation email' }}
+          </button>
           <a routerLink="/store" class="submit-btn continue-link">Continue shopping</a>
         </div>
       </div>
     } @else {
       <div class="register-header">
+        <app-brand-logo [compact]="true" />
         <h2>Create an Account</h2>
         <p>Save orders, addresses, and a wishlist — or shop as a guest anytime</p>
       </div>
@@ -71,6 +88,18 @@
             formControlName="confirmPassword"
             placeholder="Confirm your password">
         </div>
+
+        <label class="terms-check">
+          <input id="registerAcceptedTerms" type="checkbox" formControlName="acceptedTerms">
+          <span>
+            I agree to the
+            <a routerLink="/terms" target="_blank" rel="noopener noreferrer">Terms &amp; Conditions<span class="visually-hidden"> (opens in a new tab)</span></a>,
+            <a routerLink="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy<span class="visually-hidden"> (opens in a new tab)</span></a>,
+            <a routerLink="/shipping" target="_blank" rel="noopener noreferrer">Shipping &amp; Delivery<span class="visually-hidden"> (opens in a new tab)</span></a>,
+            and
+            <a routerLink="/returns" target="_blank" rel="noopener noreferrer">Returns &amp; Refunds<span class="visually-hidden"> (opens in a new tab)</span></a>.
+          </span>
+        </label>
 
         @if (errors.length > 0) {
           <div class="error-container">

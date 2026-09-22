@@ -5,6 +5,8 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { IPagination } from '../models/pagination';
 import { sunParams } from '../models/paramOptions';
 import { StoreProductsService } from '../../core/services/store-products';
+import { AccountService } from '../../core/services/account-service';
+import { OrderService } from '../../core/services/order-service';
 import { IProductResponse } from '../models/productResponse';
 import { SiteNavbarComponent } from '../../core/components/site-navbar/site-navbar';
 import { SiteFooterComponent } from '../../core/components/site-footer/site-footer';
@@ -20,6 +22,8 @@ export class ProductsComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private productService = inject(StoreProductsService);
+  private accountService = inject(AccountService);
+  private orderService = inject(OrderService);
 
   sunParams = new sunParams();
   searchInput = '';
@@ -30,6 +34,7 @@ export class ProductsComponent implements OnInit {
   protected readonly pageSizeOptions = [12, 16, 20, 24];
 
   protected readonly products = signal<IProductResponse[]>([]);
+  protected readonly pastPurchases = signal<IProductResponse[]>([]);
   protected readonly selectedCategory = signal('');
   protected readonly heroImages = computed(() =>
     this.products()
@@ -39,6 +44,7 @@ export class ProductsComponent implements OnInit {
   );
 
   ngOnInit(): void {
+    this.loadPastPurchases();
     this.route.queryParamMap.subscribe((params) => {
       this.sunParams.search = params.get('search') ?? '';
       this.sunParams.category = params.get('category') ?? '';
@@ -130,5 +136,18 @@ export class ProductsComponent implements OnInit {
   private parsePageSize(value: string | null): number {
     const size = Number(value);
     return this.pageSizeOptions.includes(size) ? size : 12;
+  }
+
+  private loadPastPurchases() {
+    const user = this.accountService.currentUserValue;
+    if (!user?.token || user.isGuest) {
+      this.pastPurchases.set([]);
+      return;
+    }
+
+    this.orderService.getRecentPurchases().subscribe({
+      next: (products) => this.pastPurchases.set(Array.isArray(products) ? products.slice(0, 3) : []),
+      error: () => this.pastPurchases.set([]),
+    });
   }
 }

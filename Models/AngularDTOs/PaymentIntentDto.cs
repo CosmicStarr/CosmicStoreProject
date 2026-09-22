@@ -9,10 +9,14 @@ public class PaymentIntentDto
     public decimal Subtotal { get; set; }
     public decimal ShippingCost { get; set; }
     public string Currency { get; set; } = "usd";
+    public string? MaskedShippingLabel { get; set; }
 }
 
 public class PaymentIntentRequest
 {
     public string? LogisticName { get; set; }
     public decimal ShippingCost { get; set; }
+    public int? WishlistId { get; set; }
+    public string? AcceptedTermsVersion { get; set; }
+    public DateTimeOffset? AcceptedTermsAt { get; set; }
 }

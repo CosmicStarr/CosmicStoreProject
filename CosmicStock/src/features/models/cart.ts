@@ -4,6 +4,7 @@ export interface ICartItem {
   sku: string;
   price: number;
   amount: number;
+  wishlistId?: number | null;
 }
 
 export interface IShoppingCart {
@@ -11,6 +12,8 @@ export interface IShoppingCart {
   shoppingCartItems: ICartItem[];
   clientSecret?: string;
   paymentId?: string;
+  wishlistId?: number | null;
+  maskedShippingLabel?: string | null;
 }
 
 export interface IAddCartItem {
@@ -18,4 +21,5 @@ export interface IAddCartItem {
   sku?: string;
   quantity: number;
   cartId?: string;
+  wishlistId?: number;
 }

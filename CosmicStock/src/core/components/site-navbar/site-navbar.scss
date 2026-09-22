@@ -19,8 +19,12 @@
   flex-wrap: wrap;
 }
 
-.logo {
-  text-decoration: none;
+.main-header app-brand-logo {
+  margin-right: 24px;
+}
+
+app-brand-logo {
+  margin-right: 0;
 }
 
 .search-container {
@@ -139,7 +143,7 @@
 
 .all-categories-link,
 .all-categories-btn {
-  background-color: #e68200;
+  background-color: #a34b0f;
   color: #fff;
   border: none;
   padding: 14px 28px;
@@ -182,7 +186,7 @@
 
 .category-nav-link:hover,
 .category-nav-link:focus-visible {
-  background-color: #e68200;
+  background-color: #a34b0f;
 }
 
 .category-nav-link:focus-visible {
@@ -245,7 +249,7 @@
 
 .logout-link:hover {
   background-color: #f8fafc;
-  color: #2563eb;
+  color: #1a3a6b;
 }
 
 @media (max-width: 992px) {

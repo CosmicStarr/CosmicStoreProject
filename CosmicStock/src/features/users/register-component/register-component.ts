@@ -2,9 +2,11 @@ import { afterNextRender, Component, ElementRef, inject, Injector, OnInit, signa
 import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AccountService } from '../../../core/services/account-service';
+import { BrandLogoComponent } from '../../../core/components/brand-logo/brand-logo';
+import { LEGAL_TERMS_VERSION } from '../../../core/legal/legal-terms';
 
 @Component({
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, BrandLogoComponent],
   selector: 'app-register-component',
   styleUrl: './register-component.scss',
   templateUrl: './register-component.html',
@@ -19,6 +21,9 @@ export class RegisterComponent implements OnInit {
   registerForm!: FormGroup;
   errors: string[] = [];
   protected readonly registeredEmail = signal<string | null>(null);
+  protected readonly confirmationEmailSent = signal(true);
+  protected readonly resending = signal(false);
+  protected readonly resendMessage = signal<string | null>(null);
   protected readonly submitting = signal(false);
   protected readonly fromMissingAccount = signal(false);
 
@@ -32,7 +37,9 @@ export class RegisterComponent implements OnInit {
         Validators.maxLength(20),
         Validators.pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,20}$/),
       ]],
-      confirmPassword: ['', [Validators.required]]
+      confirmPassword: ['', [Validators.required]],
+      acceptedTerms: [false, Validators.requiredTrue],
+      acceptedTermsAt: [''],
     }, { validators: this.passwordMatchValidator });
 
     const email = this.route.snapshot.queryParamMap.get('email')?.trim();
@@ -40,6 +47,13 @@ export class RegisterComponent implements OnInit {
       this.registerForm.patchValue({ email });
     }
     this.fromMissingAccount.set(this.route.snapshot.queryParamMap.get('reason') === 'no-account');
+
+    this.registerForm.get('acceptedTerms')?.valueChanges.subscribe((checked) => {
+      this.registerForm.patchValue(
+        { acceptedTermsAt: checked ? new Date().toISOString() : '' },
+        { emitEvent: false },
+      );
+    });
   }
 
   passwordMatchValidator(control: AbstractControl) {
@@ -58,10 +72,19 @@ export class RegisterComponent implements OnInit {
     this.errors = [];
     this.submitting.set(true);
 
-    this.accountService.register(this.registerForm.value).subscribe({
+    const { userName, email, password, confirmPassword, acceptedTermsAt } = this.registerForm.getRawValue();
+    this.accountService.register({
+      userName,
+      email,
+      password,
+      confirmPassword,
+      acceptedTermsVersion: LEGAL_TERMS_VERSION,
+      acceptedTermsAt: acceptedTermsAt || new Date().toISOString(),
+    }).subscribe({
       next: (user) => {
         this.submitting.set(false);
         this.registeredEmail.set(user.email || this.registerForm.get('email')?.value);
+        this.confirmationEmailSent.set(user.confirmationEmailSent !== false);
         afterNextRender(() => {
           const heading = this.confirmHeading();
           heading?.nativeElement.focus();
@@ -109,5 +132,26 @@ export class RegisterComponent implements OnInit {
     }
 
     return ['An unexpected error occurred during registration.'];
+  }
+
+  resendConfirmation() {
+    const email = this.registeredEmail();
+    if (!email || this.resending()) {
+      return;
+    }
+
+    this.resending.set(true);
+    this.resendMessage.set(null);
+    this.accountService.resendConfirmation(email).subscribe({
+      next: (response) => {
+        this.resending.set(false);
+        this.confirmationEmailSent.set(true);
+        this.resendMessage.set(response.message);
+      },
+      error: () => {
+        this.resending.set(false);
+        this.resendMessage.set('The confirmation email could not be sent. Check Graph mail sign-in and try again.');
+      },
+    });
   }
 }

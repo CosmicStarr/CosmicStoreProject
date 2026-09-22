@@ -3,14 +3,14 @@
   <div class="orders-container">
     <header>
       <h2>My Orders</h2>
-      <p>Track your past and current orders</p>
+      <p>Orders from the last 3 months. Older orders are removed.</p>
     </header>
 
-    @if (loading) {
+    @if (loading()) {
       <p class="muted">Loading orders...</p>
     } @else if (orders().length === 0) {
       <div class="empty">
-        <p>You haven't placed any orders yet.</p>
+        <p>You have no orders from the last 3 months.</p>
         <a routerLink="/store" class="primary-btn">Start Shopping</a>
       </div>
     } @else {
@@ -23,6 +23,9 @@
             </div>
             <div class="order-meta">
               <span class="status">{{ order.status }}</span>
+              @if (order.hasRefundRequest) {
+                <span class="refund-flag">Refund requested</span>
+              }
               <strong>{{ order.total | currency:'USD':'symbol' }}</strong>
             </div>
           </a>

@@ -63,18 +63,17 @@ public class ProductsController(IStoreUnitOfWork storeUnitOfWork, IEditCjProduct
     [HttpGet("{id}")]
     public async Task<ActionResult<ProductResponseDto>> GetSingleProduct(string id)
     {
-        var product = await _storeUnitOfWork.Repository<Products>()
-            .GetFirstOrDefault(item => item.Id == id, "ProductImages");
+        var productIdParam = new SqlParameter("@ProductId", id);
+        var parameters = new object[] { productIdParam };
+        var rawData = await _storeUnitOfWork.Repository<ProductWithPictureDto>()
+            .GetFromSqlAsync(SqlConstants.StoredProcedures.GetSingleProductWithPictures, parameters);
+        var response = _editCjProducts.GroupData(rawData).FirstOrDefault();
 
-        if (product is null)
+        if (response is null)
         {
             return NotFound();
         }
 
-        var response = EditCjProducts.ToResponse(product);
-        var variants = await _storeUnitOfWork.Repository<ProductVariant>()
-            .GetAllParams(new PageParams { PageNumber = 1, PageSize = 50 }, variant => variant.ProductId == id);
-        EditCjProducts.MergeVariantPictures(response, variants);
         return Ok(response);
     }
 
@@ -98,7 +97,7 @@ public class ProductsController(IStoreUnitOfWork storeUnitOfWork, IEditCjProduct
         var groupedInfo = await LoadProductsAsync(current.Category, false);
         var related = groupedInfo
             .Where(p => p.Id != id)
-            .Take(Math.Clamp(limit, 1, 12))
+            .Take(Math.Clamp(limit, 1, 4))
             .ToList();
 
         return Ok(related);
@@ -109,6 +108,8 @@ public class ProductsController(IStoreUnitOfWork storeUnitOfWork, IEditCjProduct
     /// </summary>
     private async Task<List<ProductResponseDto>> LoadProductsAsync(string? category, bool clearCache)
     {
+        await _editCjProducts.ExpireStaleNewArrivalsAsync();
+
         var cacheKey = string.IsNullOrEmpty(category)
             ? "products_all"
             : $"products_category_{category.ToLower()}";
@@ -150,7 +151,10 @@ public class ProductsController(IStoreUnitOfWork storeUnitOfWork, IEditCjProduct
         {
             filtered = filtered.Where(x =>
                 (!string.IsNullOrEmpty(x.NameEn) && x.NameEn.Contains(pageParams.Search, StringComparison.OrdinalIgnoreCase))
-                || (!string.IsNullOrEmpty(x.Sku) && x.Sku.Contains(pageParams.Search, StringComparison.OrdinalIgnoreCase)));
+                || (!string.IsNullOrEmpty(x.Sku) && x.Sku.Contains(pageParams.Search, StringComparison.OrdinalIgnoreCase))
+                || x.Types.Any(type =>
+                    (!string.IsNullOrEmpty(type.Sku) && type.Sku.Contains(pageParams.Search, StringComparison.OrdinalIgnoreCase))
+                    || (!string.IsNullOrEmpty(type.Name) && type.Name.Contains(pageParams.Search, StringComparison.OrdinalIgnoreCase))));
         }
 
         if (pageParams.MinPrice.HasValue)

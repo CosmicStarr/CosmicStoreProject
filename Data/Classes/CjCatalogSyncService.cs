@@ -6,7 +6,8 @@ using Models;
 namespace Data.Classes;
 
 /// <summary>
-/// Pulls CJ variants and warehouse stock onto store.ProductVariant (expects Products.Id to be a CJ pid).
+/// Pulls CJ variants and warehouse stock onto store.ProductVariant for fulfillment (vid + stock).
+/// This does not publish new types or images to the storefront. Edit and save the product to do that.
 /// </summary>
 public class CjCatalogSyncService : ICjCatalogSyncService
 {
@@ -15,17 +16,20 @@ public class CjCatalogSyncService : ICjCatalogSyncService
     private readonly IStoreUnitOfWork _storeUnitOfWork;
     private readonly ICJDropshippingService _cjService;
     private readonly ICacheService _cacheService;
+    private readonly IStoreSettingsService _storeSettingsService;
     private readonly ILogger<CjCatalogSyncService> _logger;
 
     public CjCatalogSyncService(
         IStoreUnitOfWork storeUnitOfWork,
         ICJDropshippingService cjService,
         ICacheService cacheService,
+        IStoreSettingsService storeSettingsService,
         ILogger<CjCatalogSyncService> logger)
     {
         _storeUnitOfWork = storeUnitOfWork;
         _cjService = cjService;
         _cacheService = cacheService;
+        _storeSettingsService = storeSettingsService;
         _logger = logger;
     }
 
@@ -39,6 +43,10 @@ public class CjCatalogSyncService : ICjCatalogSyncService
 
         var written = await UpsertVariantsAsync(product);
         await _storeUnitOfWork.Complete();
+        if (written > 0)
+        {
+            await _storeSettingsService.MarkSyncCompletedAsync(CjSyncCacheKeys.VariantsLastSync);
+        }
 
         return written;
     }
@@ -66,6 +74,7 @@ public class CjCatalogSyncService : ICjCatalogSyncService
             await _storeUnitOfWork.Complete();
         }
 
+        await _storeSettingsService.MarkSyncCompletedAsync(CjSyncCacheKeys.VariantsLastSync);
         return written;
     }
 
@@ -76,6 +85,40 @@ public class CjCatalogSyncService : ICjCatalogSyncService
             .GetAllParams(new PageParams { PageNumber = 1, PageSize = BatchSize }))
             .ToList();
 
+        return await ApplyStockAsync(variants, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<int> SyncStockForProductsAsync(
+        IEnumerable<string> productIds,
+        CancellationToken cancellationToken = default)
+    {
+        var ids = productIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (ids.Count == 0) return 0;
+
+        var variants = new List<ProductVariant>();
+        foreach (var productId in ids)
+        {
+            if (cancellationToken.IsCancellationRequested) break;
+
+            var matches = await _storeUnitOfWork.Repository<ProductVariant>()
+                .GetAllParams(
+                    new PageParams { PageNumber = 1, PageSize = BatchSize },
+                    v => v.ProductId == productId);
+
+            variants.AddRange(matches);
+        }
+
+        return await ApplyStockAsync(variants, cancellationToken);
+    }
+
+    private async Task<int> ApplyStockAsync(List<ProductVariant> variants, CancellationToken cancellationToken)
+    {
         if (variants.Count == 0) return 0;
 
         var stockByVid = await _cjService.GetVariantStockAsync(variants.Select(v => v.CjVariantId));
@@ -94,7 +137,6 @@ public class CjCatalogSyncService : ICjCatalogSyncService
             updated++;
         }
 
-        // Roll variant stock up onto the parent product so the storefront shows a single number.
         foreach (var group in variants.GroupBy(v => v.ProductId))
         {
             var product = await _storeUnitOfWork.Repository<Products>()
@@ -113,6 +155,7 @@ public class CjCatalogSyncService : ICjCatalogSyncService
             _logger.LogInformation("Synced CJ stock for {Count} variants.", updated);
         }
 
+        await _storeSettingsService.MarkSyncCompletedAsync(CjSyncCacheKeys.StockLastSync);
         return updated;
     }
 

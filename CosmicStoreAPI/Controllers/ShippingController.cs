@@ -11,10 +11,12 @@ namespace CosmicStoreAPI.Controllers;
 public class ShippingController(
     ICJDropshippingService cjService,
     IStoreUnitOfWork storeUnitOfWork,
+    IWishlistRegistryService registryService,
     IConfiguration configuration) : BaseController
 {
     private readonly ICJDropshippingService _cjService = cjService;
     private readonly IStoreUnitOfWork _storeUnitOfWork = storeUnitOfWork;
+    private readonly IWishlistRegistryService _registryService = registryService;
     private readonly IConfiguration _configuration = configuration;
 
     /// <summary>
@@ -26,6 +28,31 @@ public class ShippingController(
         if (request.Items.Count == 0)
         {
             return BadRequest(new { message = "At least one cart item is required for a shipping quote." });
+        }
+
+        var countryCode = request.CountryCode;
+        var province = request.ProvinceOrState;
+        var city = request.City;
+
+        if (request.WishlistId is int wishlistId)
+        {
+            try
+            {
+                var registry = await _registryService.RequirePublicRegistryAsync(wishlistId);
+                var address = registry.ShippingAddress!;
+                countryCode = address.CountryCode;
+                province = address.ProvinceOrState;
+                city = address.City;
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(countryCode))
+        {
+            return BadRequest(new { message = "A destination country is required for a shipping quote." });
         }
 
         var freightProducts = new List<CjFreightProduct>();
@@ -46,9 +73,9 @@ public class ShippingController(
         var options = await _cjService.GetFreightOptionsAsync(new CjFreightRequest
         {
             startCountryCode = _configuration["CJDropshipping:FromCountryCode"] ?? "CN",
-            countryCode = request.CountryCode,
-            province = request.ProvinceOrState,
-            city = request.City,
+            countryCode = countryCode,
+            province = province,
+            city = city,
             products = freightProducts
         });
 
@@ -145,7 +172,7 @@ public class ShippingController(
             new ShippingOptionDto
             {
                 LogisticName = defaultLogistic,
-                DeliveryTime = "7-15",
+                DeliveryTime = "10-21",
                 FreightCost = flatRate
             }
         ];

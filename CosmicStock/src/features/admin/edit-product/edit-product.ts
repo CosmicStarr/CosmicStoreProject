@@ -133,12 +133,26 @@ export class EditProductComponent implements OnInit {
         });
         this.ensureCategoryOption(preview.category);
 
-        this.productImagesArray.clear();
+        if (this.isCreate()) {
+          this.productImagesArray.clear();
+        }
         for (const variant of preview.variants ?? []) {
-          this.addImage(variant.imageUrl ?? '', variant.sku, variant.variantName);
+          this.addImage(
+            variant.imageUrl ?? '',
+            variant.sku,
+            variant.variantName,
+            undefined,
+            undefined,
+            variant.sku,
+            variant.sellPrice,
+            !this.isCreate(),
+          );
         }
 
-        this.saveMessage.set(`Loaded ${this.cjVariants().length} variants for ${preview.cjProductId || pid}.`);
+        const action = this.isCreate() ? 'Loaded' : 'Added';
+        this.saveMessage.set(
+          `${action} ${this.cjVariants().length} variants for ${preview.cjProductId || pid}. Edit properties, then save or publish to put them on the storefront.`,
+        );
       },
       error: (err: { error?: { message?: string } }) => {
         this.loadingFromCj.set(false);
@@ -148,21 +162,50 @@ export class EditProductComponent implements OnInit {
     });
   }
 
-  addImage(imageString: string, skuPhoto?: string, type?: string, pictureId?: number): void {
+  addImage(
+    imageString: string,
+    skuPhoto?: string,
+    typeName?: string,
+    pictureId?: number,
+    productTypeId?: number,
+    typeSku?: string,
+    typePrice?: number,
+    isStorefrontDraft = false,
+  ): void {
     const url = imageString?.trim();
     if (!url) return;
 
-    const sku = skuPhoto?.trim() || String(this.productForm.get('sku')?.value ?? '');
-    const imageType = type?.trim() ?? '';
+    const sku = (typeSku ?? skuPhoto)?.trim() || String(this.productForm.get('sku')?.value ?? '');
+    const name = typeName?.trim() ?? '';
+    const price = Number(typePrice) > 0 ? Number(typePrice) : 0;
     const existing = this.productImagesArray.controls.find(
-      (group) => group.get('photoUrl')?.value === url && group.get('skuPhoto')?.value === sku
+      (group) => group.get('photoUrl')?.value === url
     );
     if (existing) {
-      if (imageType && !String(existing.get('type')?.value ?? '').trim()) {
-        existing.get('type')?.setValue(imageType);
+      const typeGroup = existing.get('productType');
+      if (name && !String(typeGroup?.get('name')?.value ?? '').trim()) {
+        typeGroup?.get('name')?.setValue(name);
+      }
+      if (sku && !String(typeGroup?.get('sku')?.value ?? '').trim()) {
+        typeGroup?.get('sku')?.setValue(sku);
+      }
+      if (price && !Number(typeGroup?.get('price')?.value)) {
+        typeGroup?.get('price')?.setValue(price);
+      }
+      if (productTypeId && !Number(typeGroup?.get('id')?.value)) {
+        typeGroup?.get('id')?.setValue(productTypeId);
+      }
+      if (productTypeId && !Number(existing.get('productTypeId')?.value)) {
+        existing.get('productTypeId')?.setValue(productTypeId);
+      }
+      if (sku && !String(existing.get('skuPhoto')?.value ?? '').trim()) {
+        existing.get('skuPhoto')?.setValue(sku);
       }
       if (pictureId && !Number(existing.get('id')?.value)) {
         existing.get('id')?.setValue(pictureId);
+      }
+      if (isStorefrontDraft && !existing.get('isStorefrontDraft')?.value) {
+        existing.get('isStorefrontDraft')?.setValue(true);
       }
       return;
     }
@@ -172,7 +215,14 @@ export class EditProductComponent implements OnInit {
       productId: new FormControl(this.productId),
       photoUrl: new FormControl(url),
       skuPhoto: new FormControl(sku),
-      type: new FormControl(imageType)
+      productTypeId: new FormControl(productTypeId ?? 0),
+      isStorefrontDraft: new FormControl(isStorefrontDraft),
+      productType: new FormGroup({
+        id: new FormControl(productTypeId ?? 0),
+        name: new FormControl(name),
+        sku: new FormControl(sku),
+        price: new FormControl(price),
+      }),
     }));
   }
 
@@ -205,7 +255,7 @@ export class EditProductComponent implements OnInit {
 
   galleryImageAlt(index: number): string {
     const group = this.productImagesArray.at(index);
-    const type = String(group.get('type')?.value ?? '').trim();
+    const type = String(group.get('productType')?.get('name')?.value ?? '').trim();
     const name = String(this.productForm.get('nameEn')?.value ?? '').trim() || 'Product';
     return type ? `${name} — ${type}` : `${name} image ${index + 1}`;
   }
@@ -215,6 +265,7 @@ export class EditProductComponent implements OnInit {
       next: (product) => {
         this.productForm.patchValue({
           id: product.id,
+          cjProductId: product.id,
           nameEn: product.nameEn,
           sku: product.sku,
           sellPrice: product.sellPrice,
@@ -230,14 +281,39 @@ export class EditProductComponent implements OnInit {
         this.ensureCategoryOption(product.category);
 
         this.productImagesArray.clear();
+        const typeFor = (picture?: typeof product.pictures[number]) =>
+          picture?.productType
+          ?? product.types?.find((item) => !!item.id && item.id === picture?.productTypeId)
+          ?? product.types?.find((item) => !!item.sku && item.sku === picture?.skuPhoto);
+
         if (product.bigImage) {
           const hero = (product.pictures ?? []).find(
             (picture) => picture.photoUrl?.trim() === product.bigImage?.trim()
           );
-          this.addImage(product.bigImage, hero?.skuPhoto ?? product.sku, hero?.type, hero?.id);
+          const heroType = typeFor(hero);
+          this.addImage(
+            product.bigImage,
+            hero?.skuPhoto ?? product.sku,
+            heroType?.name ?? hero?.type,
+            hero?.id,
+            heroType?.id ?? hero?.productTypeId,
+            heroType?.sku,
+            heroType?.price,
+            hero?.isStorefrontDraft,
+          );
         }
         for (const picture of product.pictures ?? []) {
-          this.addImage(picture.photoUrl, picture.skuPhoto, picture.type, picture.id);
+          const type = typeFor(picture);
+          this.addImage(
+            picture.photoUrl,
+            picture.skuPhoto,
+            type?.name ?? picture.type,
+            picture.id,
+            type?.id ?? picture.productTypeId,
+            type?.sku,
+            type?.price,
+            picture.isStorefrontDraft,
+          );
         }
       },
       error: (err) => console.error('Failed to load product metadata', err)
@@ -378,7 +454,24 @@ export class EditProductComponent implements OnInit {
       ...raw,
       shortDescription: String(raw.shortDescription ?? '').trim() || undefined,
       cjProductId: cjProductId || undefined,
-      variants: this.cjVariants()
+      variants: this.cjVariants(),
+      productImages: (raw.productImages ?? []).map((image) => {
+        const typeName = String(image.productType?.name ?? '').trim();
+        const typeSku = String(image.productType?.sku ?? image.skuPhoto ?? '').trim();
+        return {
+          ...image,
+          skuPhoto: typeSku || image.skuPhoto,
+          productTypeId: image.productType?.id || image.productTypeId,
+          productType: typeName || typeSku
+            ? {
+                id: image.productType?.id || image.productTypeId,
+                name: typeName,
+                sku: typeSku,
+                price: Number(image.productType?.price) > 0 ? Number(image.productType?.price) : 0,
+              }
+            : undefined,
+        };
+      }),
     };
   }
 }

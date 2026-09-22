@@ -10,5 +10,8 @@ namespace Models
         [Column(TypeName ="decimal(18,2)")]
         public decimal price { get; set; }
         public int Amount { get; set; }
+
+        /// <summary>When set, this line ships to a gift registry; the buyer never sees the street address.</summary>
+        public int? WishlistId { get; set; }
     }
 }

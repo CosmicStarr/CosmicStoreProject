@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Models;
 using System.Text.Json;
 using Data;
+using Data.Interfaces;
+using Data.Util;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -10,16 +12,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 /// <summary>
-/// Mirrors the CJ catalog into the staging tables.
+/// Mirrors the CJ catalog into the staging tables using delta sync when possible.
 ///
-/// The sync walks every third-level category CJ exposes and pages through each one until
-/// it runs out of results, so the staging tables end up holding the whole catalogue rather
-/// than the first page of a handful of categories.
-///
-/// Two limits are worth knowing about. CJ caps totalRecords at 6000 per category query, so
-/// a category larger than that cannot be fully enumerated through this endpoint. And every
-/// listV2 call costs 50 API points, so a full run over all categories is expensive; the
-/// MaxProducts and MaxPagesPerCategory settings exist to bound that spend.
+/// After the first full bootstrap (category walk), later runs query listV2 with
+/// timeStart/timeEnd from Redis <c>cj:catalog:last-sync</c> so only newly listed products
+/// are fetched. Published storefront products in that delta also get variant + stock
+/// refresh. MaxProducts / MaxPagesPerCategory still bound spend on bootstrap runs.
 /// </summary>
 public class CJProductSyncWorker : BackgroundService
 {
@@ -35,18 +33,11 @@ public class CJProductSyncWorker : BackgroundService
     /// <summary>SQL Server caps a query at ~2100 parameters, so ids are matched in blocks.</summary>
     private const int UpsertChunkSize = 500;
 
-    /// <summary>
-    /// Marks when the catalogue was last synced. Without it every application restart would
-    /// kick off another full run, and a full run is expensive in CJ API points.
-    /// </summary>
-    private const string LastSyncCacheKey = "cj:catalog:last-sync";
-
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<CJProductSyncWorker> _logger;
 
     private readonly string _baseUrl;
-    private readonly TimeSpan _syncInterval;
     private readonly TimeSpan _requestDelay;
     private readonly bool _syncEnabled;
     private readonly int _pageSize;
@@ -67,9 +58,6 @@ public class CJProductSyncWorker : BackgroundService
         _logger = logger;
 
         _baseUrl = (options.Value.BaseUrl ?? "https://developers.cjdropshipping.com/api2.0").TrimEnd('/');
-        // Bound as a double so fractional intervals like 0.5 are usable; binding it as an
-        // int makes such a value throw during construction and take startup down with it.
-        _syncInterval = TimeSpan.FromHours(configuration.GetValue("CJDropshipping:CatalogSyncHours", 6d));
         _requestDelay = TimeSpan.FromMilliseconds(configuration.GetValue("CJDropshipping:RequestDelayMs", 1200));
 
         _syncEnabled = configuration.GetValue("CJDropshipping:CatalogSyncEnabled", true);
@@ -100,9 +88,11 @@ public class CJProductSyncWorker : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            var syncHours = await ResolveCatalogSyncHoursAsync(stoppingToken);
+
             try
             {
-                await RunSyncAsync(stoppingToken);
+                await RunSyncAsync(syncHours, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -115,7 +105,9 @@ public class CJProductSyncWorker : BackgroundService
 
             try
             {
-                await Task.Delay(_syncInterval, stoppingToken);
+                // Re-read after the run so a Settings change to 6↔12 applies without restart.
+                syncHours = await ResolveCatalogSyncHoursAsync(stoppingToken);
+                await Task.Delay(TimeSpan.FromHours(syncHours), stoppingToken);
             }
             catch (OperationCanceledException)
             {
@@ -124,7 +116,16 @@ public class CJProductSyncWorker : BackgroundService
         }
     }
 
-    private async Task RunSyncAsync(CancellationToken stoppingToken)
+    private async Task<int> ResolveCatalogSyncHoursAsync(CancellationToken stoppingToken)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var settings = scope.ServiceProvider.GetRequiredService<IStoreSettingsService>();
+        var hours = await settings.GetCatalogSyncHoursAsync();
+        stoppingToken.ThrowIfCancellationRequested();
+        return hours is 12 ? 12 : 6;
+    }
+
+    private async Task RunSyncAsync(int syncHours, CancellationToken stoppingToken)
     {
         _logger.LogInformation("Starting CJ catalog sync at: {Time}", DateTimeOffset.Now);
 
@@ -132,14 +133,11 @@ public class CJProductSyncWorker : BackgroundService
         var authManager = scope.ServiceProvider.GetRequiredService<CjAuthManager>();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var cache = scope.ServiceProvider.GetRequiredService<IDistributedCache>();
+        var storeSettings = scope.ServiceProvider.GetRequiredService<IStoreSettingsService>();
 
-        if (await cache.GetStringAsync(LastSyncCacheKey, stoppingToken) is not null)
-        {
-            _logger.LogInformation(
-                "CJ catalog was already synced within the last {Hours}h; skipping this run.",
-                _syncInterval.TotalHours);
-            return;
-        }
+        var lastRunRaw = await cache.GetStringAsync(CjSyncCacheKeys.CatalogLastSync, stoppingToken);
+        var lastRun = TryParseTimestamp(lastRunRaw);
+        var runStartedAt = DateTimeOffset.UtcNow;
 
         var token = await authManager.GetValidAccessTokenAsync();
         if (string.IsNullOrWhiteSpace(token))
@@ -150,6 +148,76 @@ public class CJProductSyncWorker : BackgroundService
         var httpClient = _httpClientFactory.CreateClient();
         httpClient.DefaultRequestHeaders.TryAddWithoutValidation("CJ-Access-Token", token);
 
+        var seenProductIds = new HashSet<string>(StringComparer.Ordinal);
+        var changedProductIds = new List<string>();
+        var totalAdded = 0;
+        var totalUpdated = 0;
+        var rejected = false;
+
+        if (lastRun is null)
+        {
+            _logger.LogInformation(
+                "No catalog LastRunTimestamp; running full bootstrap sync (interval setting {Hours}h).",
+                syncHours);
+
+            var (added, updated, aborted) = await RunFullCatalogSyncAsync(
+                httpClient, dbContext, seenProductIds, stoppingToken);
+            totalAdded = added;
+            totalUpdated = updated;
+            rejected = aborted;
+            changedProductIds.AddRange(seenProductIds);
+        }
+        else
+        {
+            // Small overlap so products listed near the previous cut-off are not missed.
+            var timeStart = lastRun.Value.AddMinutes(-5);
+            var timeStartMs = timeStart.ToUnixTimeMilliseconds();
+            var timeEndMs = runStartedAt.ToUnixTimeMilliseconds();
+
+            _logger.LogInformation(
+                "Delta catalog sync since {LastRun:o} (window {StartMs}–{EndMs}).",
+                lastRun.Value, timeStartMs, timeEndMs);
+
+            var delta = await FetchDeltaAsync(httpClient, timeStartMs, timeEndMs, seenProductIds, stoppingToken);
+            rejected = delta.Rejected;
+
+            if (delta.Products.Count > 0)
+            {
+                var (added, updated) = await UpsertCatalogAsync(
+                    dbContext, delta.Categories, delta.Products, stoppingToken);
+                totalAdded = added;
+                totalUpdated = updated;
+                changedProductIds.AddRange(delta.Products.Select(p => p.Id));
+            }
+
+            _logger.LogInformation(
+                "Delta fetch complete: {Fetched} product(s), {New} new, {Changed} updated.",
+                delta.Products.Count, totalAdded, totalUpdated);
+        }
+
+        if (rejected)
+        {
+            _logger.LogWarning(
+                "CJ rejected a catalog request; abandoning this run without advancing LastRunTimestamp. "
+                + "Anything already upserted has been saved.");
+            return;
+        }
+
+        await RefreshPublishedFulfillmentAsync(scope, changedProductIds, stoppingToken);
+
+        await storeSettings.MarkSyncCompletedAsync(CjSyncCacheKeys.CatalogLastSync);
+
+        _logger.LogInformation(
+            "CJ catalog sync complete: {Added} added, {Updated} updated, {Unique} unique product(s).",
+            totalAdded, totalUpdated, seenProductIds.Count);
+    }
+
+    private async Task<(int Added, int Updated, bool Rejected)> RunFullCatalogSyncAsync(
+        HttpClient httpClient,
+        ApplicationDbContext dbContext,
+        HashSet<string> seenProductIds,
+        CancellationToken stoppingToken)
+    {
         var targets = _configuredCategories.Count > 0
             ? _configuredCategories
             : (await FetchAllCategoryIdsAsync(httpClient, stoppingToken))
@@ -159,17 +227,13 @@ public class CJProductSyncWorker : BackgroundService
         if (targets.Count == 0)
         {
             _logger.LogWarning("CJ returned no categories to sync.");
-            return;
+            return (0, 0, false);
         }
 
         _logger.LogInformation(
             "Syncing {CategoryCount} CJ categories at {PageSize} products per request, up to {PerCategory} products each.",
             targets.Count, _pageSize, _maxProductsPerCategory > 0 ? _maxProductsPerCategory.ToString() : "unlimited");
 
-        // Products are deduplicated globally because CJ lists the same product under
-        // several categories, and upserted per category so a long run makes steady
-        // progress instead of holding the entire catalogue in memory.
-        var seenProductIds = new HashSet<string>();
         var totalAdded = 0;
         var totalUpdated = 0;
         var categoriesDone = 0;
@@ -188,7 +252,8 @@ public class CJProductSyncWorker : BackgroundService
 
             if (result.Products.Count > 0)
             {
-                var (added, updated) = await UpsertCatalogAsync(dbContext, result.Categories, result.Products, stoppingToken);
+                var (added, updated) = await UpsertCatalogAsync(
+                    dbContext, result.Categories, result.Products, stoppingToken);
                 totalAdded += added;
                 totalUpdated += updated;
 
@@ -203,20 +268,72 @@ public class CJProductSyncWorker : BackgroundService
 
             if (result.Rejected)
             {
-                _logger.LogWarning("CJ rejected the request; abandoning this sync run. Anything already fetched has been saved.");
-                return;
+                return (totalAdded, totalUpdated, true);
             }
         }
 
-        await cache.SetStringAsync(
-            LastSyncCacheKey,
-            DateTimeOffset.UtcNow.ToString("O"),
-            new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = _syncInterval },
-            stoppingToken);
+        return (totalAdded, totalUpdated, false);
+    }
+
+    /// <summary>
+    /// For delta (or bootstrap) pids that are already on the storefront, refresh CJ variants and stock only.
+    /// </summary>
+    private async Task RefreshPublishedFulfillmentAsync(
+        IServiceScope scope,
+        IReadOnlyList<string> productIds,
+        CancellationToken stoppingToken)
+    {
+        if (productIds.Count == 0) return;
+
+        var storeDb = scope.ServiceProvider.GetRequiredService<ApplicationDbStoreContext>();
+        var catalogSync = scope.ServiceProvider.GetRequiredService<ICjCatalogSyncService>();
+
+        var distinctIds = productIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var publishedIds = new List<string>();
+        foreach (var chunk in distinctIds.Chunk(UpsertChunkSize))
+        {
+            var chunkList = chunk.ToList();
+            var matches = await storeDb.GetProducts
+                .AsNoTracking()
+                .Where(p => chunkList.Contains(p.Id))
+                .Select(p => p.Id)
+                .ToListAsync(stoppingToken);
+            publishedIds.AddRange(matches);
+        }
+
+        if (publishedIds.Count == 0)
+        {
+            _logger.LogInformation("No published storefront products in this catalog delta; skipping variant/stock refresh.");
+            return;
+        }
 
         _logger.LogInformation(
-            "CJ sync complete: {Added} added, {Updated} updated, {Unique} unique products across {Categories} categories.",
-            totalAdded, totalUpdated, seenProductIds.Count, categoriesDone);
+            "Refreshing variants and stock for {Count} published product(s) changed since last run.",
+            publishedIds.Count);
+
+        var variantsWritten = 0;
+        foreach (var productId in publishedIds)
+        {
+            if (stoppingToken.IsCancellationRequested) break;
+            variantsWritten += await catalogSync.SyncVariantsForProductAsync(productId);
+            await Task.Delay(500, stoppingToken);
+        }
+
+        var stockUpdated = await catalogSync.SyncStockForProductsAsync(publishedIds, stoppingToken);
+
+        _logger.LogInformation(
+            "Published delta fulfillment refresh: {Variants} variant row(s), {Stock} stock row(s).",
+            variantsWritten, stockUpdated);
+    }
+
+    private static DateTimeOffset? TryParseTimestamp(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        return DateTimeOffset.TryParse(raw, out var parsed) ? parsed.ToUniversalTime() : null;
     }
 
     /// <summary>
@@ -264,6 +381,109 @@ public class CJProductSyncWorker : BackgroundService
         }
 
         return ids;
+    }
+
+    /// <summary>
+    /// Pages listV2 filtered by listing time (milliseconds) since the last successful run.
+    /// </summary>
+    private async Task<CategoryFetchResult> FetchDeltaAsync(
+        HttpClient httpClient,
+        long timeStartMs,
+        long timeEndMs,
+        HashSet<string> seenProductIds,
+        CancellationToken stoppingToken)
+    {
+        var categories = new List<FlatCategory>();
+        var products = new List<FlatProduct>();
+
+        var page = 1;
+        var totalPages = 1;
+
+        while (page <= totalPages && !stoppingToken.IsCancellationRequested)
+        {
+            if (_maxPagesPerCategory > 0 && page > _maxPagesPerCategory) break;
+            if (ReachedProductCap(seenProductIds.Count)) break;
+
+            var requestUrl =
+                $"{_baseUrl}/v1/product/listV2?page={page}&size={_pageSize}"
+                + $"&timeStart={timeStartMs}&timeEnd={timeEndMs}&features=enable_category";
+            var response = await httpClient.GetAsync(requestUrl, stoppingToken);
+            var json = await response.Content.ReadAsStringAsync(stoppingToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "CJ listV2 delta returned {Status} for page {Page}; stopping delta pages.",
+                    (int)response.StatusCode, page);
+                break;
+            }
+
+            CjResponse? apiResult;
+            try
+            {
+                apiResult = JsonSerializer.Deserialize<CjResponse>(json, JsonOptions);
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogError(ex, "Could not read CJ listV2 delta page {Page}.", page);
+                break;
+            }
+
+            if (apiResult?.Data is null)
+            {
+                _logger.LogWarning(
+                    "CJ listV2 delta returned no data for page {Page} (CJ code {Code}: {Message}).",
+                    page, apiResult?.Code, apiResult?.Message);
+
+                var rejected = apiResult is not null && !apiResult.Result;
+                return new CategoryFetchResult(Dedupe(categories), products, rejected);
+            }
+
+            totalPages = apiResult.Data.TotalPages > 0 ? apiResult.Data.TotalPages : 1;
+
+            var pageProducts = apiResult.Data.Content?
+                .SelectMany(content => content.ProductList ?? [])
+                .ToList() ?? [];
+
+            if (pageProducts.Count == 0) break;
+
+            foreach (var product in pageProducts)
+            {
+                if (string.IsNullOrWhiteSpace(product.Id)) continue;
+                if (!seenProductIds.Add(product.Id)) continue;
+
+                categories.Add(new FlatCategory
+                {
+                    CategoryId = product.CategoryId?.Trim() ?? "NO-CATEGORY",
+                    CategoryName = product.OneCategoryName?.Trim() ?? "Unknown Category",
+                    FullPath = $"{product.OneCategoryName?.Trim()} > {product.TwoCategoryName?.Trim()} > {product.ThreeCategoryName?.Trim()}"
+                });
+
+                products.Add(new FlatProduct
+                {
+                    Id = product.Id,
+                    NameEn = product.NameEn?.Trim() ?? "Unknown",
+                    Sku = product.Sku?.Trim() ?? "Unknown",
+                    SellPrice = ParseLowestPrice(product.SellPrice),
+                    BigImage = product.BigImage,
+                    CategoryId = product.CategoryId?.Trim() ?? "NO-CATEGORY"
+                });
+
+                if (ReachedProductCap(seenProductIds.Count))
+                {
+                    return new CategoryFetchResult(Dedupe(categories), products, false);
+                }
+            }
+
+            page++;
+
+            if (page <= totalPages)
+            {
+                await Task.Delay(_requestDelay, stoppingToken);
+            }
+        }
+
+        return new CategoryFetchResult(Dedupe(categories), products, false);
     }
 
     /// <summary>

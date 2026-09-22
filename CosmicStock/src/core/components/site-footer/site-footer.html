@@ -4,12 +4,15 @@
       <div class="icon-circle">✉️</div>
       <div class="card-text">
         <h3>Need help?</h3>
-        <p><a routerLink="/orders">Track an order</a></p>
+        <p><a routerLink="/orders">Track a signed-in order</a></p>
+        <p><a routerLink="/order/manage">Manage a guest order</a></p>
       </div>
     </div>
 
     <div class="contact-card">
-      <div class="icon-circle">🛍️</div>
+      <div class="icon-circle icon-circle-logo">
+        <img src="/images/cosmicstore-logo.png" width="40" height="40" alt="" />
+      </div>
       <div class="card-text">
         <h3>Shop</h3>
         <p><a routerLink="/store">Browse all products</a></p>
@@ -40,6 +43,11 @@
     <div class="directory-column">
       <h2>Information</h2>
       <ul class="footer-links-list">
+        <li><a routerLink="/about">About</a></li>
+        <li><a routerLink="/shipping">Shipping &amp; Delivery</a></li>
+        <li><a routerLink="/returns">Returns &amp; Refunds</a></li>
+        <li><a routerLink="/privacy">Privacy Policy</a></li>
+        <li><a routerLink="/terms">Terms &amp; Conditions</a></li>
         <li><a routerLink="/store">Shop All</a></li>
         <li><a routerLink="/checkout">Checkout</a></li>
         <li><a routerLink="/login">Sign In</a></li>
@@ -55,14 +63,22 @@
       <ul class="footer-links-list">
         <li><a routerLink="/store">Browse Products</a></li>
         <li><a routerLink="/orders">Track Your Order</a></li>
+        <li><a routerLink="/order/manage">Manage a Guest Order</a></li>
       </ul>
     </div>
   </div>
 
   <div class="footer-copyright-bar">
     <div class="copyright-left">
-      © <a routerLink="/">CosmicStore</a>, All rights reserved.
+      <app-brand-logo [compact]="true" [showWordmark]="true" />
+      <span class="copyright-note">© All rights reserved.</span>
     </div>
-    <div class="copyright-right"></div>
+    <div class="copyright-right">
+      <a routerLink="/about">About</a>
+      <a routerLink="/shipping">Shipping</a>
+      <a routerLink="/returns">Returns</a>
+      <a routerLink="/privacy">Privacy Policy</a>
+      <a routerLink="/terms">Terms &amp; Conditions</a>
+    </div>
   </div>
 </footer>

@@ -7,6 +7,15 @@
       <h2 id="confirm-email-heading" tabindex="-1" #confirmHeading>Email not confirmed</h2>
       <p class="error-text" role="status">{{ message() }}</p>
       <div class="confirmation-actions">
+        @if (email()) {
+          <button
+            type="button"
+            class="link-btn"
+            [disabled]="resending()"
+            (click)="resendConfirmation()">
+            {{ resending() ? 'Sending…' : 'Send a new confirmation email' }}
+          </button>
+        }
         <a routerLink="/register" class="link-btn">Create an account</a>
         <a routerLink="/login" class="link-btn secondary">Go to login</a>
       </div>

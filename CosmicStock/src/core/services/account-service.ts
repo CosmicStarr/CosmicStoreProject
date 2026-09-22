@@ -57,16 +57,13 @@ export class AccountService {
 
   ensureGuestCheckoutIfNeeded() {
     const user = this.currentUserValue;
-    if (!user || user.emailConfirmed !== true) {
+    if (!user || user.isGuest) {
       this.beginGuestCheckout();
     }
   }
 
-  canPurchase(user: IUser | null = this.currentUserValue): boolean {
-    if (this.guestCheckout() || !user) {
-      return true;
-    }
-    return user.emailConfirmed === true;
+  canPurchase(_user: IUser | null = this.currentUserValue): boolean {
+    return true;
   }
 
   private discardGuestSession() {
@@ -135,8 +132,16 @@ export class AccountService {
     );
   }
 
-  confirmEmail(userId: string, token: string) {
-    return this.http.post<{ message: string }>(`${this.apiUrl}account/confirm-email`, { userId, token });
+  confirmEmail(userId: string, token: string, email?: string) {
+    return this.http.post<{ message: string }>(`${this.apiUrl}account/confirm-email`, {
+      userId,
+      token,
+      email: email || undefined,
+    });
+  }
+
+  resendConfirmation(email: string) {
+    return this.http.post<{ message: string }>(`${this.apiUrl}account/resend-confirmation`, { email });
   }
 
   forgotPassword(email: string) {

@@ -9,6 +9,14 @@
   <p class="action-message" role="status">{{ message() }}</p>
 }
 
+@if (ftcAttentionCount() > 0) {
+  <p class="ftc-banner" role="status">
+    {{ ftcAttentionCount() }} paid order{{ ftcAttentionCount() === 1 ? '' : 's' }} awaiting CJ
+    fulfillment for 20+ days (FTC 30-day ship rule). Contact the customer and arrange a refund
+    if you cannot ship by day 30.
+  </p>
+}
+
 <div class="table-wrap" [attr.aria-busy]="loading()">
   <table>
     <thead>
@@ -16,6 +24,8 @@
         <th>Order</th>
         <th>Customer</th>
         <th>Status</th>
+        <th>FTC</th>
+        <th>Refund</th>
         <th>Payment</th>
         <th>Shipping</th>
         <th>Tracking</th>
@@ -27,16 +37,38 @@
     <tbody>
       @if (!orders().length) {
         <tr>
-          <td colspan="9" class="empty-cell">
+          <td colspan="11" class="empty-cell">
             {{ loading() ? 'Loading orders...' : 'No orders yet.' }}
           </td>
         </tr>
       } @else {
         @for (order of orders(); track order.orderId) {
-          <tr class="order-row" tabindex="0" (click)="openOrder(order)" (keydown.enter)="openOrder(order)">
+          <tr
+            class="order-row"
+            [class.has-refund]="!!order.hasRefundRequest"
+            [class.ftc-attention]="!!order.needsFtcShipAttention"
+            tabindex="0"
+            (click)="openOrder(order)"
+            (keydown.enter)="openOrder(order)">
             <td>{{ order.orderId.slice(0, 8) }}</td>
             <td>{{ order.customerName }}<br><span class="muted">{{ order.customerEmail }}</span></td>
             <td><span class="status">{{ order.status }}</span></td>
+            <td>
+              @if (order.needsFtcShipAttention) {
+                <span class="ftc-flag" title="Paid and unfulfilled for 20+ days">
+                  {{ order.daysAwaitingFulfillment }}d unfulfilled
+                </span>
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td>
+              @if (order.hasRefundRequest) {
+                <span class="refund-flag">{{ refundRequestLabel(order) }}</span>
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
             <td>
               <span
                 class="payment-status"
@@ -75,6 +107,10 @@
                     type="button"
                     [disabled]="busyOrderId() === order.orderId"
                     (click)="refundOrder(order)">Refund</button>
+                } @else if (order.hasRefundRequest) {
+                  <span class="refund-flag">Review request</span>
+                } @else if (awaitingReturn(order)) {
+                  <span class="muted">Awaiting CJ return</span>
                 }
               </div>
             </td>

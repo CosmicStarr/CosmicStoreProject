@@ -64,6 +64,48 @@ th {
   &:hover {
     background: var(--bg-light);
   }
+
+  &.has-refund {
+    box-shadow: inset 3px 0 0 #ea580c;
+  }
+
+  &.ftc-attention {
+    box-shadow: inset 3px 0 0 #b91c1c;
+    background: #fef2f2;
+  }
+
+  &.has-refund.ftc-attention {
+    box-shadow: inset 3px 0 0 #b91c1c, inset 6px 0 0 #ea580c;
+  }
+}
+
+.ftc-banner {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  background: #fef2f2;
+  border-left: 4px solid #b91c1c;
+  color: #7f1d1d;
+  font-weight: 600;
+}
+
+.ftc-flag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.refund-flag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .status {

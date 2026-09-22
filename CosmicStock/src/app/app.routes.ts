@@ -6,7 +6,7 @@ import { guestGuard } from '../core/guards/guest-guard';
 import { registeredAccountGuard } from '../core/guards/registered-account-guard';
 
 export const routes: Routes = [
-  { path: '', component: HomeComponent },
+  { path: '', component: HomeComponent, title: 'CosmicStore' },
   {
     path: 'admin',
     loadComponent: () => import('../features/admin/admin-layout/admin-layout').then(m => m.AdminLayoutComponent),
@@ -29,6 +29,7 @@ export const routes: Routes = [
   { path: 'checkout', loadComponent: () => import('../features/checkout/checkout-component/checkout-component').then(m => m.CheckoutComponent) },
   { path: 'orders', loadComponent: () => import('../features/orders/orders-component/orders-component').then(m => m.OrdersComponent), canActivate: [authGuard] },
   { path: 'orders/:id', loadComponent: () => import('../features/orders/order-detail-component/order-detail-component').then(m => m.OrderDetailComponent), canActivate: [authGuard] },
+  { path: 'order/manage', loadComponent: () => import('../features/orders/guest-order-manage/guest-order-manage').then(m => m.GuestOrderManageComponent) },
   { path: 'account/confirm-email', loadComponent: () => import('../features/account/confirm-email/confirm-email').then(m => m.ConfirmEmailComponent) },
   { path: 'account/confirm-email-change', loadComponent: () => import('../features/account/confirm-email-change/confirm-email-change').then(m => m.ConfirmEmailChangeComponent) },
   { path: 'account/lock-account', loadComponent: () => import('../features/account/lock-account/lock-account').then(m => m.LockAccountComponent) },
@@ -36,6 +37,12 @@ export const routes: Routes = [
   { path: 'account/reset-password', loadComponent: () => import('../features/account/reset-password/reset-password').then(m => m.ResetPasswordComponent) },
   { path: 'account/profile', loadComponent: () => import('../features/account/profile/profile').then(m => m.ProfileComponent), canActivate: [authGuard, registeredAccountGuard] },
   { path: 'account/wishlist', loadComponent: () => import('../features/account/wishlist/wishlist').then(m => m.WishlistComponent), canActivate: [authGuard] },
+  { path: 'wishlist/:publicId', loadComponent: () => import('../features/store/public-wishlist/public-wishlist').then(m => m.PublicWishlistComponent) },
+  { path: 'about', loadComponent: () => import('../features/legal/about/about').then(m => m.AboutComponent), title: 'About | CosmicStore' },
+  { path: 'shipping', loadComponent: () => import('../features/legal/shipping/shipping').then(m => m.ShippingComponent), title: 'Shipping & Delivery | CosmicStore' },
+  { path: 'returns', loadComponent: () => import('../features/legal/returns/returns').then(m => m.ReturnsComponent), title: 'Returns & Refunds | CosmicStore' },
+  { path: 'privacy', loadComponent: () => import('../features/legal/privacy/privacy').then(m => m.PrivacyComponent), title: 'Privacy Policy | CosmicStore' },
+  { path: 'terms', loadComponent: () => import('../features/legal/terms/terms').then(m => m.TermsComponent), title: 'Terms & Conditions | CosmicStore' },
   { path: 'register', loadComponent: () => import('../features/users/register-component/register-component').then(m => m.RegisterComponent), canActivate: [guestGuard] },
   { path: 'login', loadComponent: () => import('../features/users/login-component/login-component').then(m => m.LoginComponent), canActivate: [guestGuard] },
   { path: '**', loadComponent: () => import('../features/not-found/not-found').then(m => m.NotFoundComponent) },

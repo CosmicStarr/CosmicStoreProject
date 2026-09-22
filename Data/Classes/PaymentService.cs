@@ -1,4 +1,5 @@
 using Data.Interfaces;
+using Data.Util;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Models;
@@ -16,16 +17,19 @@ public class PaymentService : IPaymentService
 
     private readonly IShoppingCartService _shoppingCartService;
     private readonly IStoreUnitOfWork _storeUnitOfWork;
+    private readonly IWishlistRegistryService _registryService;
     private readonly ILogger<PaymentService> _logger;
 
     public PaymentService(
         IShoppingCartService shoppingCartService,
         IStoreUnitOfWork storeUnitOfWork,
+        IWishlistRegistryService registryService,
         IConfiguration configuration,
         ILogger<PaymentService> logger)
     {
         _shoppingCartService = shoppingCartService;
         _storeUnitOfWork = storeUnitOfWork;
+        _registryService = registryService;
         _logger = logger;
 
         StripeConfiguration.ApiKey = configuration["Stripe:SecretKey"]
@@ -40,6 +44,13 @@ public class PaymentService : IPaymentService
         var cart = await _shoppingCartService.GetShoppingCartAsync(cartId, userId);
         if (cart is null || cart.ShoppingCartItems.Count == 0) return null;
 
+        var acceptedTermsAt = LegalTerms.RequireAcceptance(request.AcceptedTermsVersion, request.AcceptedTermsAt);
+        var termsMetadata = new Dictionary<string, string>
+        {
+            ["accepted_terms_version"] = LegalTerms.CurrentVersion,
+            ["accepted_terms_at"] = DateTime.SpecifyKind(acceptedTermsAt, DateTimeKind.Utc).ToString("O")
+        };
+
         // Re-price every line against the database so a tampered client price can never reach Stripe.
         foreach (var item in cart.ShoppingCartItems)
         {
@@ -51,7 +62,7 @@ public class PaymentService : IPaymentService
                 return null;
             }
 
-            item.price = product.SellPrice;
+            item.price = await ResolveLinePriceAsync(product, item.Sku);
             item.Name = product.NameEn;
         }
 
@@ -62,6 +73,18 @@ public class PaymentService : IPaymentService
         var total = subtotal + cart.ShippingCost;
         var amountInCents = ToMinorUnits(total);
 
+        var wishlistId = WishlistRegistryService.BoundWishlistId(cart.ShoppingCartItems);
+        ChargeShippingOptions? stripeShipping = null;
+        string? maskedLabel = null;
+        if (wishlistId is int registryId)
+        {
+            var registry = await _registryService.RequirePublicRegistryAsync(registryId);
+            stripeShipping = _registryService.ToStripeShipping(registry.ShippingAddress!);
+            maskedLabel = WishlistPrivacy.MaskedShippingLabel(registry.ShippingAddress!.FullName);
+            cart.WishlistId = registryId;
+            cart.MaskedShippingLabel = maskedLabel;
+        }
+
         var intentService = new PaymentIntentService();
         PaymentIntent intent;
 
@@ -69,21 +92,35 @@ public class PaymentService : IPaymentService
         // fresh one. This happens whenever a customer shops again on the same cart.
         if (!string.IsNullOrEmpty(cart.PaymentId) && await IsReusableAsync(cart.PaymentId))
         {
-            intent = await intentService.UpdateAsync(cart.PaymentId, new PaymentIntentUpdateOptions
+            var update = new PaymentIntentUpdateOptions
             {
-                Amount = amountInCents
-            });
+                Amount = amountInCents,
+                Metadata = termsMetadata
+            };
+            if (stripeShipping is not null)
+            {
+                update.Shipping = stripeShipping;
+            }
+
+            intent = await intentService.UpdateAsync(cart.PaymentId, update);
 
             cart.ClientSecret = intent.ClientSecret ?? cart.ClientSecret;
         }
         else
         {
-            intent = await intentService.CreateAsync(new PaymentIntentCreateOptions
+            var create = new PaymentIntentCreateOptions
             {
                 Amount = amountInCents,
                 Currency = Usd,
-                PaymentMethodTypes = ["card"]
-            });
+                PaymentMethodTypes = ["card"],
+                Metadata = termsMetadata
+            };
+            if (stripeShipping is not null)
+            {
+                create.Shipping = stripeShipping;
+            }
+
+            intent = await intentService.CreateAsync(create);
 
             cart.PaymentId = intent.Id;
             cart.ClientSecret = intent.ClientSecret;
@@ -98,7 +135,8 @@ public class PaymentService : IPaymentService
             Amount = total,
             Subtotal = subtotal,
             ShippingCost = cart.ShippingCost,
-            Currency = Usd
+            Currency = Usd,
+            MaskedShippingLabel = maskedLabel
         };
     }
 
@@ -129,9 +167,9 @@ public class PaymentService : IPaymentService
     }
 
     /// <summary>
-    /// Refunds a PaymentIntent in full or in part. Already-refunded charges return without error.
+    /// Refunds a PaymentIntent in full or in part. Already-refunded charges return 0 without error.
     /// </summary>
-    public async Task RefundPaymentAsync(string paymentIntentId, long? amountCents = null, string? idempotencyKey = null)
+    public async Task<long> RefundPaymentAsync(string paymentIntentId, long? amountCents = null, string? idempotencyKey = null)
     {
         if (string.IsNullOrWhiteSpace(paymentIntentId))
         {
@@ -147,7 +185,7 @@ public class PaymentService : IPaymentService
         if (IsFullyRefunded(intent))
         {
             _logger.LogInformation("PaymentIntent {PaymentIntentId} is already fully refunded.", paymentIntentId);
-            return;
+            return 0;
         }
 
         if (!string.Equals(intent.Status, "succeeded", StringComparison.OrdinalIgnoreCase))
@@ -158,13 +196,13 @@ public class PaymentService : IPaymentService
         var remaining = RemainingRefundableCents(intent);
         if (remaining <= 0)
         {
-            return;
+            return 0;
         }
 
         var refundCents = amountCents is > 0 ? Math.Min(amountCents.Value, remaining) : remaining;
         if (refundCents <= 0)
         {
-            return;
+            return 0;
         }
 
         try
@@ -183,6 +221,8 @@ public class PaymentService : IPaymentService
             await new RefundService().CreateAsync(
                 options,
                 new RequestOptions { IdempotencyKey = idempotencyKey ?? $"order-refund-{paymentIntentId}" });
+
+            return refundCents;
         }
         catch (StripeException ex)
         {
@@ -193,7 +233,7 @@ public class PaymentService : IPaymentService
                     ex,
                     "PaymentIntent {PaymentIntentId} refund was already applied.",
                     paymentIntentId);
-                return;
+                return 0;
             }
 
             _logger.LogError(ex, "Stripe refund failed for PaymentIntent {PaymentIntentId}.", paymentIntentId);
@@ -269,6 +309,9 @@ public class PaymentService : IPaymentService
     internal static long ToMinorUnits(decimal amount) =>
         (long)Math.Round(amount * 100m, MidpointRounding.AwayFromZero);
 
+    /// <summary>Converts Stripe cents back to a dollar amount for customer-facing copy.</summary>
+    internal static decimal FromMinorUnits(long cents) => cents / 100m;
+
     /// <summary>Finds a storefront product by parent SKU, picture skuPhoto, or ProductVariant SKU.</summary>
     private async Task<Products?> FindProductByLineSkuAsync(string sku)
     {
@@ -284,6 +327,14 @@ public class PaymentService : IPaymentService
                 .GetFirstOrDefault(p => p.Id == image.ProductId);
         }
 
+        var productType = await _storeUnitOfWork.Repository<ProductType>()
+            .GetFirstOrDefault(type => type.Sku == sku);
+        if (productType is not null)
+        {
+            return await _storeUnitOfWork.Repository<Products>()
+                .GetFirstOrDefault(p => p.Id == productType.ProductId);
+        }
+
         var variant = await _storeUnitOfWork.Repository<ProductVariant>()
             .GetFirstOrDefault(v => v.Sku == sku);
         if (variant is not null)
@@ -293,5 +344,13 @@ public class PaymentService : IPaymentService
         }
 
         return null;
+    }
+
+    /// <summary>Uses the type price when the line SKU matches a priced product type; otherwise the product sell price.</summary>
+    private async Task<decimal> ResolveLinePriceAsync(Products product, string sku)
+    {
+        var productType = await _storeUnitOfWork.Repository<ProductType>()
+            .GetFirstOrDefault(type => type.ProductId == product.Id && type.Sku == sku);
+        return productType is { Price: > 0 } ? productType.Price : product.SellPrice;
     }
 }

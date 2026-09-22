@@ -26,5 +26,11 @@ namespace Models
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal ShippingCost { get; set; }
+
+        /// <summary>Set when every line is bound to the same gift registry.</summary>
+        public int? WishlistId { get; set; }
+
+        /// <summary>Buyer-facing destination. Never contains street, city, or ZIP.</summary>
+        public string? MaskedShippingLabel { get; set; }
     }
 }
