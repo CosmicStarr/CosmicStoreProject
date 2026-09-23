@@ -418,7 +418,8 @@ public class EditCjProducts(
                         ProductTypeId = x.ProductTypeId,
                         ProductType = MapTypeDto(group.Key, x.ProductTypeId, x.TypeName, x.TypeSku, x.TypePrice)
                     })
-                    .GroupBy(x => x.PhotoUrl)
+                    // Keep variants that share a photo URL as separate rows (keyed by picture id or URL+SKU).
+                    .GroupBy(PictureIdentityKey, StringComparer.OrdinalIgnoreCase)
                     .Select(x => x.First())
                     .ToList()
             })
@@ -443,7 +444,8 @@ public class EditCjProducts(
                 ProductTypeId = image.ProductTypeId,
                 ProductType = MapTypeDto(product.Id, image.ProductType)
             })
-            .GroupBy(image => image.PhotoUrl)
+            // Do not collapse by PhotoUrl alone — multiple variants may share one image URL.
+            .GroupBy(PictureIdentityKey, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
             .ToList();
 
@@ -496,10 +498,20 @@ public class EditCjProducts(
                 continue;
             }
 
-            var existing = response.Pictures.FirstOrDefault(picture =>
+            var variantSku = variant.Sku?.Trim() ?? string.Empty;
+
+            // Prefer SKU identity so two variants with the same photo stay separate.
+            var existing = !string.IsNullOrWhiteSpace(variantSku)
+                ? response.Pictures.FirstOrDefault(picture =>
+                    string.Equals(picture.SkuPhoto?.Trim(), variantSku, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(picture.ProductType?.Sku?.Trim(), variantSku, StringComparison.OrdinalIgnoreCase))
+                : null;
+
+            // Legacy gallery row with this URL but no SKU yet can absorb the first matching variant.
+            existing ??= response.Pictures.FirstOrDefault(picture =>
                 string.Equals(picture.PhotoUrl?.Trim(), imageUrl, StringComparison.OrdinalIgnoreCase)
-                || (!string.IsNullOrWhiteSpace(variant.Sku)
-                    && string.Equals(picture.SkuPhoto?.Trim(), variant.Sku.Trim(), StringComparison.OrdinalIgnoreCase)));
+                && string.IsNullOrWhiteSpace(picture.SkuPhoto)
+                && picture.ProductType is null);
 
             var type = MapTypeDto(response.Id, null, variant.VariantName, variant.Sku);
             if (existing is not null)
@@ -914,6 +926,20 @@ public class EditCjProducts(
         }
 
         return null;
+    }
+
+    private static string PictureIdentityKey(PictureDto picture)
+    {
+        if (picture.Id > 0)
+        {
+            return $"id:{picture.Id}";
+        }
+
+        var url = picture.PhotoUrl?.Trim() ?? string.Empty;
+        var sku = picture.SkuPhoto?.Trim()
+            ?? picture.ProductType?.Sku?.Trim()
+            ?? string.Empty;
+        return string.IsNullOrWhiteSpace(sku) ? url : $"{url}\u001f{sku}";
     }
 
     private static List<ProductTypeDto> DistinctTypes(

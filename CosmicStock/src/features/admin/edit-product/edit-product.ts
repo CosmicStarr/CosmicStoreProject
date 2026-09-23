@@ -182,9 +182,20 @@ export class EditProductComponent implements OnInit {
     const sku = (typeSku ?? skuPhoto)?.trim() || String(this.productForm.get('sku')?.value ?? '');
     const name = typeName?.trim() ?? '';
     const price = Number(typePrice) > 0 ? Number(typePrice) : 0;
-    const existing = this.productImagesArray.controls.find(
-      (group) => group.get('photoUrl')?.value === url
-    );
+    // Same photo URL can belong to multiple variants — only merge when the type SKU matches
+    // (or both rows are plain gallery images with no SKU).
+    const existing = this.productImagesArray.controls.find((group) => {
+      if (group.get('photoUrl')?.value !== url) {
+        return false;
+      }
+      const existingSku = String(
+        group.get('productType')?.get('sku')?.value ?? group.get('skuPhoto')?.value ?? '',
+      ).trim();
+      if (!sku && !existingSku) {
+        return true;
+      }
+      return !!sku && existingSku.toLowerCase() === sku.toLowerCase();
+    });
     if (existing) {
       const typeGroup = existing.get('productType');
       if (name && !String(typeGroup?.get('name')?.value ?? '').trim()) {
