@@ -1,65 +1,24 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
-name: Build and deploy ASP.Net Core app to Azure Web App - cosmicstoreapi
-
 on:
   push:
     branches:
-      - cursor/cloud-agent-1789427723609-8ph37
+      - main
   workflow_dispatch:
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read #This is required for actions/checkout
+# build:
+#   ...
+#   - run: dotnet build CosmicStoreAPI/CosmicStoreAPI.csproj -c Release
+#   - run: dotnet publish CosmicStoreAPI/CosmicStoreAPI.csproj -c Release -o "${{ github.workspace }}/artifacts/api"
+#   - upload path: ${{ github.workspace }}/artifacts/api
 
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up .NET Core
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.x'
-
-      - name: Build with dotnet
-        run: dotnet build --configuration Release
-
-      - name: dotnet publish
-        run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
-
-      - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v4
-        with:
-          name: .net-app
-          path: ${{env.DOTNET_ROOT}}/myapp
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
-
-    steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
           name: .net-app
-      
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_5CA8B5B2D78E42858C06A6C10D0CC9CB }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_DA827E823CD347509305E7E6D5F8BD10 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_1B5724BEDB6948E3A08F50E7FBFFDD8D }}
+          path: .
 
       - name: Deploy to Azure Web App
-        id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'cosmicstoreapi'
           slot-name: 'Production'
           package: .
-          
