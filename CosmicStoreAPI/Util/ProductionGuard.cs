@@ -22,17 +22,23 @@ public static class ProductionGuard
         Require(configuration, "Stripe:SecretKey", missing);
         Require(configuration, "Stripe:PublishableKey", missing);
         Require(configuration, "Stripe:WebhookSecret", missing);
-        Require(configuration, "Graph:ClientId", missing);
-        Require(configuration, "Graph:ClientSecret", missing);
-        Require(configuration, "Graph:TenantId", missing);
-        Require(configuration, "ReturnPath:SenderEmail", missing, configuration["Graph:SenderEmail"]);
+        Require(configuration, "ReturnPath:SenderEmail", missing, configuration["Graph:SenderEmail"] ?? configuration["Email:SenderAddress"]);
         Require(configuration, "CJDropshipping:ApiKey", missing);
+
+        var acsConfigured = !string.IsNullOrWhiteSpace(configuration.GetConnectionString("AzureCommunicationEmail"))
+            || !string.IsNullOrWhiteSpace(configuration["Email:ConnectionString"]);
+        if (!acsConfigured)
+        {
+            Require(configuration, "Graph:ClientId", missing);
+            Require(configuration, "Graph:ClientSecret", missing);
+            Require(configuration, "Graph:TenantId", missing);
+        }
 
         if (missing.Count > 0)
         {
             throw new InvalidOperationException(
                 "Production is missing required settings: " + string.Join(", ", missing)
-                + ". Set them as environment variables (Store__PublicOrigin, ConnectionStrings__DefaultConnection, JWT__SecretKey, Stripe__*, Graph__*, CJDropshipping__ApiKey) or the host secret store.");
+                + ". Set them as environment variables (Store__PublicOrigin, ConnectionStrings__DefaultConnection, JWT__SecretKey, Stripe__*, Email__* or Graph__*, CJDropshipping__ApiKey) or the host secret store.");
         }
 
         var publicOrigin = StoreUrls.PublicOrigin(configuration);
@@ -44,19 +50,22 @@ public static class ProductionGuard
                 "Store:PublicOrigin must be the live HTTPS storefront URL (not localhost). Example: https://www.yourdomain.com");
         }
 
-        if (GraphMailAuth.IsClientCredentials(configuration) is false)
+        if (!acsConfigured && GraphMailAuth.IsClientCredentials(configuration) is false)
         {
             throw new InvalidOperationException(
-                "Production mail must use Graph:AuthMode=ClientCredentials with Graph:TenantId, Graph:ClientId, Graph:ClientSecret, and ReturnPath:SenderEmail. Delegated Outlook login will not survive a server restart.");
+                "Production mail must use ConnectionStrings:AzureCommunicationEmail (ACS) or Graph:AuthMode=ClientCredentials with Graph:TenantId, Graph:ClientId, Graph:ClientSecret, and ReturnPath:SenderEmail. Delegated Outlook login will not survive a server restart.");
         }
 
-        var tenantId = configuration["Graph:TenantId"]!;
-        if (string.Equals(tenantId, "common", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(tenantId, "organizations", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(tenantId, "consumers", StringComparison.OrdinalIgnoreCase))
+        if (!acsConfigured)
         {
-            throw new InvalidOperationException(
-                "Graph:TenantId must be the Azure AD tenant GUID of the mailbox app. Client-credentials cannot use 'common'.");
+            var tenantId = configuration["Graph:TenantId"]!;
+            if (string.Equals(tenantId, "common", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(tenantId, "organizations", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(tenantId, "consumers", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "Graph:TenantId must be the Azure AD tenant GUID of the mailbox app. Client-credentials cannot use 'common'.");
+            }
         }
 
         var secret = configuration["JWT:SecretKey"]!;
