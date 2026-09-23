@@ -17,7 +17,6 @@ public class HomeController(IStoreUnitOfWork storeUnitOfWork, IEditCjProducts ed
 
     /// <summary>
     /// Returns featured, new-arrival, or top-selling storefront products for the home sections.
-    /// Featured falls back to the full catalog when nothing is flagged yet.
     /// </summary>
     [HttpGet("highlighted/{highlightType}")]
     public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetHighlightedProducts(string highlightType)
@@ -35,14 +34,6 @@ public class HomeController(IStoreUnitOfWork storeUnitOfWork, IEditCjProducts ed
         var pageParams = new PageParams { PageNumber = 1, PageSize = 48 };
         var products = await _storeUnitOfWork.Repository<Products>()
             .GetAllParams(pageParams, filter, query => query.OrderBy(product => product.NameEn), "ProductImages");
-
-        // A brand-new storefront often has published products that were never flagged.
-        // Featured is the home catalog, so show those rather than an empty section.
-        if (products.Count == 0 && string.Equals(highlightType, "Featured", StringComparison.OrdinalIgnoreCase))
-        {
-            products = await _storeUnitOfWork.Repository<Products>()
-                .GetAllParams(pageParams, null, query => query.OrderBy(product => product.NameEn), "ProductImages");
-        }
 
         return Ok(products.Select(EditCjProducts.ToResponse));
     }

@@ -48,7 +48,7 @@ export class EditProductComponent implements OnInit {
       descriptionEn: new FormControl(''),
       shortDescription: new FormControl(''),
       sku: new FormControl('', Validators.required),
-      isFeatured: new FormControl(true),
+      isFeatured: new FormControl(false),
       isNewArrival: new FormControl(false),
       isTopSelling: new FormControl(false),
       sellPrice: new FormControl('', [Validators.required, Validators.min(0)]),
@@ -61,7 +61,6 @@ export class EditProductComponent implements OnInit {
     this.loadCategories();
 
     if (!this.isCreate()) {
-      this.productForm.patchValue({ isFeatured: false });
       this.getProduct();
     }
   }
