@@ -124,7 +124,23 @@ public class EditProductsController(
     }
 
     /// <summary>
-    /// Deletes a storefront product and its gallery, variants, and wishlist rows.
+    /// Removes a product from the storefront only (<c>store.GetProducts</c>). Keeps <c>dbo.FlatProducts</c>.
+    /// </summary>
+    [HttpPost("Unpublish/{id}")]
+    public async Task<IActionResult> UnpublishProduct(string id)
+    {
+        var removed = await _editCjProducts.UnpublishStoreProductAsync(id);
+        if (!removed)
+        {
+            return NotFound(new { message = "That product is not on the storefront." });
+        }
+
+        await InvalidateProductCacheAsync();
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Deletes the product from the storefront (if published) and from <c>dbo.FlatProducts</c>.
     /// </summary>
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteProduct(string id)

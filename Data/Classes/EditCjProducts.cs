@@ -189,6 +189,22 @@ public class EditCjProducts(
         return await LoadStoreProductGraphAsync(id) ?? storeProduct;
     }
 
+    /// <summary>Removes the published storefront product only; leaves <c>dbo.FlatProducts</c> for re-publish.</summary>
+    public async Task<bool> UnpublishStoreProductAsync(string productId)
+    {
+        var existing = await _storeUnitOfWork.Repository<Products>()
+            .GetFirstOrDefault(product => product.Id == productId);
+
+        if (existing is null)
+        {
+            return false;
+        }
+
+        _storeUnitOfWork.Repository<Products>().Remove(existing);
+        await _storeUnitOfWork.Complete();
+        return true;
+    }
+
     /// <summary>Removes the storefront product if published, and the <c>dbo.FlatProducts</c> staging row.</summary>
     public async Task<bool> DeleteStoreProductAsync(string productId)
     {
@@ -455,6 +471,7 @@ public class EditCjProducts(
             IsNewArrival = IsActiveNewArrival(product),
             IsTopSelling = product.IsTopSelling,
             StockQuantity = product.StockQuantity,
+            IsPublished = true,
             Types = types,
             Pictures = pictures
         };
@@ -774,6 +791,7 @@ public class EditCjProducts(
             IsNewArrival = overlay?.IsNewArrival ?? false,
             IsTopSelling = overlay?.IsTopSelling ?? false,
             StockQuantity = overlay is { StockQuantity: > 0 } ? overlay.StockQuantity : 50,
+            IsPublished = false,
             Types = DistinctTypes(pictures),
             Pictures = pictures
         };

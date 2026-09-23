@@ -5,7 +5,10 @@ import { AdminProductService } from '../../../core/services/admin-product';
 import { AdminCjService } from '../../../core/services/admin-cj-service';
 import { ICjVariant, IEditProduct } from '../../models/editProduct';
 
-type PendingDelete = { type: 'product' } | { type: 'image'; index: number };
+type PendingDelete =
+  | { type: 'storefront' }
+  | { type: 'catalog' }
+  | { type: 'image'; index: number };
 
 @Component({
   selector: 'app-edit-product',
@@ -27,6 +30,7 @@ export class EditProductComponent implements OnInit {
   protected readonly saving = signal(false);
   protected readonly pendingDelete = signal<PendingDelete | null>(null);
   protected readonly deleting = signal(false);
+  protected readonly isPublished = signal(false);
   protected readonly categories = signal<string[]>([]);
   protected readonly addingNewCategory = signal(false);
   protected readonly newCategoryOption = '__new__';
@@ -231,9 +235,14 @@ export class EditProductComponent implements OnInit {
     this.pendingDelete.set({ type: 'image', index });
   }
 
-  requestDeleteProduct(): void {
+  requestRemoveFromStorefront(): void {
+    if (this.isCreate() || !this.productId || !this.isPublished()) return;
+    this.pendingDelete.set({ type: 'storefront' });
+  }
+
+  requestDeleteFromCatalog(): void {
     if (this.isCreate() || !this.productId) return;
-    this.pendingDelete.set({ type: 'product' });
+    this.pendingDelete.set({ type: 'catalog' });
   }
 
   cancelDelete(): void {
@@ -250,7 +259,12 @@ export class EditProductComponent implements OnInit {
       return;
     }
 
-    this.deleteProduct();
+    if (pending.type === 'storefront') {
+      this.unpublishProduct();
+      return;
+    }
+
+    this.deleteFromCatalog();
   }
 
   galleryImageAlt(index: number): string {
@@ -263,6 +277,7 @@ export class EditProductComponent implements OnInit {
   getProduct() {
     this.productService.getProductById(this.productId).subscribe({
       next: (product) => {
+        this.isPublished.set(!!product.isPublished);
         this.productForm.patchValue({
           id: product.id,
           cjProductId: product.id,
@@ -365,6 +380,7 @@ export class EditProductComponent implements OnInit {
   publishToStore() {
     this.productService.publishProduct(this.productId, this.formPayload()).subscribe({
       next: () => {
+        this.isPublished.set(true);
         this.saveMessage.set('Product published to storefront from CJ catalog.');
         this.isError.set(false);
       },
@@ -408,14 +424,32 @@ export class EditProductComponent implements OnInit {
     });
   }
 
-  private deleteProduct(): void {
+  private unpublishProduct(): void {
+    this.deleting.set(true);
+    this.productService.unpublishProduct(this.productId).subscribe({
+      next: () => {
+        this.deleting.set(false);
+        this.pendingDelete.set(null);
+        this.isPublished.set(false);
+        this.saveMessage.set('Removed from the storefront. It remains in the admin catalog for re-publish.');
+        this.isError.set(false);
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.deleting.set(false);
+        this.isError.set(true);
+        this.saveMessage.set(err.error?.message ?? 'Could not remove this product from the storefront.');
+      },
+    });
+  }
+
+  private deleteFromCatalog(): void {
     this.deleting.set(true);
     this.productService.deleteProduct(this.productId).subscribe({
       next: () => {
         this.deleting.set(false);
         this.pendingDelete.set(null);
         void this.router.navigate(['/admin/dashboard'], {
-          state: { notice: 'Product deleted from the storefront.' },
+          state: { notice: 'Product deleted from FlatProducts and the storefront.' },
         });
       },
       error: (err: { error?: { message?: string } }) => {

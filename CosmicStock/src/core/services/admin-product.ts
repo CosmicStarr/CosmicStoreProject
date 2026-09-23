@@ -97,6 +97,15 @@ getAllProducts(sun: sunParams): Observable<PaginatedResults<IFlatProduct[]>> {
     return this.http.delete<void>(`${this.apiUrl}EditProducts/${encodeURIComponent(id)}`);
   }
 
+  /** Removes from storefront only; keeps FlatProducts for re-publish. */
+  unpublishProduct(id: string): Observable<void> {
+    return this.http.post<void>(
+      `${this.apiUrl}EditProducts/Unpublish/${encodeURIComponent(id)}`,
+      {},
+      this.httpOptions
+    );
+  }
+
   deleteProductImage(productId: string, pictureId?: number, photoUrl?: string): Observable<IProductResponse> {
     let params = new HttpParams();
     if (pictureId && pictureId > 0) {

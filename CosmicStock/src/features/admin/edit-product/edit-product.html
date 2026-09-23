@@ -15,18 +15,38 @@
       <div class="confirm-banner" role="alertdialog" aria-labelledby="delete-confirm-title" aria-describedby="delete-confirm-text">
         <div>
           <p id="delete-confirm-title" class="confirm-title">
-            {{ pending.type === 'product' ? 'Delete this product?' : 'Delete this image?' }}
+            @switch (pending.type) {
+              @case ('storefront') { Remove from storefront? }
+              @case ('catalog') { Delete from FlatProducts? }
+              @default { Delete this image? }
+            }
           </p>
           <p id="delete-confirm-text" class="confirm-text">
-            {{ pending.type === 'product'
-              ? 'This removes the product from the storefront. This cannot be undone.'
-              : 'This removes the selected image from the product gallery.' }}
+            @switch (pending.type) {
+              @case ('storefront') {
+                This takes the product off the live storefront only. It stays in FlatProducts so you can publish it again.
+              }
+              @case ('catalog') {
+                This permanently deletes the product from FlatProducts and removes it from the storefront if it was published. This cannot be undone.
+              }
+              @default {
+                This removes the selected image from the product gallery.
+              }
+            }
           </p>
         </div>
         <div class="confirm-actions">
           <button type="button" class="btn-secondary" (click)="cancelDelete()" [disabled]="deleting()">Cancel</button>
           <button type="button" class="danger-btn" (click)="confirmDelete()" [disabled]="deleting()">
-            {{ deleting() ? 'Deleting...' : (pending.type === 'product' ? 'Delete product' : 'Delete image') }}
+            @if (deleting()) {
+              Working...
+            } @else if (pending.type === 'storefront') {
+              Remove from storefront
+            } @else if (pending.type === 'catalog') {
+              Delete from FlatProducts
+            } @else {
+              Delete image
+            }
           </button>
         </div>
       </div>
@@ -246,14 +266,23 @@
       <!-- Form Actions -->
       <div class="form-actions">
         @if (!isCreate()) {
+          @if (isPublished()) {
+            <button
+              type="button"
+              class="danger-btn secondary-danger"
+              (click)="requestRemoveFromStorefront()"
+              [disabled]="deleting() || saving()">
+              Remove from Storefront
+            </button>
+          }
           <button
             type="button"
             class="danger-btn"
-            (click)="requestDeleteProduct()"
+            (click)="requestDeleteFromCatalog()"
             [disabled]="deleting() || saving()">
-            Delete Product
+            Delete from FlatProducts
           </button>
-          <button type="button" class="publish-btn" (click)="publishToStore()">
+          <button type="button" class="publish-btn" (click)="publishToStore()" [disabled]="deleting() || saving()">
             Publish to Store
           </button>
         }

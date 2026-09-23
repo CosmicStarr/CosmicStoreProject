@@ -419,6 +419,17 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
+
+  &.secondary-danger {
+    background-color: transparent;
+    color: #b91c1c;
+    border: 2px solid #dc2626;
+
+    &:hover:not([disabled]) {
+      background-color: #fef2f2;
+      color: #991b1b;
+    }
+  }
 }
 
 .publish-btn,

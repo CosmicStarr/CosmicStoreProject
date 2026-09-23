@@ -152,17 +152,6 @@
           Card details go straight to Stripe and never reach our servers.
           Stripe uses your ZIP / postal code to verify the card.
         </p>
-        <label class="terms-check">
-          <input id="acceptedTerms" type="checkbox" formControlName="acceptedTerms">
-          <span>
-            I agree to the
-            <a routerLink="/terms" target="_blank" rel="noopener noreferrer">Terms &amp; Conditions<span class="visually-hidden"> (opens in a new tab)</span></a>,
-            <a routerLink="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy<span class="visually-hidden"> (opens in a new tab)</span></a>,
-            <a routerLink="/shipping" target="_blank" rel="noopener noreferrer">Shipping &amp; Delivery<span class="visually-hidden"> (opens in a new tab)</span></a>,
-            and
-            <a routerLink="/returns" target="_blank" rel="noopener noreferrer">Returns &amp; Refunds<span class="visually-hidden"> (opens in a new tab)</span></a>.
-          </span>
-        </label>
       </section>
 
       @if (error) {

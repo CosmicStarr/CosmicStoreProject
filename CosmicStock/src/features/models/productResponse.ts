@@ -13,6 +13,7 @@ export interface IProductResponse {
   stockQuantity: number;
   bigImage: string;
   category: string;
+  isPublished?: boolean;
   types?: IProductType[];
   pictures: IPicture[];
 }

@@ -14,6 +14,8 @@ public class ProductResponseDto
     public bool IsNewArrival { get; set;}
     public bool IsTopSelling { get; set; }
     public int StockQuantity { get; set; }
+    /// <summary>True when a row exists in <c>store.GetProducts</c> (live on the storefront).</summary>
+    public bool IsPublished { get; set; }
 
     public List<ProductTypeDto> Types { get; set; } = new();
 

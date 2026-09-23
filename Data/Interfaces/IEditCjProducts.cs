@@ -9,6 +9,9 @@ public interface IEditCjProducts
     Task<ProductResponseDto?> GetStagingProductAsync(string id);
     Task<ProductResponseDto?> UpdateStagingProductAsync(string id, EditProductInfo product);
     Task<Products> EditCjProductAsync(string id, EditProductInfo product);
+    /// <summary>Removes the published storefront row only; keeps <c>dbo.FlatProducts</c>.</summary>
+    Task<bool> UnpublishStoreProductAsync(string productId);
+    /// <summary>Removes storefront (if any) and the <c>dbo.FlatProducts</c> staging row.</summary>
     Task<bool> DeleteStoreProductAsync(string productId);
     Task<Products?> DeleteProductImageAsync(string productId, int? pictureId, string? photoUrl);
     Task<ProductResponseDto?> DeleteStagingImageAsync(string productId, string? photoUrl);
