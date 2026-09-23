@@ -260,12 +260,6 @@ builder.Services.Configure<ApiBehaviorOptions>(o =>
 
 var app = builder.Build();
 
-using (var bootstrapScope = app.Services.CreateScope())
-{
-    var roleManager = bootstrapScope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    await AdminBootstrap.EnsureAdminRoleAsync(roleManager);
-}
-
 var shouldMigrate = app.Configuration.GetValue("Database:MigrateOnStartup", app.Environment.IsDevelopment());
 if (shouldMigrate)
 {
@@ -287,6 +281,12 @@ if (shouldMigrate)
             await userManager.DeleteAsync(leftover);
         }
     }
+}
+
+using (var bootstrapScope = app.Services.CreateScope())
+{
+    var roleManager = bootstrapScope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    await AdminBootstrap.EnsureAdminRoleAsync(roleManager);
 }
 
 if (string.IsNullOrWhiteSpace(app.Configuration["Stripe:WebhookSecret"]))

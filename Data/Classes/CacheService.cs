@@ -18,46 +18,74 @@ namespace Data.Classes
         /// <summary>Reads and deserializes a cached object, or returns default if the key is missing.</summary>
         public async Task<T?> GetCachedObject<T>(string key)
         {
-            var data = await _database.StringGetAsync(key);
-            if(data.IsNullOrEmpty) return default;
-            
-            // Add options to ignore case when mapping JSON back to C# objects
-            var options = new JsonSerializerOptions
+            try
             {
-                PropertyNameCaseInsensitive = true
-            };
-            
-            return JsonSerializer.Deserialize<T>(data.ToString(), options);
+                var data = await _database.StringGetAsync(key);
+                if (data.IsNullOrEmpty) return default;
+
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                };
+
+                return JsonSerializer.Deserialize<T>(data.ToString(), options);
+            }
+            catch (RedisException)
+            {
+                // Cache is best-effort; fall through to SQL when Redis is unreachable.
+                return default;
+            }
         }
 
         /// <summary>Serializes an object to camelCase JSON and stores it in Redis with a TTL.</summary>
         public async Task ObjectToCache(string key, object itemToCache, TimeSpan timetolive)
         {
-            if(itemToCache is null) return;
-            var option = new JsonSerializerOptions
+            if (itemToCache is null) return;
+            try
             {
-               PropertyNamingPolicy = JsonNamingPolicy.CamelCase  
-            };
-            var serializedObject = JsonSerializer.Serialize(itemToCache,option);
-            await _database.StringSetAsync(key,serializedObject,timetolive);
+                var option = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                };
+                var serializedObject = JsonSerializer.Serialize(itemToCache, option);
+                await _database.StringSetAsync(key, serializedObject, timetolive);
+            }
+            catch (RedisException)
+            {
+                // Ignore cache write failures.
+            }
         }
 
         /// <summary>Deletes one Redis key (used after publish/create/edit so the catalog refreshes).</summary>
         public async Task RemoveData(string key)
         {
-            await _database.KeyDeleteAsync(key);
+            try
+            {
+                await _database.KeyDeleteAsync(key);
+            }
+            catch (RedisException)
+            {
+                // Ignore cache delete failures.
+            }
         }
 
         /// <summary>Increments a Redis counter and sets TTL on the first write.</summary>
         public async Task<long> IncrementAsync(string key, TimeSpan timeToLive)
         {
-            var value = await _database.StringIncrementAsync(key);
-            if (value == 1)
+            try
             {
-                await _database.KeyExpireAsync(key, timeToLive);
-            }
+                var value = await _database.StringIncrementAsync(key);
+                if (value == 1)
+                {
+                    await _database.KeyExpireAsync(key, timeToLive);
+                }
 
-            return value;
+                return value;
+            }
+            catch (RedisException)
+            {
+                return 0;
+            }
         }
     }
 }
