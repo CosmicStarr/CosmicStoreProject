@@ -44,6 +44,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: .net-app
+          # Flatten into the job workspace so package: . has CosmicStoreAPI.dll at the root
+          path: .
 
       - name: Login to Azure
         uses: azure/login@v2
