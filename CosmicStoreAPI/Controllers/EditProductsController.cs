@@ -156,27 +156,29 @@ public class EditProductsController(
     }
 
     /// <summary>
-    /// Deletes one gallery image. Pass pictureId when known, or photoUrl as a fallback.
+    /// Deletes one gallery image. Pass pictureId when known, or photoUrl (+ optional skuPhoto) as a fallback
+    /// when several variants share the same image URL.
     /// </summary>
     [HttpDelete("{id}/images")]
     public async Task<ActionResult<ProductResponseDto>> DeleteProductImage(
         string id,
         [FromQuery] int? pictureId,
-        [FromQuery] string? photoUrl)
+        [FromQuery] string? photoUrl,
+        [FromQuery] string? skuPhoto = null)
     {
         if (pictureId is null or < 1 && string.IsNullOrWhiteSpace(photoUrl))
         {
             return BadRequest(new { message = "A picture id or image URL is required." });
         }
 
-        var product = await _editCjProducts.DeleteProductImageAsync(id, pictureId, photoUrl);
+        var product = await _editCjProducts.DeleteProductImageAsync(id, pictureId, photoUrl, skuPhoto);
         if (product is not null)
         {
             await InvalidateProductCacheAsync();
             return Ok(EditCjProducts.ToResponse(product));
         }
 
-        var staging = await _editCjProducts.DeleteStagingImageAsync(id, photoUrl);
+        var staging = await _editCjProducts.DeleteStagingImageAsync(id, photoUrl, skuPhoto);
         return staging is null
             ? NotFound(new { message = "That image was not found on this product." })
             : Ok(staging);

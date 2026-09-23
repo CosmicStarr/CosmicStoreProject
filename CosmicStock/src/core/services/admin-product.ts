@@ -106,13 +106,21 @@ getAllProducts(sun: sunParams): Observable<PaginatedResults<IFlatProduct[]>> {
     );
   }
 
-  deleteProductImage(productId: string, pictureId?: number, photoUrl?: string): Observable<IProductResponse> {
+  deleteProductImage(
+    productId: string,
+    pictureId?: number,
+    photoUrl?: string,
+    skuPhoto?: string,
+  ): Observable<IProductResponse> {
     let params = new HttpParams();
     if (pictureId && pictureId > 0) {
       params = params.set('pictureId', pictureId.toString());
     }
     if (photoUrl?.trim()) {
       params = params.set('photoUrl', photoUrl.trim());
+    }
+    if (skuPhoto?.trim()) {
+      params = params.set('skuPhoto', skuPhoto.trim());
     }
 
     return this.http.delete<IProductResponse>(

@@ -13,8 +13,8 @@ public interface IEditCjProducts
     Task<bool> UnpublishStoreProductAsync(string productId);
     /// <summary>Removes storefront (if any) and the <c>dbo.FlatProducts</c> staging row.</summary>
     Task<bool> DeleteStoreProductAsync(string productId);
-    Task<Products?> DeleteProductImageAsync(string productId, int? pictureId, string? photoUrl);
-    Task<ProductResponseDto?> DeleteStagingImageAsync(string productId, string? photoUrl);
+    Task<Products?> DeleteProductImageAsync(string productId, int? pictureId, string? photoUrl, string? skuPhoto = null);
+    Task<ProductResponseDto?> DeleteStagingImageAsync(string productId, string? photoUrl, string? skuPhoto = null);
     Task<Products> PublishFlatProductAsync(string flatProductId, decimal markupMultiplier = 1.4m, EditProductInfo? overlay = null);
     Task<IReadOnlyList<Products>> PublishBulkAsync(IEnumerable<string> flatProductIds, decimal markupMultiplier = 1.4m);
     /// <summary>Clears New Arrival on products marked more than 7 days ago. Returns how many were cleared.</summary>

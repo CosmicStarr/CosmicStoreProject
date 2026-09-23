@@ -351,9 +351,16 @@ export class EditProductComponent implements OnInit {
 
     this.saving.set(true);
     this.saveMessage.set(null);
+    // Ensure the hero URL is in the gallery, but do not invent a second row when
+    // a variant already owns that same photo URL under a different SKU.
     const mainImage = String(this.productForm.get('bigImage')?.value ?? '').trim();
     if (mainImage) {
-      this.addImage(mainImage);
+      const alreadyInGallery = this.productImagesArray.controls.some(
+        (group) => String(group.get('photoUrl')?.value ?? '').trim() === mainImage,
+      );
+      if (!alreadyInGallery) {
+        this.addImage(mainImage);
+      }
     }
 
     if (this.isCreate()) {
@@ -406,8 +413,13 @@ export class EditProductComponent implements OnInit {
     const group = this.productImagesArray.at(index);
     const pictureId = Number(group.get('id')?.value ?? 0);
     const photoUrl = String(group.get('photoUrl')?.value ?? '').trim();
+    const skuPhoto = String(
+      group.get('productType')?.get('sku')?.value ?? group.get('skuPhoto')?.value ?? '',
+    ).trim();
+    const isDraft = !!group.get('isStorefrontDraft')?.value;
 
-    if (this.isCreate() || !this.productId) {
+    // Create flow, or a CJ draft row that has not been saved to the storefront yet.
+    if (this.isCreate() || !this.productId || (isDraft && pictureId < 1)) {
       this.removeImageFromForm(index, photoUrl);
       this.pendingDelete.set(null);
       this.saveMessage.set('Image removed.');
@@ -416,23 +428,30 @@ export class EditProductComponent implements OnInit {
     }
 
     this.deleting.set(true);
-    this.productService.deleteProductImage(this.productId, pictureId > 0 ? pictureId : undefined, photoUrl).subscribe({
-      next: (product) => {
-        this.deleting.set(false);
-        this.pendingDelete.set(null);
-        this.removeImageFromForm(index, photoUrl);
-        if (product.bigImage !== undefined) {
-          this.productForm.patchValue({ bigImage: product.bigImage ?? '' });
-        }
-        this.saveMessage.set('Image deleted.');
-        this.isError.set(false);
-      },
-      error: (err: { error?: { message?: string } }) => {
-        this.deleting.set(false);
-        this.isError.set(true);
-        this.saveMessage.set(err.error?.message ?? 'Could not delete that image.');
-      },
-    });
+    this.productService
+      .deleteProductImage(
+        this.productId,
+        pictureId > 0 ? pictureId : undefined,
+        photoUrl,
+        skuPhoto || undefined,
+      )
+      .subscribe({
+        next: (product) => {
+          this.deleting.set(false);
+          this.pendingDelete.set(null);
+          this.removeImageFromForm(index, photoUrl);
+          if (product.bigImage !== undefined) {
+            this.productForm.patchValue({ bigImage: product.bigImage ?? '' });
+          }
+          this.saveMessage.set('Image deleted.');
+          this.isError.set(false);
+        },
+        error: (err: { error?: { message?: string } }) => {
+          this.deleting.set(false);
+          this.isError.set(true);
+          this.saveMessage.set(err.error?.message ?? 'Could not delete that image.');
+        },
+      });
   }
 
   private unpublishProduct(): void {
@@ -474,10 +493,20 @@ export class EditProductComponent implements OnInit {
   private removeImageFromForm(index: number, photoUrl: string): void {
     this.productImagesArray.removeAt(index);
     const currentMain = String(this.productForm.get('bigImage')?.value ?? '').trim();
-    if (currentMain && currentMain === photoUrl) {
-      const nextUrl = String(this.productImagesArray.at(0)?.get('photoUrl')?.value ?? '').trim();
-      this.productForm.patchValue({ bigImage: nextUrl });
+    if (!currentMain || currentMain !== photoUrl) {
+      return;
     }
+
+    // Keep BigImage when another variant still uses the same URL.
+    const urlStillUsed = this.productImagesArray.controls.some(
+      (group) => String(group.get('photoUrl')?.value ?? '').trim() === photoUrl,
+    );
+    if (urlStillUsed) {
+      return;
+    }
+
+    const nextUrl = String(this.productImagesArray.at(0)?.get('photoUrl')?.value ?? '').trim();
+    this.productForm.patchValue({ bigImage: nextUrl });
   }
 
   private readNavigationNotice(): void {

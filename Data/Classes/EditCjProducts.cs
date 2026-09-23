@@ -233,7 +233,7 @@ public class EditCjProducts(
     }
 
     /// <summary>Removes one gallery row. If it was the main image, the next remaining photo becomes BigImage.</summary>
-    public async Task<Products?> DeleteProductImageAsync(string productId, int? pictureId, string? photoUrl)
+    public async Task<Products?> DeleteProductImageAsync(string productId, int? pictureId, string? photoUrl, string? skuPhoto = null)
     {
         var product = await _storeUnitOfWork.Repository<Products>()
             .GetFirstOrDefault(item => item.Id == productId);
@@ -243,7 +243,10 @@ public class EditCjProducts(
         }
 
         var images = await _storeUnitOfWork.Repository<ProductImage>()
-            .GetAllParams(new PageParams { PageNumber = 1, PageSize = 500 }, image => image.ProductId == productId);
+            .GetAllParams(
+                new PageParams { PageNumber = 1, PageSize = 500 },
+                image => image.ProductId == productId,
+                includeProperties: "ProductType");
 
         ProductImage? match = null;
         if (pictureId is > 0)
@@ -254,7 +257,23 @@ public class EditCjProducts(
         if (match is null && !string.IsNullOrWhiteSpace(photoUrl))
         {
             var url = photoUrl.Trim();
-            match = images.FirstOrDefault(image =>
+            var sku = skuPhoto?.Trim() ?? string.Empty;
+
+            // Prefer the SKU-matched row when several images share the URL.
+            if (!string.IsNullOrWhiteSpace(sku))
+            {
+                match = images.FirstOrDefault(image =>
+                    string.Equals(image.PhotoUrl?.Trim(), url, StringComparison.OrdinalIgnoreCase)
+                    && (string.Equals(image.SkuPhoto?.Trim(), sku, StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(image.ProductType?.Sku?.Trim(), sku, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            match ??= images.FirstOrDefault(image =>
+                string.Equals(image.PhotoUrl?.Trim(), url, StringComparison.OrdinalIgnoreCase)
+                && string.IsNullOrWhiteSpace(image.SkuPhoto)
+                && image.ProductTypeId is null or 0);
+
+            match ??= images.FirstOrDefault(image =>
                 string.Equals(image.PhotoUrl?.Trim(), url, StringComparison.OrdinalIgnoreCase));
         }
 
@@ -267,11 +286,18 @@ public class EditCjProducts(
 
         if (string.Equals(product.BigImage?.Trim(), match.PhotoUrl?.Trim(), StringComparison.OrdinalIgnoreCase))
         {
-            product.BigImage = images
-                .Where(image => image.Id != match.Id)
-                .Select(image => image.PhotoUrl)
-                .FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
-            _storeUnitOfWork.Repository<Products>().Update(product);
+            // Only clear BigImage when no other gallery row still uses that URL.
+            var urlStillUsed = images.Any(image =>
+                image.Id != match.Id
+                && string.Equals(image.PhotoUrl?.Trim(), match.PhotoUrl?.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (!urlStillUsed)
+            {
+                product.BigImage = images
+                    .Where(image => image.Id != match.Id)
+                    .Select(image => image.PhotoUrl)
+                    .FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
+                _storeUnitOfWork.Repository<Products>().Update(product);
+            }
         }
 
         await _storeUnitOfWork.Complete();
@@ -280,7 +306,7 @@ public class EditCjProducts(
     }
 
     /// <summary>Removes one overlay/gallery image from a staging product that is not on the storefront yet.</summary>
-    public async Task<ProductResponseDto?> DeleteStagingImageAsync(string productId, string? photoUrl)
+    public async Task<ProductResponseDto?> DeleteStagingImageAsync(string productId, string? photoUrl, string? skuPhoto = null)
     {
         var staging = await _unitOfWork.Repository<FlatProduct>()
             .GetFirstOrDefault(item => item.Id == productId);
@@ -290,31 +316,63 @@ public class EditCjProducts(
         }
 
         var url = photoUrl?.Trim();
+        var sku = skuPhoto?.Trim() ?? string.Empty;
         var overlay = await GetStagingOverlayAsync(productId) ?? new EditProductInfo { Id = productId };
         var images = (overlay.ProductImages ?? [])
             .Where(image => !string.IsNullOrWhiteSpace(image.PhotoUrl))
             .ToList();
 
-        var removed = images.RemoveAll(image =>
-            !string.IsNullOrWhiteSpace(url)
-            && string.Equals(image.PhotoUrl?.Trim(), url, StringComparison.OrdinalIgnoreCase));
-
-        if (removed == 0
-            && !string.IsNullOrWhiteSpace(url)
-            && string.Equals(staging.BigImage?.Trim(), url, StringComparison.OrdinalIgnoreCase))
+        var matchIndex = -1;
+        for (var i = 0; i < images.Count; i++)
         {
-            staging.BigImage = images.FirstOrDefault()?.PhotoUrl;
-            removed = 1;
+            var image = images[i];
+            if (!string.Equals(image.PhotoUrl?.Trim(), url, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var imageSku = image.SkuPhoto?.Trim()
+                ?? image.ProductType?.Sku?.Trim()
+                ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(sku)
+                && !string.Equals(imageSku, sku, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            matchIndex = i;
+            // When sku is provided, take the first SKU match; when not, take the first URL match.
+            break;
         }
 
-        if (removed == 0)
+        if (matchIndex < 0
+            && !string.IsNullOrWhiteSpace(url)
+            && string.Equals(staging.BigImage?.Trim(), url, StringComparison.OrdinalIgnoreCase)
+            && images.Count == 0)
+        {
+            staging.BigImage = null;
+            _unitOfWork.Repository<FlatProduct>().Update(staging);
+            await _unitOfWork.Complete();
+            await _cacheService.ObjectToCache(StagingOverlayKey(productId), overlay, StagingOverlayTtl);
+            return await GetStagingProductAsync(productId);
+        }
+
+        if (matchIndex < 0)
         {
             return null;
         }
 
+        var removed = images[matchIndex];
+        images.RemoveAt(matchIndex);
+
         if (string.Equals(staging.BigImage?.Trim(), url, StringComparison.OrdinalIgnoreCase))
         {
-            staging.BigImage = images.FirstOrDefault()?.PhotoUrl;
+            var urlStillUsed = images.Any(image =>
+                string.Equals(image.PhotoUrl?.Trim(), url, StringComparison.OrdinalIgnoreCase));
+            if (!urlStillUsed)
+            {
+                staging.BigImage = images.FirstOrDefault()?.PhotoUrl;
+            }
         }
 
         overlay.ProductImages = images;
