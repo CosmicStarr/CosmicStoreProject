@@ -254,9 +254,10 @@ public class EditProductsController(
         }
     }
 
-    /// <summary>Drops the cached storefront product list so publish/create/edit show up immediately.</summary>
+    /// <summary>Drops cached storefront product lists so publish/create/edit show up immediately.</summary>
     private async Task InvalidateProductCacheAsync()
     {
         await _cacheService.RemoveData("products_all");
+        await _cacheService.RemoveByPrefixAsync("products_category_");
     }
 }

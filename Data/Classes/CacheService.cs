@@ -9,9 +9,11 @@ namespace Data.Classes
     /// </summary>
     public class CacheService : ICacheService
     {
+        private readonly IConnectionMultiplexer _redis;
         private readonly IDatabase _database;
         public CacheService(IConnectionMultiplexer redis)
         {
+            _redis = redis;
             _database = redis.GetDatabase();
         }
 
@@ -62,6 +64,36 @@ namespace Data.Classes
             try
             {
                 await _database.KeyDeleteAsync(key);
+            }
+            catch (RedisException)
+            {
+                // Ignore cache delete failures.
+            }
+        }
+
+        /// <summary>Deletes every key matching a prefix (e.g. storefront product list caches).</summary>
+        public async Task RemoveByPrefixAsync(string prefix)
+        {
+            if (string.IsNullOrWhiteSpace(prefix))
+            {
+                return;
+            }
+
+            try
+            {
+                foreach (var endpoint in _redis.GetEndPoints())
+                {
+                    var server = _redis.GetServer(endpoint);
+                    if (server is null || !server.IsConnected || server.IsReplica)
+                    {
+                        continue;
+                    }
+
+                    await foreach (var key in server.KeysAsync(pattern: prefix + "*"))
+                    {
+                        await _database.KeyDeleteAsync(key);
+                    }
+                }
             }
             catch (RedisException)
             {

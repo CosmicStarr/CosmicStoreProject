@@ -108,15 +108,16 @@ public class ProductsController(IStoreUnitOfWork storeUnitOfWork, IEditCjProduct
     /// </summary>
     private async Task<List<ProductResponseDto>> LoadProductsAsync(string? category, bool clearCache)
     {
-        await _editCjProducts.ExpireStaleNewArrivalsAsync();
+        var expired = await _editCjProducts.ExpireStaleNewArrivalsAsync();
 
         var cacheKey = string.IsNullOrEmpty(category)
             ? "products_all"
             : $"products_category_{category.ToLower()}";
 
-        if (clearCache)
+        if (clearCache || expired > 0)
         {
-            await _cacheService.RemoveData(cacheKey);
+            await _cacheService.RemoveData("products_all");
+            await _cacheService.RemoveByPrefixAsync("products_category_");
         }
 
         var groupedInfo = await _cacheService.GetCachedObject<List<ProductResponseDto>>(cacheKey);

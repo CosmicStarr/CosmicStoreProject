@@ -468,7 +468,8 @@ public class EditCjProducts(
             DescriptionEn = product.DescriptionEn,
             ShortDescription = NormalizeOptional(product.ShortDescription),
             IsFeatured = product.IsFeatured,
-            IsNewArrival = IsActiveNewArrival(product),
+            // Admin editor needs the stored bit; storefront expiry still runs via ExpireStaleNewArrivalsAsync.
+            IsNewArrival = product.IsNewArrival,
             IsTopSelling = product.IsTopSelling,
             StockQuantity = product.StockQuantity,
             IsPublished = true,
@@ -546,19 +547,23 @@ public class EditCjProducts(
     {
         if (overlay is null) return;
 
+        // Booleans must always apply (including false). Do not gate them on "has editor fields"
+        // or unchecking Featured/New Arrival/Top Selling is ignored on publish.
+        productInfo.IsFeatured = overlay.IsFeatured;
+        productInfo.IsNewArrival = overlay.IsNewArrival;
+        productInfo.IsTopSelling = overlay.IsTopSelling;
+
         var hasEditorFields = !string.IsNullOrWhiteSpace(overlay.NameEn)
             || overlay.ProductImages?.Count > 0
             || !string.IsNullOrWhiteSpace(overlay.DescriptionEn)
             || !string.IsNullOrWhiteSpace(overlay.ShortDescription)
-            || overlay.IsFeatured
-            || overlay.IsNewArrival
-            || overlay.IsTopSelling;
+            || !string.IsNullOrWhiteSpace(overlay.BigImage)
+            || !string.IsNullOrWhiteSpace(overlay.Category)
+            || !string.IsNullOrWhiteSpace(overlay.Sku)
+            || overlay.SellPrice > 0
+            || overlay.StockQuantity > 0;
 
         if (!hasEditorFields) return;
-
-        productInfo.IsFeatured = overlay.IsFeatured;
-        productInfo.IsNewArrival = overlay.IsNewArrival;
-        productInfo.IsTopSelling = overlay.IsTopSelling;
 
         if (!string.IsNullOrWhiteSpace(overlay.NameEn))
             productInfo.NameEn = overlay.NameEn;
@@ -821,7 +826,9 @@ public class EditCjProducts(
             BigImage = flat.BigImage,
             Category = flat.Category?.CategoryName,
             StockQuantity = 50,
-            IsFeatured = true,
+            IsFeatured = false,
+            IsNewArrival = false,
+            IsTopSelling = false,
             ProductImages = images
         };
     }
