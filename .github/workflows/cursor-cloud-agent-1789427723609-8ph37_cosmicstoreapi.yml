@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - cursor/cloud-agent-1789427723609-8ph37
   workflow_dispatch:
 
 jobs:
