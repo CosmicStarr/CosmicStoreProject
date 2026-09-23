@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Data.Interfaces;
+using Data.Util;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -500,7 +501,9 @@ public class CJDropshippingService : ICJDropshippingService
                 Pid = ReadString(obj, "pid"),
                 ProductNameEn = ReadString(obj, "productNameEn") ?? ReadString(obj, "productName"),
                 ProductSku = ReadString(obj, "productSku"),
-                ProductImage = ReadString(obj, "productImage") ?? ReadString(obj, "bigImage"),
+                // CJ often sends productImage as a JSON array — keep only a single http(s) URL.
+                ProductImage = ImageUrlNormalizer.FromJson(obj, "productImage")
+                    ?? ImageUrlNormalizer.FromJson(obj, "bigImage"),
                 Description = ReadString(obj, "description") ?? ReadString(obj, "descriptionEn"),
                 CategoryName = ReadString(obj, "categoryName")
             };
@@ -538,7 +541,7 @@ public class CJDropshippingService : ICJDropshippingService
                 Sku = ReadString(variant, "variantSku") ?? vid,
                 VariantName = ReadString(variant, "variantNameEn") ?? ReadString(variant, "variantKey"),
                 SellPrice = ReadDecimal(variant, "variantSellPrice"),
-                ImageUrl = ReadString(variant, "variantImage")
+                ImageUrl = ImageUrlNormalizer.FromJson(variant, "variantImage")
             });
         }
 

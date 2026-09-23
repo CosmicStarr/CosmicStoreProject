@@ -57,7 +57,7 @@ public class EditCjProducts(
 
         var variants = await ResolveVariantsAsync(product);
         var images = NormalizeImages(id, sku, product.ProductImages, variants);
-        var bigImage = FirstNonEmpty(product.BigImage, images.FirstOrDefault()?.PhotoUrl);
+        var bigImage = ImageUrlNormalizer.First(FirstNonEmpty(product.BigImage, images.FirstOrDefault()?.PhotoUrl));
         var categoryId = await ResolveCategoryIdAsync(product.Category);
 
         if (existingStaging is not null)
@@ -114,7 +114,7 @@ public class EditCjProducts(
         var sku = string.IsNullOrWhiteSpace(product.Sku) ? existing.Sku : product.Sku.Trim();
         var variants = await ResolveVariantsAsync(product);
         var images = NormalizeImages(id, sku, product.ProductImages, variants);
-        var bigImage = FirstNonEmpty(product.BigImage, images.FirstOrDefault()?.PhotoUrl, existing.BigImage);
+        var bigImage = ImageUrlNormalizer.First(FirstNonEmpty(product.BigImage, images.FirstOrDefault()?.PhotoUrl, existing.BigImage));
 
         existing.NameEn = string.IsNullOrWhiteSpace(product.NameEn) ? existing.NameEn : product.NameEn.Trim();
         existing.Sku = sku;
@@ -149,7 +149,7 @@ public class EditCjProducts(
             ApplyNewArrivalFlag(existing, product.IsNewArrival);
             existing.IsTopSelling = product.IsTopSelling;
             existing.SellPrice = product.SellPrice;
-            existing.BigImage = product.BigImage ?? existing.BigImage;
+            existing.BigImage = ImageUrlNormalizer.First(product.BigImage) ?? existing.BigImage;
             existing.Category = product.Category ?? existing.Category;
             existing.CjVariantId = id;
             if (product.StockQuantity > 0)
@@ -168,7 +168,7 @@ public class EditCjProducts(
                 NameEn = product.NameEn ?? string.Empty,
                 Sku = product.Sku ?? string.Empty,
                 SellPrice = product.SellPrice,
-                BigImage = product.BigImage,
+                BigImage = ImageUrlNormalizer.First(product.BigImage),
                 Category = product.Category,
                 DescriptionEn = product.DescriptionEn,
                 ShortDescription = NormalizeOptional(product.ShortDescription),
@@ -457,7 +457,7 @@ public class EditCjProducts(
                 NameEn = group.First().NameEn,
                 Sku = group.First().Sku,
                 SellPrice = group.First().SellPrice,
-                BigImage = group.First().BigImage,
+                BigImage = ImageUrlNormalizer.First(group.First().BigImage),
                 Category = group.First().Category,
                 DescriptionEn = group.First().DescriptionEn,
                 ShortDescription = NormalizeOptional(group.First().ShortDescription),
@@ -466,12 +466,12 @@ public class EditCjProducts(
                 IsTopSelling = group.First().IsTopSelling,
                 StockQuantity = group.First().StockQuantity,
                 Pictures = group
-                    .Where(x => !string.IsNullOrWhiteSpace(x.PhotoUrl))
+                    .Where(x => !string.IsNullOrWhiteSpace(ImageUrlNormalizer.First(x.PhotoUrl)))
                     .Select(x => new PictureDto
                     {
                         Id = int.TryParse(x.PictureId, out var pictureId) ? pictureId : 0,
                         ProductId = group.Key,
-                        PhotoUrl = x.PhotoUrl,
+                        PhotoUrl = ImageUrlNormalizer.First(x.PhotoUrl),
                         SkuPhoto = x.SkuPhoto,
                         ProductTypeId = x.ProductTypeId,
                         ProductType = MapTypeDto(group.Key, x.ProductTypeId, x.TypeName, x.TypeSku, x.TypePrice)
@@ -492,12 +492,12 @@ public class EditCjProducts(
     public static ProductResponseDto ToResponse(Products product)
     {
         var pictures = (product.ProductImages ?? [])
-            .Where(image => !string.IsNullOrWhiteSpace(image.PhotoUrl))
+            .Where(image => !string.IsNullOrWhiteSpace(ImageUrlNormalizer.First(image.PhotoUrl)))
             .Select(image => new PictureDto
             {
                 Id = image.Id,
                 ProductId = product.Id,
-                PhotoUrl = image.PhotoUrl,
+                PhotoUrl = ImageUrlNormalizer.First(image.PhotoUrl),
                 SkuPhoto = image.SkuPhoto,
                 ProductTypeId = image.ProductTypeId,
                 ProductType = MapTypeDto(product.Id, image.ProductType)
@@ -523,7 +523,7 @@ public class EditCjProducts(
             NameEn = product.NameEn,
             Sku = product.Sku,
             SellPrice = product.SellPrice,
-            BigImage = product.BigImage,
+            BigImage = ImageUrlNormalizer.First(product.BigImage),
             Category = product.Category,
             DescriptionEn = product.DescriptionEn,
             ShortDescription = NormalizeOptional(product.ShortDescription),
@@ -768,17 +768,28 @@ public class EditCjProducts(
         IList<PictureDto>? productImages,
         IReadOnlyList<CjVariantDto> variants)
     {
-        var images = (productImages ?? [])
-            .Where(image => !string.IsNullOrWhiteSpace(image.PhotoUrl))
-            .Select(image => new PictureDto
+        var images = new List<PictureDto>();
+        foreach (var image in productImages ?? Array.Empty<PictureDto>())
+        {
+            var urls = ImageUrlNormalizer.All(image.PhotoUrl);
+            if (urls.Count == 0)
             {
-                ProductId = productId,
-                PhotoUrl = image.PhotoUrl!.Trim(),
-                SkuPhoto = string.IsNullOrWhiteSpace(image.SkuPhoto) ? sku : image.SkuPhoto.Trim(),
-                ProductTypeId = image.ProductTypeId,
-                ProductType = ResolvePictureType(productId, image, sku)
-            })
-            .ToList();
+                continue;
+            }
+
+            var skuPhoto = string.IsNullOrWhiteSpace(image.SkuPhoto) ? sku : image.SkuPhoto.Trim();
+            foreach (var url in urls)
+            {
+                images.Add(new PictureDto
+                {
+                    ProductId = productId,
+                    PhotoUrl = url,
+                    SkuPhoto = skuPhoto,
+                    ProductTypeId = image.ProductTypeId,
+                    ProductType = ResolvePictureType(productId, image, sku)
+                });
+            }
+        }
 
         if (images.Count > 0 || variants.Count == 0)
         {
@@ -786,11 +797,11 @@ public class EditCjProducts(
         }
 
         return variants
-            .Where(variant => !string.IsNullOrWhiteSpace(variant.ImageUrl))
+            .Where(variant => !string.IsNullOrWhiteSpace(ImageUrlNormalizer.First(variant.ImageUrl)))
             .Select(variant => new PictureDto
             {
                 ProductId = productId,
-                PhotoUrl = variant.ImageUrl,
+                PhotoUrl = ImageUrlNormalizer.First(variant.ImageUrl),
                 SkuPhoto = string.IsNullOrWhiteSpace(variant.Sku) ? sku : variant.Sku,
                 ProductType = MapTypeDto(productId, null, variant.VariantName, string.IsNullOrWhiteSpace(variant.Sku) ? sku : variant.Sku)
             })
@@ -815,7 +826,7 @@ public class EditCjProducts(
             IsTopSelling = product.IsTopSelling,
             SellPrice = product.SellPrice,
             StockQuantity = product.StockQuantity > 0 ? product.StockQuantity : 50,
-            BigImage = FirstNonEmpty(product.BigImage, images.FirstOrDefault()?.PhotoUrl),
+            BigImage = ImageUrlNormalizer.First(FirstNonEmpty(product.BigImage, images.FirstOrDefault()?.PhotoUrl)),
             Category = product.Category,
             ProductImages = images,
             CjProductId = product.CjProductId,
@@ -831,25 +842,29 @@ public class EditCjProducts(
     private static ProductResponseDto ToStagingResponse(FlatProduct staging, EditProductInfo? overlay)
     {
         var pictures = (overlay?.ProductImages ?? [])
-            .Where(image => !string.IsNullOrWhiteSpace(image.PhotoUrl))
-            .Select(image => new PictureDto
-            {
-                ProductId = staging.Id,
-                PhotoUrl = image.PhotoUrl,
-                SkuPhoto = image.SkuPhoto,
-                ProductTypeId = image.ProductTypeId,
-                ProductType = ResolvePictureType(staging.Id, image, staging.Sku)
-            })
+            .SelectMany(image => ImageUrlNormalizer.All(image.PhotoUrl)
+                .Select(url => new PictureDto
+                {
+                    ProductId = staging.Id,
+                    PhotoUrl = url,
+                    SkuPhoto = image.SkuPhoto,
+                    ProductTypeId = image.ProductTypeId,
+                    ProductType = ResolvePictureType(staging.Id, image, staging.Sku)
+                }))
+            .GroupBy(PictureIdentityKey, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
             .ToList();
 
-        if (pictures.Count == 0 && !string.IsNullOrWhiteSpace(staging.BigImage))
+        if (pictures.Count == 0)
         {
-            pictures.Add(new PictureDto
-            {
-                ProductId = staging.Id,
-                PhotoUrl = staging.BigImage,
-                SkuPhoto = staging.Sku
-            });
+            pictures = ImageUrlNormalizer.All(staging.BigImage)
+                .Select(url => new PictureDto
+                {
+                    ProductId = staging.Id,
+                    PhotoUrl = url,
+                    SkuPhoto = staging.Sku
+                })
+                .ToList();
         }
 
         return new ProductResponseDto
@@ -858,7 +873,7 @@ public class EditCjProducts(
             NameEn = FirstNonEmpty(overlay?.NameEn, staging.NameEn),
             Sku = FirstNonEmpty(overlay?.Sku, staging.Sku),
             SellPrice = overlay is { SellPrice: > 0 } ? overlay.SellPrice : staging.SellPrice,
-            BigImage = FirstNonEmpty(overlay?.BigImage, staging.BigImage),
+            BigImage = ImageUrlNormalizer.First(FirstNonEmpty(overlay?.BigImage, staging.BigImage)),
             Category = FirstNonEmpty(overlay?.Category, staging.Category?.CategoryName),
             DescriptionEn = overlay?.DescriptionEn,
             ShortDescription = NormalizeOptional(overlay?.ShortDescription),
@@ -875,17 +890,14 @@ public class EditCjProducts(
     /// <summary>Builds the publish payload from a staging row, applying the storefront markup to sell price.</summary>
     private static EditProductInfo MapFlatToEditInfo(FlatProduct flat, decimal markupMultiplier)
     {
-        var images = new List<PictureDto>();
-
-        if (!string.IsNullOrWhiteSpace(flat.BigImage))
-        {
-            images.Add(new PictureDto
+        var images = ImageUrlNormalizer.All(flat.BigImage)
+            .Select(url => new PictureDto
             {
                 ProductId = flat.Id,
-                PhotoUrl = flat.BigImage,
+                PhotoUrl = url,
                 SkuPhoto = flat.Sku
-            });
-        }
+            })
+            .ToList();
 
         return new EditProductInfo
         {
@@ -893,7 +905,7 @@ public class EditCjProducts(
             NameEn = flat.NameEn,
             Sku = flat.Sku,
             SellPrice = Math.Round(flat.SellPrice * markupMultiplier, 2),
-            BigImage = flat.BigImage,
+            BigImage = ImageUrlNormalizer.First(flat.BigImage),
             Category = flat.Category?.CategoryName,
             StockQuantity = 50,
             IsFeatured = false,
@@ -928,8 +940,11 @@ public class EditCjProducts(
         var types = new Dictionary<string, ProductType>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in productImages ?? Array.Empty<PictureDto>())
         {
-            if (string.IsNullOrWhiteSpace(item.PhotoUrl))
+            var urls = ImageUrlNormalizer.All(item.PhotoUrl);
+            if (urls.Count == 0)
+            {
                 continue;
+            }
 
             var skuPhoto = string.IsNullOrWhiteSpace(item.SkuPhoto) ? string.Empty : item.SkuPhoto.Trim();
             var type = ResolvePictureType(productId, item, skuPhoto);
@@ -955,13 +970,16 @@ public class EditCjProducts(
                 }
             }
 
-            _storeUnitOfWork.Repository<ProductImage>().Add(new ProductImage
+            foreach (var url in urls)
             {
-                ProductId = productId,
-                PhotoUrl = item.PhotoUrl.Trim(),
-                SkuPhoto = skuPhoto,
-                ProductType = typeEntity
-            });
+                _storeUnitOfWork.Repository<ProductImage>().Add(new ProductImage
+                {
+                    ProductId = productId,
+                    PhotoUrl = url,
+                    SkuPhoto = skuPhoto,
+                    ProductType = typeEntity
+                });
+            }
         }
     }
 

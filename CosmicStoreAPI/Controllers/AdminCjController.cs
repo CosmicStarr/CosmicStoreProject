@@ -53,7 +53,7 @@ public class AdminCjController(
             NameEn = FirstNonEmpty(details?.ProductNameEn, matchedVariant?.VariantName, variants[0].VariantName, pid),
             Sku = FirstNonEmpty(details?.ProductSku, matchedVariant?.Sku, variants[0].Sku, pid),
             DescriptionEn = details?.Description,
-            BigImage = FirstNonEmpty(details?.ProductImage, matchedVariant?.ImageUrl, variants[0].ImageUrl),
+            BigImage = ImageUrlNormalizer.First(FirstNonEmpty(details?.ProductImage, matchedVariant?.ImageUrl, variants[0].ImageUrl)),
             Category = details?.CategoryName,
             SellPrice = cjPrice > 0 ? Math.Round(cjPrice * markup, 2) : 0m,
             Variants = variants.ToList()

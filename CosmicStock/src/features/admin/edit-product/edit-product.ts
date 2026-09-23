@@ -295,7 +295,7 @@ export class EditProductComponent implements OnInit {
           nameEn: product.nameEn,
           sku: product.sku,
           sellPrice: product.sellPrice,
-          bigImage: product.bigImage ?? '',
+          bigImage: firstImageUrl(product.bigImage ?? '') ?? '',
           category: product.category ?? '',
           descriptionEn: product.descriptionEn ?? '',
           shortDescription: product.shortDescription?.trim() ?? '',
@@ -312,13 +312,14 @@ export class EditProductComponent implements OnInit {
           ?? product.types?.find((item) => !!item.id && item.id === picture?.productTypeId)
           ?? product.types?.find((item) => !!item.sku && item.sku === picture?.skuPhoto);
 
-        if (product.bigImage) {
+        const heroUrl = firstImageUrl(product.bigImage ?? '');
+        if (heroUrl) {
           const hero = (product.pictures ?? []).find(
-            (picture) => picture.photoUrl?.trim() === product.bigImage?.trim()
+            (picture) => firstImageUrl(picture.photoUrl ?? '') === heroUrl
           );
           const heroType = typeFor(hero);
           this.addImage(
-            product.bigImage,
+            heroUrl,
             hero?.skuPhoto ?? product.sku,
             heroType?.name ?? hero?.type,
             hero?.id,
@@ -330,16 +331,18 @@ export class EditProductComponent implements OnInit {
         }
         for (const picture of product.pictures ?? []) {
           const type = typeFor(picture);
-          this.addImage(
-            picture.photoUrl,
-            picture.skuPhoto,
-            type?.name ?? picture.type,
-            picture.id,
-            type?.id ?? picture.productTypeId,
-            type?.sku,
-            type?.price,
-            picture.isStorefrontDraft,
-          );
+          for (const url of allImageUrls(picture.photoUrl ?? '')) {
+            this.addImage(
+              url,
+              picture.skuPhoto,
+              type?.name ?? picture.type,
+              picture.id,
+              type?.id ?? picture.productTypeId,
+              type?.sku,
+              type?.price,
+              picture.isStorefrontDraft,
+            );
+          }
         }
       },
       error: (err) => console.error('Failed to load product metadata', err)
@@ -524,16 +527,23 @@ export class EditProductComponent implements OnInit {
   private formPayload(): IEditProduct {
     const raw = this.productForm.getRawValue() as IEditProduct;
     const cjProductId = String(raw.cjProductId ?? '').trim();
+    const bigImage = firstImageUrl(String(raw.bigImage ?? ''));
     return {
       ...raw,
+      bigImage: bigImage ?? '',
       shortDescription: String(raw.shortDescription ?? '').trim() || undefined,
       cjProductId: cjProductId || undefined,
       variants: this.cjVariants(),
-      productImages: (raw.productImages ?? []).map((image) => {
+      productImages: (raw.productImages ?? []).flatMap((image) => {
         const typeName = String(image.productType?.name ?? '').trim();
         const typeSku = String(image.productType?.sku ?? image.skuPhoto ?? '').trim();
-        return {
+        const urls = allImageUrls(String(image.photoUrl ?? ''));
+        if (!urls.length) {
+          return [];
+        }
+        return urls.map((photoUrl) => ({
           ...image,
+          photoUrl,
           skuPhoto: typeSku || image.skuPhoto,
           productTypeId: image.productType?.id || image.productTypeId,
           productType: typeName || typeSku
@@ -544,8 +554,39 @@ export class EditProductComponent implements OnInit {
                 price: Number(image.productType?.price) > 0 ? Number(image.productType?.price) : 0,
               }
             : undefined,
-        };
+        }));
       }),
     };
   }
+}
+
+/** CJ sometimes stores bigImage as a JSON array string — keep a single http(s) URL. */
+function firstImageUrl(raw: string): string | undefined {
+  return allImageUrls(raw)[0];
+}
+
+function allImageUrls(raw: string): string[] {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return [];
+  }
+  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('//')) {
+    return [trimmed];
+  }
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      if (Array.isArray(parsed)) {
+        return parsed
+          .flatMap((item) => (typeof item === 'string' ? allImageUrls(item) : []))
+          .filter((url, index, list) => list.findIndex((other) => other.toLowerCase() === url.toLowerCase()) === index);
+      }
+    } catch {
+      // fall through
+    }
+  }
+  return trimmed
+    .split(/[\s,;]+/)
+    .map((part) => part.trim())
+    .filter((part) => /^https?:\/\//i.test(part) || part.startsWith('//'));
 }

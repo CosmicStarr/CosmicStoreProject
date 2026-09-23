@@ -465,7 +465,7 @@ public class CJProductSyncWorker : BackgroundService
                     NameEn = product.NameEn?.Trim() ?? "Unknown",
                     Sku = product.Sku?.Trim() ?? "Unknown",
                     SellPrice = ParseLowestPrice(product.SellPrice),
-                    BigImage = product.BigImage,
+                    BigImage = ImageUrlNormalizer.First(product.BigImage),
                     CategoryId = product.CategoryId?.Trim() ?? "NO-CATEGORY"
                 });
 
@@ -605,7 +605,7 @@ public class CJProductSyncWorker : BackgroundService
                     NameEn = product.NameEn?.Trim() ?? "Unknown",
                     Sku = product.Sku?.Trim() ?? "Unknown",
                     SellPrice = ParseLowestPrice(product.SellPrice),
-                    BigImage = product.BigImage,
+                    BigImage = ImageUrlNormalizer.First(product.BigImage),
                     CategoryId = product.CategoryId?.Trim() ?? "NO-CATEGORY"
                 });
 
@@ -669,7 +669,7 @@ public class CJProductSyncWorker : BackgroundService
                     existing.NameEn = product.NameEn;
                     existing.Sku = product.Sku;
                     existing.SellPrice = product.SellPrice;
-                    existing.BigImage = product.BigImage;
+                    existing.BigImage = ImageUrlNormalizer.First(product.BigImage);
                     existing.CategoryId = product.CategoryId;
                     updated++;
                 }
