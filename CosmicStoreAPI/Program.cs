@@ -315,16 +315,27 @@ try
             ALTER TABLE [store].[StoreRuntimeSettings]
             ADD [CatalogSyncEnabled] BIT NOT NULL
                 CONSTRAINT [DF_StoreRuntimeSettings_CatalogSyncEnabled] DEFAULT (1);
+        END
+        """);
 
-            IF NOT EXISTS (
-                SELECT 1 FROM [store].[__EFMigrationsHistory]
-                WHERE [MigrationId] = N'20260924120000_CatalogSyncEnabled')
+    try
+    {
+        await storeDb.Database.ExecuteSqlRawAsync("""
+            IF COL_LENGTH('store.StoreRuntimeSettings', 'CatalogSyncEnabled') IS NOT NULL
+               AND OBJECT_ID('store.__EFMigrationsHistory', 'U') IS NOT NULL
+               AND NOT EXISTS (
+                    SELECT 1 FROM [store].[__EFMigrationsHistory]
+                    WHERE [MigrationId] = N'20260924120000_CatalogSyncEnabled')
             BEGIN
                 INSERT INTO [store].[__EFMigrationsHistory] ([MigrationId], [ProductVersion])
                 VALUES (N'20260924120000_CatalogSyncEnabled', N'10.0.0');
             END
-        END
-        """);
+            """);
+    }
+    catch (Exception historyEx)
+    {
+        startupLogger.LogWarning(historyEx, "CatalogSyncEnabled column ensured, but migration history insert was skipped.");
+    }
 }
 catch (Exception ex)
 {
