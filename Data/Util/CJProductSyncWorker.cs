@@ -82,7 +82,28 @@ public class CJProductSyncWorker : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            var (enabled, syncHours) = await ResolveCatalogSyncSettingsAsync(stoppingToken);
+            bool enabled;
+            int syncHours;
+            try
+            {
+                (enabled, syncHours) = await ResolveCatalogSyncSettingsAsync(stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Could not read catalog sync settings; retrying in 1 minute. Check SQL connection / App Settings.");
+                if (!await DelayWithCancelCheckAsync(TimeSpan.FromMinutes(1), stoppingToken))
+                {
+                    break;
+                }
+
+                continue;
+            }
 
             if (!enabled)
             {
@@ -111,7 +132,25 @@ public class CJProductSyncWorker : BackgroundService
 
             // Re-read after the run so Settings changes (off, or 6↔12↔24) apply without restart.
             // Wait in short slices so turning the worker off mid-interval takes effect quickly.
-            (enabled, syncHours) = await ResolveCatalogSyncSettingsAsync(stoppingToken);
+            try
+            {
+                (enabled, syncHours) = await ResolveCatalogSyncSettingsAsync(stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Could not re-read catalog sync settings after a run; waiting 1 minute.");
+                if (!await DelayWithCancelCheckAsync(TimeSpan.FromMinutes(1), stoppingToken))
+                {
+                    break;
+                }
+
+                continue;
+            }
+
             if (!enabled)
             {
                 continue;
@@ -147,11 +186,22 @@ public class CJProductSyncWorker : BackgroundService
         {
             if (checkSettings)
             {
-                var (enabled, _) = await ResolveCatalogSyncSettingsAsync(stoppingToken);
-                if (!enabled)
+                try
                 {
-                    _logger.LogInformation("CJ catalog sync was turned off during the wait; skipping remaining delay.");
-                    return true;
+                    var (enabled, _) = await ResolveCatalogSyncSettingsAsync(stoppingToken);
+                    if (!enabled)
+                    {
+                        _logger.LogInformation("CJ catalog sync was turned off during the wait; skipping remaining delay.");
+                        return true;
+                    }
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not re-check sync settings during wait; continuing delay.");
                 }
             }
 

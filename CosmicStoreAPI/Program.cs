@@ -60,6 +60,12 @@ if (args.Any(a => string.Equals(a, "graph-check", StringComparison.OrdinalIgnore
 var builder = WebApplication.CreateBuilder(args);
 ProductionGuard.EnsureReady(builder.Configuration, builder.Environment);
 
+builder.Services.Configure<HostOptions>(options =>
+{
+    // SQL blips in background workers must not take the App Service down with 503.
+    options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
+});
+
 var jwtIssuer = builder.Configuration["JWT:ValidIssuer"];
 if (string.IsNullOrWhiteSpace(jwtIssuer))
 {
@@ -188,6 +194,7 @@ if (string.IsNullOrWhiteSpace(redisConnectionString))
 builder.Services.AddSingleton<IConnectionMultiplexer>(c =>
 {
     var configuration = ConfigurationOptions.Parse(redisConnectionString, true);
+    configuration.AbortOnConnectFail = false;
     return ConnectionMultiplexer.Connect(configuration);
 });
 
@@ -259,27 +266,39 @@ builder.Services.Configure<ApiBehaviorOptions>(o =>
 });
 
 var app = builder.Build();
+var startupLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
 
 var shouldMigrate = app.Configuration.GetValue("Database:MigrateOnStartup", app.Environment.IsDevelopment());
 if (shouldMigrate)
 {
-    using var scope = app.Services.CreateScope();
-    var storeDb = scope.ServiceProvider.GetRequiredService<ApplicationDbStoreContext>();
-    await storeDb.Database.MigrateAsync();
-
-    var catalogDb = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    await catalogDb.Database.MigrateAsync();
-
-    if (app.Environment.IsDevelopment())
+    try
     {
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-        var leftoverGuests = await userManager.Users
-            .Where(user => user.Email != null && user.Email.EndsWith("@guest.cosmicstore.local"))
-            .ToListAsync();
-        foreach (var leftover in leftoverGuests)
+        using var scope = app.Services.CreateScope();
+        var storeDb = scope.ServiceProvider.GetRequiredService<ApplicationDbStoreContext>();
+        await storeDb.Database.MigrateAsync();
+
+        var catalogDb = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await catalogDb.Database.MigrateAsync();
+
+        if (app.Environment.IsDevelopment())
         {
-            await userManager.DeleteAsync(leftover);
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+            var leftoverGuests = await userManager.Users
+                .Where(user => user.Email != null && user.Email.EndsWith("@guest.cosmicstore.local"))
+                .ToListAsync();
+            foreach (var leftover in leftoverGuests)
+            {
+                await userManager.DeleteAsync(leftover);
+            }
         }
+    }
+    catch (Exception ex)
+    {
+        // Do not take the whole App Service down with a 503 when SQL/migrate fails;
+        // keep the process up so Log Stream shows the error and non-DB probes can respond.
+        startupLogger.LogCritical(
+            ex,
+            "Database migrate-on-startup failed. The API process will continue, but data endpoints will fail until SQL/App Settings are fixed.");
     }
 }
 
