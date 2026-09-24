@@ -74,10 +74,16 @@
             formControlName="password"
             placeholder="Create a password"
             autocomplete="new-password"
-            [attr.aria-describedby]="'password-hint'">
+            [attr.aria-invalid]="showPasswordPatternError()"
+            [attr.aria-describedby]="showPasswordPatternError() ? 'password-hint password-error' : 'password-hint'">
           <p id="password-hint" class="field-hint">
             Use 8–20 characters with upper and lower case letters, a number, and a symbol (@ $ ! % * ? &).
           </p>
+          @if (showPasswordPatternError()) {
+            <p id="password-error" class="error-text" role="alert">
+              Password does not match the required pattern. Use 8–20 characters with upper and lower case letters, a number, and a symbol (@ $ ! % * ? &).
+            </p>
+          }
         </div>
 
         <div class="form-group">
@@ -86,7 +92,14 @@
             type="password"
             id="confirmPassword"
             formControlName="confirmPassword"
-            placeholder="Confirm your password">
+            placeholder="Confirm your password"
+            [attr.aria-invalid]="showPasswordMismatchError()"
+            [attr.aria-describedby]="showPasswordMismatchError() ? 'confirm-password-error' : null">
+          @if (showPasswordMismatchError()) {
+            <p id="confirm-password-error" class="error-text" role="alert">
+              Passwords do not match.
+            </p>
+          }
         </div>
 
         <label class="terms-check">
@@ -112,7 +125,7 @@
         <button
           type="submit"
           class="submit-btn"
-          [disabled]="registerForm.invalid || submitting()"
+          [disabled]="submitting()"
           [attr.aria-busy]="submitting()">
           {{ submitting() ? 'Creating account…' : 'Register' }}
         </button>

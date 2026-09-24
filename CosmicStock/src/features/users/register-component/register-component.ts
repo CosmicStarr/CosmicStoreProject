@@ -60,15 +60,54 @@ export class RegisterComponent implements OnInit {
     const password = control.get('password');
     const confirmPassword = control.get('confirmPassword');
 
-    if (password && confirmPassword && password.value !== confirmPassword.value) {
-      confirmPassword.setErrors({ mismatch: true });
+    if (!password || !confirmPassword) {
+      return null;
+    }
+
+    if (!password.value || !confirmPassword.value) {
+      return null;
+    }
+
+    if (password.value !== confirmPassword.value) {
+      confirmPassword.setErrors({ ...(confirmPassword.errors ?? {}), mismatch: true });
       return { mismatch: true };
     }
+
+    if (confirmPassword.hasError('mismatch')) {
+      const rest = { ...(confirmPassword.errors ?? {}) };
+      delete rest['mismatch'];
+      confirmPassword.setErrors(Object.keys(rest).length ? rest : null);
+    }
+
     return null;
   }
 
+  /** Shown after the user leaves the password field with a value that fails length/pattern rules. */
+  showPasswordPatternError(): boolean {
+    const control = this.registerForm?.get('password');
+    if (!control || !(control.touched || control.dirty)) {
+      return false;
+    }
+
+    return control.hasError('pattern')
+      || control.hasError('minlength')
+      || control.hasError('maxlength');
+  }
+
+  showPasswordMismatchError(): boolean {
+    const confirm = this.registerForm?.get('confirmPassword');
+    if (!confirm || !(confirm.touched || confirm.dirty)) {
+      return false;
+    }
+
+    return !!this.registerForm?.hasError('mismatch') || confirm.hasError('mismatch');
+  }
+
   onSubmit() {
-    if (this.registerForm.invalid || this.submitting()) return;
+    if (this.registerForm.invalid || this.submitting()) {
+      this.registerForm.markAllAsTouched();
+      return;
+    }
     this.errors = [];
     this.submitting.set(true);
 
