@@ -152,7 +152,11 @@ getAllProducts(sun: sunParams): Observable<PaginatedResults<IFlatProduct[]>> {
     return this.http.get<IStoreRuntimeSettings>(`${this.apiUrl}EditProducts/settings`);
   }
 
-  updateSettings(payload: { defaultMarkup: number; catalogSyncHours: number }): Observable<IStoreRuntimeSettings> {
+  updateSettings(payload: {
+    defaultMarkup: number;
+    catalogSyncEnabled: boolean;
+    catalogSyncHours: number;
+  }): Observable<IStoreRuntimeSettings> {
     return this.http.put<IStoreRuntimeSettings>(`${this.apiUrl}EditProducts/settings`, payload, this.httpOptions);
   }
 
@@ -163,6 +167,7 @@ getAllProducts(sun: sunParams): Observable<PaginatedResults<IFlatProduct[]>> {
 
 export interface IStoreRuntimeSettings {
   defaultMarkup: number;
+  catalogSyncEnabled: boolean;
   catalogSyncHours: number;
   catalogLastSyncAt: string | null;
   variantsLastSyncAt: string | null;

@@ -630,6 +630,9 @@ namespace Data.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("int");
 
+                    b.Property<bool>("CatalogSyncEnabled")
+                        .HasColumnType("bit");
+
                     b.Property<int>("CatalogSyncHours")
                         .HasColumnType("int");
 

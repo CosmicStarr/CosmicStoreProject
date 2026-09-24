@@ -23,6 +23,12 @@ public class StoreSettingsService(
         return settings.DefaultMarkup;
     }
 
+    public async Task<bool> IsCatalogSyncEnabledAsync()
+    {
+        var settings = await EnsureRowAsync();
+        return settings.CatalogSyncEnabled;
+    }
+
     public async Task<int> GetCatalogSyncHoursAsync()
     {
         var settings = await EnsureRowAsync();
@@ -35,6 +41,7 @@ public class StoreSettingsService(
         return new StoreRuntimeSettingsDto
         {
             DefaultMarkup = settings.DefaultMarkup,
+            CatalogSyncEnabled = settings.CatalogSyncEnabled,
             CatalogSyncHours = NormalizeCatalogHours(settings.CatalogSyncHours),
             CatalogLastSyncAt = await ReadTimestampAsync(CjSyncCacheKeys.CatalogLastSync),
             VariantsLastSyncAt = await ReadTimestampAsync(CjSyncCacheKeys.VariantsLastSync),
@@ -50,13 +57,14 @@ public class StoreSettingsService(
             throw new InvalidOperationException("Default markup must be greater than zero.");
         }
 
-        if (request.CatalogSyncHours is not (6 or 12))
+        if (request.CatalogSyncHours is not (6 or 12 or 24))
         {
-            throw new InvalidOperationException("Catalog sync hours must be 6 or 12.");
+            throw new InvalidOperationException("Catalog sync hours must be 6, 12, or 24.");
         }
 
         var settings = await EnsureRowAsync();
         settings.DefaultMarkup = Math.Round(request.DefaultMarkup, 2);
+        settings.CatalogSyncEnabled = request.CatalogSyncEnabled;
         settings.CatalogSyncHours = request.CatalogSyncHours;
         settings.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
@@ -69,7 +77,7 @@ public class StoreSettingsService(
         // Catalog cursor must outlive the sync interval so delta runs can read LastRunTimestamp.
         var ttl = string.Equals(cacheKey, CjSyncCacheKeys.CatalogLastSync, StringComparison.Ordinal)
             ? TimeSpan.FromDays(90)
-            : TimeSpan.FromHours(Math.Max(hours, 12) * 2);
+            : TimeSpan.FromHours(Math.Max(hours, 24) * 2);
         await _cache.SetStringAsync(
             cacheKey,
             DateTimeOffset.UtcNow.ToString("O"),
@@ -88,6 +96,7 @@ public class StoreSettingsService(
         {
             Id = 1,
             DefaultMarkup = _configuration.GetValue("StoreSettings:DefaultMarkup", 2.0m),
+            CatalogSyncEnabled = _configuration.GetValue("CJDropshipping:CatalogSyncEnabled", true),
             CatalogSyncHours = NormalizeCatalogHours(
                 _configuration.GetValue("CJDropshipping:CatalogSyncHours", 6)),
             UpdatedAt = DateTime.UtcNow
@@ -108,5 +117,10 @@ public class StoreSettingsService(
         return DateTimeOffset.TryParse(raw, out var parsed) ? parsed.ToUniversalTime() : null;
     }
 
-    private static int NormalizeCatalogHours(int hours) => hours >= 12 ? 12 : 6;
+    private static int NormalizeCatalogHours(int hours) => hours switch
+    {
+        24 => 24,
+        12 => 12,
+        _ => 6,
+    };
 }

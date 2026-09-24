@@ -5,6 +5,8 @@ import { AdminProductService, IStoreRuntimeSettings } from '../../../core/servic
 import { AdminCjService } from '../../../core/services/admin-cj-service';
 import { ICjBalance } from '../../models/order';
 
+type SyncHours = 6 | 12 | 24;
+
 @Component({
   selector: 'app-admin-settings',
   imports: [CurrencyPipe, DatePipe, FormsModule],
@@ -17,7 +19,8 @@ export class AdminSettingsComponent implements OnInit {
 
   protected settings = signal<IStoreRuntimeSettings | null>(null);
   protected markupDraft = signal(2);
-  protected syncHoursDraft = signal<6 | 12>(6);
+  protected syncEnabledDraft = signal(true);
+  protected syncHoursDraft = signal<SyncHours>(6);
   protected saving = signal(false);
   protected saveMessage = signal<string | null>(null);
   protected balance = signal<ICjBalance | null>(null);
@@ -52,14 +55,18 @@ export class AdminSettingsComponent implements OnInit {
   saveSettings() {
     const markup = Number(this.markupDraft());
     const hours = this.syncHoursDraft();
-    if (!(markup > 0) || (hours !== 6 && hours !== 12)) {
-      this.saveMessage.set('Markup must be greater than zero, and sync must be 6 or 12 hours.');
+    if (!(markup > 0) || (hours !== 6 && hours !== 12 && hours !== 24)) {
+      this.saveMessage.set('Markup must be greater than zero, and sync must be 6, 12, or 24 hours.');
       return;
     }
 
     this.saving.set(true);
     this.saveMessage.set(null);
-    this.adminProducts.updateSettings({ defaultMarkup: markup, catalogSyncHours: hours }).subscribe({
+    this.adminProducts.updateSettings({
+      defaultMarkup: markup,
+      catalogSyncEnabled: this.syncEnabledDraft(),
+      catalogSyncHours: hours,
+    }).subscribe({
       next: (settings) => {
         this.applySettings(settings);
         this.saving.set(false);
@@ -96,7 +103,14 @@ export class AdminSettingsComponent implements OnInit {
   private applySettings(settings: IStoreRuntimeSettings) {
     this.settings.set(settings);
     this.markupDraft.set(settings.defaultMarkup);
-    this.syncHoursDraft.set(settings.catalogSyncHours === 12 ? 12 : 6);
+    this.syncEnabledDraft.set(settings.catalogSyncEnabled !== false);
+    this.syncHoursDraft.set(this.normalizeHours(settings.catalogSyncHours));
+  }
+
+  private normalizeHours(hours: number): SyncHours {
+    if (hours === 24) return 24;
+    if (hours === 12) return 12;
+    return 6;
   }
 
   private runSync<T>(

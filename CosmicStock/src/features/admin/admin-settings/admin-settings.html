@@ -5,7 +5,8 @@
 <section class="settings-card">
   <h2>Publish &amp; catalog sync</h2>
   <p class="muted">
-    CJ cost is multiplied by the markup when publishing products. Catalog sync interval applies to the background worker without a restart.
+    CJ cost is multiplied by the markup when publishing products. Turn the catalog sync worker on or off here;
+    the interval applies without restarting the API.
   </p>
 
   <form class="settings-form" (ngSubmit)="saveSettings()">
@@ -24,17 +25,35 @@
       />
     </div>
 
+    <div class="form-group sync-toggle">
+      <label class="checkbox-label" for="catalogSyncEnabled">
+        <input
+          id="catalogSyncEnabled"
+          type="checkbox"
+          [ngModel]="syncEnabledDraft()"
+          (ngModelChange)="syncEnabledDraft.set(!!$event)"
+          name="catalogSyncEnabled"
+        />
+        <span>Catalog sync worker on</span>
+      </label>
+      <p class="field-hint">
+        When off, the background worker idles and does not call CJ. Manual sync buttons below still work.
+      </p>
+    </div>
+
     <div class="form-group">
       <label for="catalogSyncHours">Catalog sync interval</label>
       <select
         id="catalogSyncHours"
         class="settings-input"
         [ngModel]="syncHoursDraft()"
-        (ngModelChange)="syncHoursDraft.set(+$event === 12 ? 12 : 6)"
+        (ngModelChange)="syncHoursDraft.set(+$event === 24 ? 24 : +$event === 12 ? 12 : 6)"
+        [disabled]="!syncEnabledDraft()"
         name="catalogSyncHours"
       >
         <option [ngValue]="6">Every 6 hours</option>
         <option [ngValue]="12">Every 12 hours</option>
+        <option [ngValue]="24">Every 24 hours</option>
       </select>
     </div>
 

@@ -15,6 +15,7 @@ public class AdminUserDto
 public class StoreRuntimeSettingsDto
 {
     public decimal DefaultMarkup { get; set; } = 2.0m;
+    public bool CatalogSyncEnabled { get; set; } = true;
     public int CatalogSyncHours { get; set; } = 6;
     public DateTimeOffset? CatalogLastSyncAt { get; set; }
     public DateTimeOffset? VariantsLastSyncAt { get; set; }
@@ -25,5 +26,6 @@ public class StoreRuntimeSettingsDto
 public class UpdateStoreRuntimeSettingsRequest
 {
     public decimal DefaultMarkup { get; set; }
+    public bool CatalogSyncEnabled { get; set; } = true;
     public int CatalogSyncHours { get; set; }
 }

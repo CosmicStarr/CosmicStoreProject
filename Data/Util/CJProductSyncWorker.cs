@@ -39,7 +39,6 @@ public class CJProductSyncWorker : BackgroundService
 
     private readonly string _baseUrl;
     private readonly TimeSpan _requestDelay;
-    private readonly bool _syncEnabled;
     private readonly int _pageSize;
     private readonly int _maxPagesPerCategory;
     private readonly int _maxProducts;
@@ -60,7 +59,6 @@ public class CJProductSyncWorker : BackgroundService
         _baseUrl = (options.Value.BaseUrl ?? "https://developers.cjdropshipping.com/api2.0").TrimEnd('/');
         _requestDelay = TimeSpan.FromMilliseconds(configuration.GetValue("CJDropshipping:RequestDelayMs", 1200));
 
-        _syncEnabled = configuration.GetValue("CJDropshipping:CatalogSyncEnabled", true);
         _pageSize = Math.Clamp(configuration.GetValue("CJDropshipping:CatalogPageSize", MaxCjPageSize), 1, MaxCjPageSize);
 
         // 0 means "no cap" for all three of these.
@@ -79,16 +77,24 @@ public class CJProductSyncWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!_syncEnabled)
-        {
-            _logger.LogInformation(
-                "CJ catalog sync is disabled (CJDropshipping:CatalogSyncEnabled is false); the worker will not run.");
-            return;
-        }
+        _logger.LogInformation(
+            "CJ catalog sync worker started. Enable/disable and interval are controlled from Admin Settings.");
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            var syncHours = await ResolveCatalogSyncHoursAsync(stoppingToken);
+            var (enabled, syncHours) = await ResolveCatalogSyncSettingsAsync(stoppingToken);
+
+            if (!enabled)
+            {
+                _logger.LogInformation(
+                    "CJ catalog sync is turned off in Admin Settings; checking again in 1 minute.");
+                if (!await DelayWithCancelCheckAsync(TimeSpan.FromMinutes(1), stoppingToken))
+                {
+                    break;
+                }
+
+                continue;
+            }
 
             try
             {
@@ -103,26 +109,66 @@ public class CJProductSyncWorker : BackgroundService
                 _logger.LogError(ex, "Error occurred while syncing CJ products.");
             }
 
-            try
+            // Re-read after the run so Settings changes (off, or 6↔12↔24) apply without restart.
+            // Wait in short slices so turning the worker off mid-interval takes effect quickly.
+            (enabled, syncHours) = await ResolveCatalogSyncSettingsAsync(stoppingToken);
+            if (!enabled)
             {
-                // Re-read after the run so a Settings change to 6↔12 applies without restart.
-                syncHours = await ResolveCatalogSyncHoursAsync(stoppingToken);
-                await Task.Delay(TimeSpan.FromHours(syncHours), stoppingToken);
+                continue;
             }
-            catch (OperationCanceledException)
+
+            if (!await DelayWithCancelCheckAsync(TimeSpan.FromHours(syncHours), stoppingToken, checkSettings: true))
             {
                 break;
             }
         }
     }
 
-    private async Task<int> ResolveCatalogSyncHoursAsync(CancellationToken stoppingToken)
+    private async Task<(bool Enabled, int Hours)> ResolveCatalogSyncSettingsAsync(CancellationToken stoppingToken)
     {
         using var scope = _scopeFactory.CreateScope();
         var settings = scope.ServiceProvider.GetRequiredService<IStoreSettingsService>();
+        var enabled = await settings.IsCatalogSyncEnabledAsync();
         var hours = await settings.GetCatalogSyncHoursAsync();
         stoppingToken.ThrowIfCancellationRequested();
-        return hours is 12 ? 12 : 6;
+        return (enabled, hours is 24 or 12 ? hours : 6);
+    }
+
+    /// <summary>
+    /// Delays in 1-minute slices. When <paramref name="checkSettings"/> is true, stops early if sync is turned off.
+    /// </summary>
+    private async Task<bool> DelayWithCancelCheckAsync(
+        TimeSpan delay,
+        CancellationToken stoppingToken,
+        bool checkSettings = false)
+    {
+        var remaining = delay;
+        while (remaining > TimeSpan.Zero && !stoppingToken.IsCancellationRequested)
+        {
+            if (checkSettings)
+            {
+                var (enabled, _) = await ResolveCatalogSyncSettingsAsync(stoppingToken);
+                if (!enabled)
+                {
+                    _logger.LogInformation("CJ catalog sync was turned off during the wait; skipping remaining delay.");
+                    return true;
+                }
+            }
+
+            var slice = remaining > TimeSpan.FromMinutes(1) ? TimeSpan.FromMinutes(1) : remaining;
+            try
+            {
+                await Task.Delay(slice, stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return false;
+            }
+
+            remaining -= slice;
+        }
+
+        return !stoppingToken.IsCancellationRequested;
     }
 
     private async Task RunSyncAsync(int syncHours, CancellationToken stoppingToken)

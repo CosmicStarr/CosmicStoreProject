@@ -1,9 +1,11 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { AdminUsersService, IAdminUser } from '../../../core/services/admin-users';
 
 type PendingAction =
   | { type: 'revoke' | 'lock' | 'unlock' | 'delete' | 'reset'; user: IAdminUser }
   | null;
+
+const PAGE_SIZE = 10;
 
 @Component({
   selector: 'app-admin-users',
@@ -15,10 +17,30 @@ export class AdminUsersComponent implements OnInit {
   private adminUsers = inject(AdminUsersService);
 
   protected users = signal<IAdminUser[]>([]);
+  protected pageNumber = signal(1);
+  protected readonly pageSize = PAGE_SIZE;
   protected loading = signal(true);
   protected busyId = signal<string | null>(null);
   protected message = signal<string | null>(null);
   protected pending = signal<PendingAction>(null);
+
+  protected readonly totalItems = computed(() => this.users().length);
+  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalItems() / this.pageSize)));
+  protected readonly pagedUsers = computed(() => {
+    const page = Math.min(this.pageNumber(), this.totalPages());
+    const start = (page - 1) * this.pageSize;
+    return this.users().slice(start, start + this.pageSize);
+  });
+  protected readonly rangeLabel = computed(() => {
+    const total = this.totalItems();
+    if (total === 0) {
+      return 'No users';
+    }
+    const page = Math.min(this.pageNumber(), this.totalPages());
+    const start = (page - 1) * this.pageSize + 1;
+    const end = Math.min(start + this.pagedUsers().length - 1, total);
+    return `Showing ${start}–${end} of ${total}`;
+  });
 
   ngOnInit(): void {
     this.load();
@@ -29,6 +51,7 @@ export class AdminUsersComponent implements OnInit {
     this.adminUsers.getUsers().subscribe({
       next: (users) => {
         this.users.set(Array.isArray(users) ? users : []);
+        this.clampPage();
         this.loading.set(false);
       },
       error: (err) => {
@@ -36,6 +59,11 @@ export class AdminUsersComponent implements OnInit {
         this.message.set(err.error?.message || 'Users could not be loaded.');
       },
     });
+  }
+
+  goToPage(page: number): void {
+    const next = Math.min(Math.max(1, page), this.totalPages());
+    this.pageNumber.set(next);
   }
 
   isAdmin(user: IAdminUser): boolean {
@@ -87,6 +115,7 @@ export class AdminUsersComponent implements OnInit {
         next: () => {
           this.busyId.set(null);
           this.users.update((list) => list.filter((item) => item.id !== user.id));
+          this.clampPage();
           this.message.set(`Deleted ${user.email}.`);
         },
         error: (err: { error?: { message?: string } }) => {
@@ -239,5 +268,12 @@ export class AdminUsersComponent implements OnInit {
 
   private replaceUser(updated: IAdminUser): void {
     this.users.update((list) => list.map((user) => (user.id === updated.id ? updated : user)));
+  }
+
+  private clampPage(): void {
+    const max = this.totalPages();
+    if (this.pageNumber() > max) {
+      this.pageNumber.set(max);
+    }
   }
 }

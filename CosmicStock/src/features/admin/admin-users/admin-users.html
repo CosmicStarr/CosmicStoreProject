@@ -53,7 +53,7 @@
           </td>
         </tr>
       } @else {
-        @for (user of users(); track user.id) {
+        @for (user of pagedUsers(); track user.id) {
           <tr>
             <td>{{ user.email }}</td>
             <td>{{ user.userName }}</td>
@@ -125,3 +125,36 @@
     </tbody>
   </table>
 </div>
+
+@if (users().length) {
+  <div class="pager-footer">
+    <p class="range-label" role="status">{{ rangeLabel() }}</p>
+    @if (totalPages() > 1) {
+      <nav class="pagination" aria-label="Users pagination">
+        <button
+          type="button"
+          (click)="goToPage(1)"
+          [disabled]="pageNumber() <= 1"
+          aria-label="First page">« First</button>
+
+        <button
+          type="button"
+          (click)="goToPage(pageNumber() - 1)"
+          [disabled]="pageNumber() <= 1">Previous</button>
+
+        <span class="page-indicator">Page {{ pageNumber() }} of {{ totalPages() }}</span>
+
+        <button
+          type="button"
+          (click)="goToPage(pageNumber() + 1)"
+          [disabled]="pageNumber() >= totalPages()">Next</button>
+
+        <button
+          type="button"
+          (click)="goToPage(totalPages())"
+          [disabled]="pageNumber() >= totalPages()"
+          aria-label="Last page">Last »</button>
+      </nav>
+    }
+  </div>
+}
