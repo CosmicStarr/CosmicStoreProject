@@ -233,11 +233,6 @@ body {
   display: grid;
   grid-template-columns: 42% 1fr;
   gap: 30px;
-  min-width: 0;
-}
-
-.product-summary-block > * {
-  min-width: 0;
 }
 
 /* GALLERY DISPLAY WRAPPER WITH THUMBNAILS */
@@ -356,7 +351,6 @@ body {
 .purchase-details {
   display: flex;
   flex-direction: column;
-  min-width: 0;
 }
 
 .main-product-title {
@@ -379,27 +373,34 @@ body {
 }
 
 .type-options {
-  display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  justify-content: start;
+  align-content: start;
   gap: 8px;
   margin: 0 0 16px;
-  max-width: 100%;
-  max-height: 12rem;
+  /* ~3 rows of type chips; scroll when more don't fit */
+  max-height: calc((44px * 3) + (8px * 2));
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 2px;
-  -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
 }
 
 .type-option {
-  display: flex;
+  display: inline-flex;
   flex-direction: column;
   align-items: flex-start;
+  justify-self: start;
   gap: 2px;
-  width: 100%;
-  min-width: 0;
+  width: fit-content;
   max-width: 100%;
   min-height: 44px;
   padding: 8px 12px;
@@ -410,7 +411,6 @@ body {
   cursor: pointer;
   font: inherit;
   text-align: left;
-  flex-shrink: 0;
 }
 
 .type-option:hover,
@@ -427,19 +427,15 @@ body {
 }
 
 .type-option-name {
-  display: block;
-  width: 100%;
-  max-width: 100%;
   font-weight: 600;
   font-size: 14px;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .type-option-price {
   font-size: 12px;
   color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .rating-row {
@@ -893,6 +889,21 @@ body {
 
   .main-slider {
     height: 380px;
+  }
+
+  .type-options {
+    grid-template-columns: repeat(2, minmax(0, max-content));
+    max-width: 100%;
+  }
+
+  .type-option {
+    max-width: min(100%, 46vw);
+  }
+
+  .type-option-name,
+  .type-option-price {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 
