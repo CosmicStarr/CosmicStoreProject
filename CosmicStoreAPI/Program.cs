@@ -302,6 +302,35 @@ if (shouldMigrate)
     }
 }
 
+// Always try to add CatalogSyncEnabled even when full MigrateAsync failed earlier.
+// Settings/admin endpoints query this column; missing it returns the generic 500 message.
+try
+{
+    using var schemaScope = app.Services.CreateScope();
+    var storeDb = schemaScope.ServiceProvider.GetRequiredService<ApplicationDbStoreContext>();
+    await storeDb.Database.ExecuteSqlRawAsync("""
+        IF OBJECT_ID('store.StoreRuntimeSettings', 'U') IS NOT NULL
+           AND COL_LENGTH('store.StoreRuntimeSettings', 'CatalogSyncEnabled') IS NULL
+        BEGIN
+            ALTER TABLE [store].[StoreRuntimeSettings]
+            ADD [CatalogSyncEnabled] BIT NOT NULL
+                CONSTRAINT [DF_StoreRuntimeSettings_CatalogSyncEnabled] DEFAULT (1);
+
+            IF NOT EXISTS (
+                SELECT 1 FROM [store].[__EFMigrationsHistory]
+                WHERE [MigrationId] = N'20260924120000_CatalogSyncEnabled')
+            BEGIN
+                INSERT INTO [store].[__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+                VALUES (N'20260924120000_CatalogSyncEnabled', N'10.0.0');
+            END
+        END
+        """);
+}
+catch (Exception ex)
+{
+    startupLogger.LogError(ex, "Could not ensure CatalogSyncEnabled column on StoreRuntimeSettings.");
+}
+
 using (var bootstrapScope = app.Services.CreateScope())
 {
     var roleManager = bootstrapScope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
